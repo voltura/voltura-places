@@ -1,4 +1,40 @@
 import { test, expect } from "@playwright/test";
+test("installed-app metadata references real icons and matched Apple startup images", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute("href");
+  const manifest = await (await page.request.get(manifestUrl!)).json();
+  expect(manifest.display).toBe("standalone");
+  expect(manifest.icons.some((icon: { purpose: string }) => icon.purpose === "maskable")).toBe(
+    true,
+  );
+  await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
+    "content",
+    "Voltura Places",
+  );
+  await expect(page.locator('link[rel="apple-touch-startup-image"]')).toHaveCount(64);
+  const startup = await page
+    .locator('link[rel="apple-touch-startup-image"]')
+    .evaluateAll((elements) =>
+      elements.map((el) => ({ href: el.getAttribute("href"), media: el.getAttribute("media") })),
+    );
+  expect(
+    startup.some(
+      (link) =>
+        link.media?.includes("390px") &&
+        link.media.includes("844px") &&
+        link.media.includes("portrait"),
+    ),
+  ).toBe(true);
+  for (const path of ["/apple-touch-icon.png", "/icon-maskable-512.png", startup[0].href!]) {
+    const response = await page.request.get(path);
+    expect(response.ok()).toBe(true);
+    expect(response.headers()["content-type"]).toBe("image/png");
+  }
+  const favicon = await page.request.get("/favicon.ico");
+  expect(favicon.headers()["content-type"]).toBe("image/x-icon");
+});
 test("a Swedish app link overrides English browser/preferences and remembers the choice", async ({
   page,
 }) => {

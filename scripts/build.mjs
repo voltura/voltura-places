@@ -7,14 +7,8 @@ import { createHash } from "node:crypto";
 const root = process.cwd();
 if (!root.endsWith("voltura-places")) throw new Error("Run from the Places checkout.");
 await mkdir("public", { recursive: true });
-// PNG icons are generated from our own SVG; no external artwork or paid API.
-const { Resvg } = await import("@resvg/resvg-js");
-const svg = await readFile("public/icon.svg", "utf8");
-for (const size of [192, 512])
-  await writeFile(
-    `public/icon-${size}.png`,
-    new Resvg(svg, { fitTo: { mode: "width", value: size } }).render().asPng(),
-  );
+const { generateBranding } = await import("./branding.mjs");
+await generateBranding();
 await viteBuild();
 await mkdir("dist/server", { recursive: true });
 await mkdir("dist/.openai", { recursive: true });
@@ -26,6 +20,7 @@ const types = {
   ".webmanifest": "application/manifest+json",
   ".png": "image/png",
   ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
 };
 const assets = {};
 async function collect(dir = "") {
