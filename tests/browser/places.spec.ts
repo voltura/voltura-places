@@ -1,5 +1,44 @@
 import { test, expect } from "@playwright/test";
 
+test("quick save recovers from initial unavailable positions without enabling accuracy review", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const permission = Object.assign(new EventTarget(), { state: "granted" });
+    Object.defineProperty(navigator, "permissions", { value: { query: async () => permission } });
+    let attempts = 0;
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (success: PositionCallback, error: PositionErrorCallback) => {
+          const attempt = ++attempts;
+          if (attempt < 3) error({ code: 2 } as GeolocationPositionError);
+          else
+            success({
+              timestamp: Date.now(),
+              coords: { latitude: 0, longitude: 0, accuracy: 9 },
+            } as GeolocationPosition);
+          return attempt;
+        },
+        clearWatch: () => {},
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.clock.runFor(1000);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.clock.runFor(3000);
+  await expect(
+    page.getByRole("dialog", { name: "Saved on this device", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).not.toHaveValue("");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your places 1", exact: true })).toBeVisible();
+});
+
 test("first use offers optional sign-in and remembers continuing without an account", async ({
   browser,
 }, testInfo) => {

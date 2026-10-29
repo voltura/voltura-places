@@ -34,6 +34,8 @@ export function watchLocation(
   let generation = 0,
     resumes = 0,
     transientRetries = 0;
+  let lastAcquisitionError: "gpsUnavailable" | "gpsTimeout" | null = null;
+  const retryDelays = [1000, 3000, 6000];
   const started = Date.now();
   const foreground = () => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -90,21 +92,30 @@ export function watchLocation(
       const watch = geo.watchPosition(
         (position) => {
           if (!active || current !== generation || !validPosition(position)) return;
+          if (retry) {
+            clearTimeout(retry);
+            retry = undefined;
+          }
+          lastAcquisitionError = null;
           state = { position, running: true, error: null };
           onState(state);
         },
         (error) => {
           if (!active || current !== generation) return;
-          if (error.code === 2 && transientRetries++ === 0) {
+          if (error.code === 1) {
+            finish("gpsDenied");
+            return;
+          }
+          lastAcquisitionError = error.code === 3 ? "gpsTimeout" : "gpsUnavailable";
+          // A watch can recover after acquisition errors. Give the phone time to
+          // start its location provider instead of treating them as a refusal.
+          if (!retry && transientRetries < retryDelays.length) {
+            const delay = retryDelays[transientRetries++];
             retry = setTimeout(() => {
               retry = undefined;
               start();
-            }, 250);
-            return;
+            }, delay);
           }
-          finish(
-            error.code === 1 ? "gpsDenied" : error.code === 3 ? "gpsTimeout" : "gpsUnavailable",
-          );
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
       );
@@ -114,7 +125,10 @@ export function watchLocation(
       finish("gpsUnavailable");
     }
   };
-  deadline = setTimeout(() => finish(state.position ? null : "gpsTimeout"), 60000);
+  deadline = setTimeout(
+    () => finish(state.position ? null : (lastAcquisitionError ?? "gpsTimeout")),
+    60000,
+  );
   if (typeof window !== "undefined") window.addEventListener("focus", foreground);
   if (typeof document !== "undefined") document.addEventListener("visibilitychange", foreground);
   try {

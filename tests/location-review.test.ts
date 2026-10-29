@@ -83,7 +83,7 @@ test("returning from a system prompt resumes GPS and unavailable-first-fix retri
     win.dispatchEvent(new Event("focus"));
     expect(callbacks).toHaveLength(2);
     errors[1]({ code: 2 } as GeolocationPositionError);
-    await vi.advanceTimersByTimeAsync(250);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(callbacks).toHaveLength(3);
     callbacks[2](fix(8, Date.now() - 20000));
     expect(saved).not.toHaveBeenCalled();
@@ -98,6 +98,77 @@ test("returning from a system prompt resumes GPS and unavailable-first-fix retri
 });
 const fix = (accuracy: number, timestamp = Date.now()) =>
   ({ timestamp, coords: { latitude: 0, longitude: 0, accuracy } }) as GeolocationPosition;
+
+test("quick save waits through repeated acquisition errors after approval and saves a later fix", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("navigator", {});
+  const successes: PositionCallback[] = [],
+    failures: PositionErrorCallback[] = [];
+  const geo = {
+    watchPosition: vi.fn((success: PositionCallback, failure: PositionErrorCallback) => {
+      successes.push(success);
+      failures.push(failure);
+      return successes.length;
+    }),
+    clearWatch: vi.fn(),
+  } as unknown as Geolocation;
+  const saved = vi.fn(),
+    failed = vi.fn(),
+    stop = captureLocation(saved, failed, geo);
+  try {
+    for (const [attempt, delay] of [1000, 3000, 6000].entries()) {
+      failures[attempt]({ code: attempt === 2 ? 3 : 2 } as GeolocationPositionError);
+      await vi.advanceTimersByTimeAsync(delay);
+      expect(failed).not.toHaveBeenCalled();
+    }
+    failures[3]({ code: 2 } as GeolocationPositionError);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(geo.watchPosition).toHaveBeenCalledTimes(4);
+    expect(failed).not.toHaveBeenCalled();
+    successes[0](fix(1)); // Superseded attempts cannot save.
+    expect(saved).not.toHaveBeenCalled();
+    successes[3](fix(7));
+    successes[3](fix(6));
+    expect(saved).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(failed).not.toHaveBeenCalled();
+  } finally {
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("persistent unavailable results finish at the deadline and denial stays immediate", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("navigator", {});
+  let failure!: PositionErrorCallback;
+  const geo = {
+    watchPosition: (_s: PositionCallback, e: PositionErrorCallback) => {
+      failure = e;
+      return 1;
+    },
+    clearWatch: vi.fn(),
+  } as unknown as Geolocation;
+  const failed = vi.fn(),
+    stop = captureLocation(vi.fn(), failed, geo);
+  try {
+    failure({ code: 2 } as GeolocationPositionError);
+    await vi.advanceTimersByTimeAsync(59999);
+    expect(failed).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(failed).toHaveBeenCalledWith("gpsUnavailable");
+    const denied = vi.fn(),
+      stopDenied = captureLocation(vi.fn(), denied, geo);
+    failure({ code: 1 } as GeolocationPositionError);
+    expect(denied).toHaveBeenCalledWith("gpsDenied");
+    stopDenied();
+  } finally {
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
 
 test("a granted but silent acquisition retries automatically and stops on cancel", async () => {
   vi.useFakeTimers();
