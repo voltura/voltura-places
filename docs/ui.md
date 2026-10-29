@@ -4,6 +4,8 @@ Dark is the default for a new installation; existing saved theme choices are pre
 
 Share `https://places.voltura.se/?lang=sv` to open directly in Swedish, overriding browser language and previous preferences. `?lang=en` opens English. The choice is persisted normally, and the language parameter is consumed after launch so a later Settings change remains effective. Other query parameters and shared-place fragments are preserved; unknown language values are ignored.
 
+All promotional-site app links carry the displayed page language: Swedish `/places/sv/` links use `?lang=sv`, while English `/places/` links use `?lang=en`. This includes navigation, the hero button and the installation button.
+
 Save here stays in a safe-area bottom dock. Tap requests fresh high-accuracy GPS, shows progress and permits cancel. After local commit it opens a non-blocking editor. Defaults use localized date/time and last-used category (Other initially). Closing keeps the saved place. Editor drafts persist separately.
 
 Cards expose name/category/date and Open maps. Search/category/sort use ordinary controls and scrolling. Desktop adds a details pane; mobile uses a sheet. Edit/share/delete are secondary. Destructive actions require confirmation. Core flows do not depend on gestures/hover/animation/map canvas.
