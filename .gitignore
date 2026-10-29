@@ -1,0 +1,12 @@
+dist/
+site.tar.gz
+node_modules/
+.artifacts/
+.wrangler/
+.dev.vars
+.env*
+!.env.example
+.openai/.local/
+playwright-report/
+test-results/
+worker-configuration.d.ts

@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voltura-places-local",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-10-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "places-local",
+      "database_id": "local-places",
+      "migrations_dir": "drizzle",
+    },
+  ],
+  "vars": {
+    "AUTH_ORIGIN": "http://127.0.0.1:5174",
+    "ACCOUNTS_ENABLED": "true",
+    "AUTH_SECRET": "local-development-only-not-a-production-secret-places",
+  },
+}

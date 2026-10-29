@@ -1,0 +1,27 @@
+# Data and interfaces
+
+## Local persistence
+
+IndexedDB voltura-places version 1 contains partitioned workspaces and drafts. Keys are guest or verified account ID. Entities have stable ID, kind, value, server revision, deletion flag, local generation, dirty flag and optional preserved conflict. Changes/pending state commit atomically before success. Capacity: 5,000 live places, 200 live categories.
+
+Places contain name, categoryId, WGS84 latitude/longitude, nullable accuracy in metres, capturedAt and updatedAt. Categories contain name, semantic color and optional built-in translation key. Missing/deleted categories display/export as Other. Local category deletion moves its places to Other in the same transaction.
+
+## Sync v1
+
+GET /api/v1/sync returns `{version:1,accountId,records}`. POST accepts `{version:1,mutationId,baseRevision,deleted,entity}` and returns the accepted record or 409/current record. Require a Places session and matching X-Places-Account header. Writes also require the canonical Origin.
+
+Persist exact in-flight bodies before network access. D1 atomically commits CAS record changes and body-hashed receipts. Same-ID/same-body retries return receipts; changed bodies are rejected. Tombstones/receipts persist until account deletion. Device clocks never select winners.
+
+Independent record edits merge. Same-record conflicts retain both versions. Keep device rebases on the cloud revision; Keep cloud accepts it; Keep both accepts cloud and creates a fresh device identity. Guest/account workspaces and pending writes remain partitioned. First sign-in explicitly reconciles guest merge or cloud-only.
+
+## Backup and sharing v1
+
+Backup JSON: `{format:"voltura-places",version:1,exportedAt,places:[{id,value}],categories:[{id,value}]}`. Exclude credentials, drafts, sync operations, revisions and tombstones. Require finite coordinate ranges, bounded names, unique IDs, an Other category and valid category references. Files are limited to 10 MiB.
+
+Validate completely before one transaction. Merge retains conflicting existing values and gives incoming copies new identities; Replace tombstones missing entries. Import then uses normal sync. Reject unknown versions without modifying storage. New versions require documented compatibility.
+
+Shared links: `/#place=<base64url UTF-8 JSON>` containing `{version:1,name,category,latitude,longitude}`. Validate and remove the fragment from the address bar after reading. Anyone holding the original link can read it; no expiry/revocation. Saving creates a new identity.
+
+## Privacy/recovery
+
+GPS is explicit, never background-tracked. No end-to-end encryption claim. The app does not encrypt local copies/exports. Cleared browser storage loses unsynced data; cloud sync and exports provide recovery. Account deletion cascades records, identities, sessions and receipts.

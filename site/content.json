@@ -1,0 +1,102 @@
+{
+  "en": {
+    "lang": "en",
+    "title": "Good places. Kept.",
+    "titleSecond": "Find your way back.",
+    "description": "The trailhead. A quiet clearing. Where you parked. Save the places that matter, then get back to exploring.",
+    "open": "Open Voltura Places",
+    "github": "View on GitHub",
+    "eyebrow": "YOUR PLACES. ALWAYS CLOSE.",
+    "free": "Freeware. Open source. Yours.",
+    "how": "A small app for a bigger outside.",
+    "steps": [
+      [
+        "01",
+        "Save in a moment",
+        "Tap Save here. Your position is saved on your device before you even give it a name."
+      ],
+      [
+        "02",
+        "Keep it your way",
+        "Add names and categories. Search your own library on your phone or a bigger screen."
+      ],
+      [
+        "03",
+        "Find your way back",
+        "Open the exact coordinates in your preferred map app. Send a shared copy to a friend."
+      ]
+    ],
+    "offlineTitle": "Out of signal. Still in your pocket.",
+    "offlineText": "After your first visit, Places can save and search your library without a connection. Optional account sync brings your places to another device when you’re back online. External map apps manage their own offline maps.",
+    "installTitle": "A place on your home screen.",
+    "installText": "Open Places in your browser and install it. No app store. No subscription to use Places.",
+    "ios": "iPhone: Safari → Share → Add to Home Screen",
+    "android": "Android: browser menu → Install app / Add to home screen",
+    "privacyTitle": "Simple by design. Personal by default.",
+    "privacyText": "No background tracking. Location is requested when you choose Save here. Guest places stay in your browser; account sync is optional. Export a backup whenever you want.",
+    "privacyDetail": "Account data is hosted through ChatGPT Sites. Sign-in email is delivered through one.com. Browser data may be cleared or evicted; sync and exported backups provide recovery. Exported files and shared links contain location data. Anyone with a share link can read its snapshot, and the link cannot be revoked.",
+    "sourceTitle": "Free to use. Open to improve.",
+    "sourceText": "Voltura Places is freeware with MIT-licensed source. Run it, inspect it, or make it your own. Development and publishing are documented in the public repository.",
+    "example": "Example places",
+    "trailhead": "Trailhead",
+    "clearing": "The quiet clearing",
+    "parking": "Where we parked",
+    "saved": "Saved on this device",
+    "saveHere": "Save here",
+    "map": "Open maps",
+    "categories": "Outdoors · Parking · Your own categories",
+    "footer": "Made by Voltura. For the way back.",
+    "privacy": "Privacy",
+    "about": "How it works"
+  },
+  "sv": {
+    "lang": "sv",
+    "title": "Bra platser. Sparade.",
+    "titleSecond": "Hitta tillbaka.",
+    "description": "Ledens början. En lugn glänta. Där du parkerade. Spara platserna som betyder något och fortsätt upptäcka.",
+    "open": "Öppna Voltura Places",
+    "github": "Visa på GitHub",
+    "eyebrow": "DINA PLATSER. ALLTID NÄRA.",
+    "free": "Freeware. Öppen källkod. Ditt.",
+    "how": "En liten app för ett större uteliv.",
+    "steps": [
+      [
+        "01",
+        "Spara på ett ögonblick",
+        "Tryck Spara här. Positionen sparas på din enhet redan innan du ger den ett namn."
+      ],
+      [
+        "02",
+        "Ordna som du vill",
+        "Lägg till namn och kategorier. Sök i ditt bibliotek på telefonen eller en större skärm."
+      ],
+      [
+        "03",
+        "Hitta tillbaka",
+        "Öppna exakta koordinater i din kartapp. Skicka en delad kopia till en vän."
+      ]
+    ],
+    "offlineTitle": "Utan täckning. Kvar i fickan.",
+    "offlineText": "Efter ditt första besök kan Places spara och söka i biblioteket utan anslutning. Valfri kontosynkronisering tar platserna till nästa enhet när du är online igen. Externa kartappar hanterar sina egna offlinekartor.",
+    "installTitle": "En plats på din hemskärm.",
+    "installText": "Öppna Places i webbläsaren och installera. Ingen appbutik. Inget abonnemang för att använda Places.",
+    "ios": "iPhone: Safari → Dela → Lägg till på hemskärmen",
+    "android": "Android: webbläsarmenyn → Installera app / Lägg till på hemskärmen",
+    "privacyTitle": "Enkelt utformat. Personligt från början.",
+    "privacyText": "Ingen bakgrundsspårning. Platsen begärs när du väljer Spara här. Gästplatser stannar i webbläsaren och kontosynkronisering är valfri. Exportera en säkerhetskopia när du vill.",
+    "privacyDetail": "Kontodata lagras via ChatGPT Sites. Inloggningsmejl skickas via one.com. Webbläsardata kan raderas eller rensas. Synkronisering och exporter ger möjlighet till återställning. Exporter och delade länkar innehåller platsdata. Alla med en delningslänk kan läsa dess kopia och länken kan inte återkallas.",
+    "sourceTitle": "Gratis att använda. Öppet att förbättra.",
+    "sourceText": "Voltura Places är freeware med MIT-licensierad källkod. Kör, granska eller anpassa. Utveckling och publicering beskrivs i det publika kodarkivet.",
+    "example": "Exempelplatser",
+    "trailhead": "Ledens början",
+    "clearing": "Den lugna gläntan",
+    "parking": "Där vi parkerade",
+    "saved": "Sparat på enheten",
+    "saveHere": "Spara här",
+    "map": "Öppna karta",
+    "categories": "Friluftsliv · Parkering · Dina egna kategorier",
+    "footer": "Skapat av Voltura. För vägen tillbaka.",
+    "privacy": "Integritet",
+    "about": "Så fungerar det"
+  }
+}
