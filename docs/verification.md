@@ -3,6 +3,7 @@
 ## Observed on 29 October 2026
 
 - TypeScript with unused-code checks, documentation checks and production Worker/PWA build passed.
+- Fresh `npm run dev` startup and its local health endpoint passed with the optional Wrangler explorer disabled; browser flows also passed against a fresh server.
 - Thirteen model/IndexedDB/publisher tests passed, including quota rollback, invalid imports, backup round trips, in-flight edits, account partitioning, stopping uploads on account changes and conflict/deletion recovery.
 - Local workerd/D1 integration passed authorization, CAS races, identical retries, changed retry rejection, deletion/session invalidation and coordinate validation.
 - Real Better Auth handlers passed signed fixture email delivery, hashed/single-use codes, expiry, attempt limits, simultaneous code reuse, Google token/state fixtures and explicit identity linking.

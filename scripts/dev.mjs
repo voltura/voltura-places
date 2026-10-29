@@ -21,7 +21,8 @@ const p = spawn(
     "--inspector-port",
     "0",
   ],
-  { stdio: "inherit" },
+  // This pinned Wrangler release omits its optional explorer UI bundle.
+  { stdio: "inherit", env: { ...process.env, X_LOCAL_EXPLORER: "false" } },
 );
 children.push(p);
 const stop = () => children.forEach((c) => c.kill());

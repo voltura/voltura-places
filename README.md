@@ -16,6 +16,8 @@ npm run dev
 
 Node 24 LTS and npm 12. The complete local app runs at http://127.0.0.1:5174 with local D1. Optional `npm run dev:ui` starts Vite HMR on 5173. Local sign-in needs explicit local configuration; no real email is sent by tests.
 
+The optional Wrangler database explorer is disabled because this pinned release omits its UI bundle; local D1 and the app remain available.
+
 ```sh
 npm run check
 npm test
