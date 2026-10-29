@@ -20,7 +20,7 @@ Independent record edits merge. Identical concurrent writes converge on the clou
 
 ## Backup and sharing v1
 
-Backup JSON: `{format:"voltura-places",version:1,exportedAt,places:[{id,value}],categories:[{id,value}]}`. Exclude credentials, drafts, sync operations, revisions and tombstones. Require finite coordinate ranges, bounded names, unique IDs, an Other category and valid category references. Files are limited to 10 MiB.
+Backup JSON: `{format:"voltura-places",version:1,exportedAt,places:[{id,value}],categories:[{id,value}]}`. Backups with photos use version 2 and add `photos:[{id,data}]` with JPEG data URLs; version 1 remains supported. Exclude credentials, drafts, sync operations, revisions and tombstones. Require finite coordinate ranges, bounded names, unique IDs, an Other category, valid category references and complete, valid photo attachments. Files are limited to 80 MiB.
 
 Validate completely before one transaction. Merge retains conflicting existing values and gives incoming copies new identities; Replace tombstones missing entries. Import then uses normal sync. Reject unknown versions without modifying storage. New versions require documented compatibility.
 
@@ -29,3 +29,11 @@ Shared links: `/#place=<base64url UTF-8 JSON>` containing `{version:1,name,categ
 ## Privacy/recovery
 
 GPS is explicit, never background-tracked. No end-to-end encryption claim. The app does not encrypt local copies/exports. Cleared browser storage loses unsynced data; cloud sync and exports provide recovery. Account deletion cascades records, identities, sessions and receipts.
+
+## Photos
+
+Places optionally reference one immutable `photoId`. Camera/library inputs decode and re-encode to JPEG (maximum 1280 pixels per side, 256 KiB), stripping source metadata. Separate IndexedDB `voltura-places-photos` version 1 stores workspace-partitioned blobs without blocking older tabs on a main-database upgrade. Persist the photo before its place/draft reference; interrupted writes can leave an unreferenced photo, never a successful place save without its local photo.
+
+Private `/api/v1/photos/:id` GET/PUT requires the session and expected account; PUT also checks canonical Origin, bounded JPEG headers/dimensions and immutable content hash. D1 migration 0002 stores blobs in the existing database. Upload photos before syncing their place references and download referenced cloud/conflict photos for offline use. `X-Places-Photos: 1` opts into photo references; older clients receive compatible records and their edits preserve existing photos.
+
+Each workspace/account permits 50 MiB and 1,000 stored photos. Replaced/removed image blobs remain private until account deletion or local workspace removal, and count toward this limit. Account deletion cascades cloud photos. Shared snapshot links exclude photos. Guest photos cross into an account only through explicit guest-library reconciliation. Photo backups validate before writing; storage failures preserve existing places.

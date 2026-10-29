@@ -1,6 +1,7 @@
 import { recordSchema, snapshotSchema } from "../../shared/model";
 import { acknowledge, mergeSnapshot, prepareMutation, readWorkspace } from "./library";
 import { z } from "zod";
+import { uploadPhoto, loadPhoto } from "./photos";
 const errorSchema = z.object({ error: z.string().optional() });
 const mutationResultSchema = z.object({
   accountId: z.string(),
@@ -26,6 +27,7 @@ export async function api<T>(
     cache: "no-store",
     signal: AbortSignal.timeout(20000),
     headers: {
+      "X-Places-Photos": "1",
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       ...(account ? { "X-Places-Account": account } : {}),
     },
@@ -76,12 +78,23 @@ export async function synchronize(
         if (!isCurrent()) return;
         const flight = await prepareMutation(account);
         if (!flight) break;
+        if (
+          !flight.mutation.deleted &&
+          flight.mutation.entity.kind === "place" &&
+          flight.mutation.entity.value.photoId
+        )
+          await uploadPhoto(account, flight.mutation.entity.value.photoId);
+        if (!isCurrent()) return;
         const response = await fetch("/api/v1/sync", {
           method: "POST",
           credentials: "same-origin",
           cache: "no-store",
           signal: AbortSignal.timeout(20000),
-          headers: { "Content-Type": "application/json", "X-Places-Account": account },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Places-Account": account,
+            "X-Places-Photos": "1",
+          },
           body: JSON.stringify(flight.mutation),
         });
         const data = mutationResultSchema.parse(await response.json());
@@ -97,6 +110,17 @@ export async function synchronize(
       if (snapshot.accountId !== account) throw new Error("accountChanged");
       await mergeSnapshot(account, snapshot.records);
       const w = await readWorkspace(account);
+      const photoIds = new Set(
+        w.records
+          .flatMap((r) => [r, ...(r.conflict ? [r.conflict] : [])])
+          .flatMap((r) =>
+            r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
+          ),
+      );
+      for (const id of photoIds) {
+        if (!isCurrent()) return;
+        await loadPhoto(account, id);
+      }
       onStatus(
         w.records.some((r) => r.conflict)
           ? "actionRequired"

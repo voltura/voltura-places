@@ -1,9 +1,11 @@
 import { MapPin, Navigation, ArrowUpRight, Share2, Pencil, Copy } from "lucide-react";
 import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
+import { PlacePhoto } from "./PlacePhoto";
 export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 export function PlaceDetails({
   record,
+  workspace,
   categoryColor,
   categoryFor,
   categoryLabel,
@@ -16,6 +18,7 @@ export function PlaceDetails({
   copy,
 }: {
   record: PlaceRecord;
+  workspace: string;
   categoryColor: (id: string) => string;
   categoryFor: (id: string) => LocalRecord | undefined;
   categoryLabel: (r: LocalRecord) => string;
@@ -38,6 +41,7 @@ export function PlaceDetails({
           : t("other")}
       </span>
       <h2>{record.value.name}</h2>
+      <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
       <p className="coordinate-display">
         {record.value.latitude.toFixed(6)}, {record.value.longitude.toFixed(6)}
       </p>

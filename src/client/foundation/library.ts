@@ -1,4 +1,6 @@
 import { openDB, type DBSchema } from "idb";
+import { copyPhotos, clearPhotos, makeStoredPhoto, putPhotos, getPhoto } from "./photo-store";
+import { decodePhoto } from "../../shared/photos";
 import {
   starters,
   validateBackup,
@@ -124,14 +126,15 @@ export const deleteEntity = (key: string, id: string) =>
       }
     write(w, r, true);
   });
-export function exportBackup(w: Workspace): Backup {
+export function exportBackup(w: Workspace, photos?: { id: string; data: string }[]): Backup {
   const categories = w.records
     .filter((r) => r.kind === "category" && !r.deleted)
     .map((r) => ({ id: r.id, value: r.value }));
   const ids = new Set(categories.map((c) => c.id));
   return validateBackup({
     format: "voltura-places",
-    version: 1,
+    version: photos?.length ? 2 : 1,
+    ...(photos?.length ? { photos } : {}),
     exportedAt: new Date().toISOString(),
     categories,
     places: w.records
@@ -151,6 +154,25 @@ export function exportBackup(w: Workspace): Backup {
 }
 export async function importBackup(key: string, input: unknown, replace = false) {
   const b = validateBackup(input);
+  if ((await readWorkspace(key)).flight) throw new Error("syncBusy");
+  const photos = b.photos ?? [],
+    ids = new Map<string, string>();
+  const stored = await Promise.all(
+    photos.map(async (p) => {
+      const photo = await makeStoredPhoto(
+        key,
+        p.id,
+        new Blob([decodePhoto(p.data)], { type: "image/jpeg" }),
+      );
+      const existing = await getPhoto(key, p.id);
+      if (existing && existing.hash !== photo.hash) photo.id = crypto.randomUUID();
+      ids.set(p.id, photo.id);
+      return photo;
+    }),
+  );
+  await putPhotos(stored);
+  for (const place of b.places)
+    if (place.value.photoId) place.value.photoId = ids.get(place.value.photoId)!;
   return changeWorkspace(key, (w) => {
     if (w.flight) throw new Error("syncBusy");
     const incoming = new Set([...b.places, ...b.categories].map((e) => e.id));
@@ -179,6 +201,14 @@ export async function importBackup(key: string, input: unknown, replace = false)
 }
 export async function reconcileAccount(key: string, cloud: RecordState[], merge: boolean) {
   const guest = await readWorkspace("guest");
+  if (merge)
+    await copyPhotos(
+      "guest",
+      key,
+      guest.records.flatMap((r) =>
+        r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
+      ),
+    );
   return changeWorkspace(key, (w) => {
     if (w.reconciled) return;
     w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
@@ -305,5 +335,6 @@ export const flushDrafts = () => pendingDraft;
 export async function removeWorkspace(key: string) {
   await (await database()).delete("workspaces", key);
   await setDraft(key, null);
+  await clearPhotos(key);
   changed();
 }

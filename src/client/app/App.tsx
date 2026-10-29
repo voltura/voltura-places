@@ -15,6 +15,10 @@ import {
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
 import { Toast } from "../ui/Toast";
+import { DialogLayer } from "../ui/DialogLayer";
+import { watchForUpdates } from "../foundation/updates";
+import { exportWithPhotos } from "../foundation/photo-backup";
+import { BACKUP_BYTES } from "../../shared/photos";
 import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
@@ -27,7 +31,6 @@ import { cachedAccount, currentAccount, signOutLocally } from "../foundation/acc
 import {
   channel,
   deleteEntity,
-  exportBackup,
   getDraft,
   flushDrafts,
   readWorkspace,
@@ -105,6 +108,7 @@ export function App() {
   const capture = useRef(0),
     fileRef = useRef<HTMLInputElement>(null),
     swUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null),
+    updateMonitor = useRef<ReturnType<typeof watchForUpdates> | null>(null),
     scopeRef = useRef(scope),
     accountRequest = useRef(0);
   scopeRef.current = scope;
@@ -298,11 +302,24 @@ export function App() {
   useEffect(() => {
     if (location.hash && !shared) notify("invalidShare", true);
     if (shared) history.replaceState(null, "", location.pathname + location.search);
+    let disposed = false;
     if (import.meta.env.PROD)
       swUpdate.current = registerSW({
         onNeedRefresh: () => setUpdate(true),
+        onRegisteredSW: (_url, registration) => {
+          if (registration && !disposed)
+            updateMonitor.current = watchForUpdates(registration, () => setUpdate(true));
+        },
+        onNeedReload: () =>
+          void flushDrafts()
+            .then(() => location.reload())
+            .catch(() => notify("storageFailure", true)),
         onRegisterError: () => {},
       });
+    return () => {
+      disposed = true;
+      updateMonitor.current?.dispose();
+    };
   }, []);
   async function save(entity: Entity) {
     await saveEntity(scopeRef.current, entity);
@@ -405,10 +422,10 @@ export function App() {
       if (!(error instanceof DOMException && error.name === "AbortError")) await copy(url);
     }
   };
-  function download() {
+  async function download() {
     try {
       if (!workspace) return;
-      const blob = new Blob([JSON.stringify(exportBackup(workspace), null, 2)], {
+      const blob = new Blob([JSON.stringify(await exportWithPhotos(workspace), null, 2)], {
           type: "application/json",
         }),
         url = URL.createObjectURL(blob),
@@ -425,7 +442,7 @@ export function App() {
   async function loadFile(file?: File) {
     if (!file) return;
     try {
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > BACKUP_BYTES) {
         notify("importLimit", true);
         return;
       }
@@ -470,6 +487,7 @@ export function App() {
   const renderDetails = (record: PlaceRecord) => (
     <PlaceDetails
       record={record}
+      workspace={scope}
       categoryColor={categoryColor}
       categoryFor={categoryFor}
       categoryLabel={categoryLabel}
@@ -611,6 +629,22 @@ export function App() {
           preferences={prefs}
           onPreferences={setPrefs}
           onClose={() => setSettings(null)}
+          onCheckUpdates={() => {
+            void updateMonitor.current
+              ?.check(true)
+              .then((result) =>
+                notify(
+                  result === "current"
+                    ? "upToDate"
+                    : result === "offline"
+                      ? "offline"
+                      : result === "ready"
+                        ? "updateReady"
+                        : "checkingUpdates",
+                ),
+              )
+              .catch(() => notify("serviceUnavailable", true));
+          }}
           onExport={download}
           onImport={() => fileRef.current?.click()}
           categories={categories}
@@ -852,26 +886,28 @@ export function App() {
           {renderDetails(current)}
         </Sheet>
       )}
-      {update && (
-        <div className="update-banner" role="status">
-          <span>
-            <strong>{t("updateReady")}</strong>
-            <small>{t("updateHint")}</small>
-          </span>
-          <button
-            className="button primary"
-            onClick={() => void flushDrafts().then(() => swUpdate.current?.(true))}
-          >
-            {t("update")}
-          </button>
-          <button
-            className="icon-button"
-            aria-label={t("updateLater")}
-            onClick={() => setUpdate(false)}
-          >
-            <X />
-          </button>
-        </div>
+      {update && !editor && (
+        <DialogLayer>
+          <div className="update-banner" role="status">
+            <span>
+              <strong>{t("updateReady")}</strong>
+              <small>{t("updateHint")}</small>
+            </span>
+            <button
+              className="button primary"
+              onClick={() => void flushDrafts().then(() => swUpdate.current?.(true))}
+            >
+              {t("update")}
+            </button>
+            <button
+              className="icon-button"
+              aria-label={t("updateLater")}
+              onClick={() => setUpdate(false)}
+            >
+              <X />
+            </button>
+          </div>
+        </DialogLayer>
       )}
     </>
   );

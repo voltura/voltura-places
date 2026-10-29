@@ -5,12 +5,14 @@ import { getDraft, setDraft } from "../foundation/library";
 import { placeSchema, type Entity, type LocalRecord, type Place } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { z } from "zod";
+import { PhotoPicker } from "./PlacePhoto";
 const draftSchema = z.object({
   id: z.string(),
   name: z.string(),
   categoryId: z.string(),
   latitude: z.string(),
   longitude: z.string(),
+  photoId: z.string().uuid().nullable().optional(),
 });
 export function Editor({
   entity,
@@ -43,11 +45,13 @@ export function Editor({
   const [latitude, setLat] = useState(initial ? String(initial.latitude) : ""),
     [longitude, setLng] = useState(initial ? String(initial.longitude) : "");
   const [error, setError] = useState(""),
+    [photoId, setPhoto] = useState<string | null>(initial?.photoId ?? null),
+    [photoBusy, setPhotoBusy] = useState(false),
     [busy, setBusy] = useState(false),
     [ready, setReady] = useState(false);
   const id = useRef(entity?.id ?? draftId ?? crypto.randomUUID());
   const latest = useRef<Record<string, unknown>>({});
-  latest.current = { name, categoryId, latitude, longitude, id: id.current };
+  latest.current = { name, categoryId, latitude, longitude, photoId, id: id.current };
   useEffect(() => {
     let active = true;
     void getDraft(workspace)
@@ -59,6 +63,7 @@ export function Editor({
           setCategory(v.categoryId);
           setLat(v.latitude);
           setLng(v.longitude);
+          setPhoto(v.photoId !== undefined ? v.photoId : (initial?.photoId ?? null));
         }
         if (active) setReady(true);
       })
@@ -71,7 +76,7 @@ export function Editor({
   }, [workspace]);
   useEffect(() => {
     if (ready) void setDraft(workspace, latest.current).catch(() => {});
-  }, [name, categoryId, latitude, longitude, workspace, ready]);
+  }, [name, categoryId, latitude, longitude, photoId, workspace, ready]);
   const save = async () => {
     const now = new Date().toISOString();
     const parsed = placeSchema.safeParse({
@@ -82,6 +87,7 @@ export function Editor({
       accuracy: initial?.accuracy ?? null,
       capturedAt: initial?.capturedAt ?? now,
       updatedAt: now,
+      photoId,
     });
     if (!parsed.success) {
       setError(t("invalidCoordinates"));
@@ -176,12 +182,19 @@ export function Editor({
             <MapPin size={15} /> {t("accuracy")}: ±{Math.round(initial.accuracy)} m
           </p>
         )}
+        <PhotoPicker
+          workspace={workspace}
+          id={photoId}
+          t={t}
+          onChange={setPhoto}
+          onBusy={setPhotoBusy}
+        />
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
-        <button type="submit" className="button primary" disabled={busy}>
+        <button type="submit" className="button primary" disabled={busy || photoBusy || !ready}>
           {busy ? t("working") : t("save")}
         </button>
         <button type="button" className="button quiet" onClick={dismiss}>

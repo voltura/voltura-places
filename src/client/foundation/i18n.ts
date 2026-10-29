@@ -1,5 +1,17 @@
 export const en = {
   tagline: "Save a place. Find your way back.",
+  checkUpdates: "Check for updates",
+  placePhoto: "Place photo",
+  takePhoto: "Take photo",
+  choosePhoto: "Choose photo",
+  removePhoto: "Remove photo",
+  processingPhoto: "Preparing photo…",
+  photoHint: "One photo per place. Save changes to keep it. Photos stay private in shared links.",
+  invalidPhoto: "Could not open this image. Choose a different photo or try the camera again.",
+  photoQuota: "Photo storage is full. You can keep saving places without photos.",
+  photoUnavailable: "This photo is not available on this device yet. Connect and retry sync.",
+  checkingUpdates: "Checking for updates…",
+  upToDate: "You're up to date",
   library: "Your places",
   places: "places",
   place: "place",
@@ -88,7 +100,7 @@ export const en = {
   imported: "Backup imported",
   exported: "Backup downloaded",
   invalidImport: "This is not a valid Voltura Places backup. Nothing was changed.",
-  importLimit: "Choose a backup smaller than 10 MB.",
+  importLimit: "Choose a backup smaller than 80 MB.",
   storageFailure: "Could not save to this device. Free some browser storage and try again.",
   gpsDenied:
     "Location access was denied. Allow location access in your browser settings, or add coordinates.",
@@ -190,6 +202,19 @@ export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
   tagline: "Spara en plats. Hitta tillbaka.",
+  checkUpdates: "Sök efter uppdateringar",
+  placePhoto: "Platsens foto",
+  takePhoto: "Ta foto",
+  choosePhoto: "Välj foto",
+  removePhoto: "Ta bort foto",
+  processingPhoto: "Förbereder fotot…",
+  photoHint:
+    "Ett foto per plats. Spara ändringarna för att behålla det. Fotot förblir privat i delade länkar.",
+  invalidPhoto: "Kunde inte öppna bilden. Välj ett annat foto eller försök med kameran igen.",
+  photoQuota: "Fotolagringen är full. Du kan fortfarande spara platser utan foton.",
+  photoUnavailable: "Fotot finns inte på enheten ännu. Anslut och försök synkronisera igen.",
+  checkingUpdates: "Söker efter uppdateringar…",
+  upToDate: "Du har den senaste versionen",
   library: "Dina platser",
   places: "platser",
   place: "plats",
@@ -279,7 +304,7 @@ export const sv: Record<Message, string> = {
   exported: "Säkerhetskopian är nedladdad",
   invalidImport:
     "Detta är inte en giltig säkerhetskopia från Voltura Places. Ingenting har ändrats.",
-  importLimit: "Välj en säkerhetskopia mindre än 10 MB.",
+  importLimit: "Välj en säkerhetskopia mindre än 80 MB.",
   storageFailure:
     "Kunde inte spara på enheten. Frigör lagringsutrymme i webbläsaren och försök igen.",
   gpsDenied:

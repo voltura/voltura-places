@@ -15,3 +15,7 @@ Toasts belong to the active modal when one is open, so copy confirmations/errors
 Account settings explicitly say Signed in or Not signed in. A signed-in account shows each distinct identity label once, explains automatic sync, and keeps Sync now/Sign out together. Optional linking lives under Sign-in methods and uses Link labels; Continue labels are reserved for signing in.
 
 Installed launches open the library. Service-worker updates wait for acceptance and preserve drafts/pending data. Private APIs are never HTTP-cached. Promo has no service worker. Physical-device/daylight checks remain distinct from emulation.
+
+Each editor offers Take photo (rear-camera capture hint), Choose photo (normal image picker), preview and Remove photo. One compressed image belongs to each place and follows saved drafts, offline use, cloud sync and JSON backups. Unsupported image formats show recovery feedback without replacing the previous photo. Native capture behavior depends on the device/browser.
+
+Visible tabs check for updates every minute and on foreground/reconnection, with a manual Check for updates action in Preferences. Prompts appear above Settings or inside the editor. Accepting an update flushes drafts before all controlled tabs reload. Older clients need one refresh to receive this update-checking behavior.

@@ -24,7 +24,7 @@ const check = (condition, message) => {
 };
 try {
   const db = await mf.getD1Database("DB");
-  for (const file of ["0000_accounts.sql", "0001_library.sql"])
+  for (const file of ["0000_accounts.sql", "0001_library.sql", "0002_photos.sql"])
     for (const statement of (await readFile(`drizzle/${file}`, "utf8"))
       .split("--> statement-breakpoint")
       .filter((s) => s.trim()))
@@ -61,6 +61,52 @@ try {
   const a = await login("fixture-a"),
     b = await login("fixture-b");
   check(a.account !== b.account, "Accounts are isolated");
+  const photoId = crypto.randomUUID();
+  const jpeg = await readFile("tests/fixtures/photo.jpg");
+  const photoRequest = (identity, body = jpeg, extra = {}) =>
+    mf.dispatchFetch(origin + `/api/v1/photos/${photoId}`, {
+      method: "PUT",
+      body,
+      headers: {
+        Origin: origin,
+        Cookie: identity.cookie,
+        "X-Places-Account": identity.account,
+        "Content-Type": "image/jpeg",
+        ...extra,
+      },
+    });
+  check(
+    (await request(`/api/v1/photos/${photoId}`)).status === 401,
+    "Photos require authentication",
+  );
+  check(
+    (await photoRequest(a, jpeg, { Origin: "https://evil.invalid" })).status === 403,
+    "Photo uploads reject foreign origins",
+  );
+  check(
+    (await photoRequest(a, new Uint8Array(262145))).status === 413,
+    "Photo uploads are bounded",
+  );
+  check((await photoRequest(a, new Uint8Array(20))).status === 422, "Invalid JPEG is rejected");
+  check((await photoRequest(a)).status === 200, "Photo upload persists in D1");
+  check((await photoRequest(a)).status === 200, "Photo upload retries are idempotent");
+  const changed = Buffer.from(jpeg);
+  changed[10] ^= 1;
+  check((await photoRequest(a, changed)).status === 409, "Immutable photos cannot be overwritten");
+  const photoResponse = await request(`/api/v1/photos/${photoId}`, a);
+  check(
+    photoResponse.status === 200 && photoResponse.headers.get("Cache-Control").includes("no-store"),
+    "Photo responses stay private",
+  );
+  assert.deepEqual(Buffer.from(await photoResponse.arrayBuffer()), jpeg);
+  check(
+    (await request(`/api/v1/photos/${photoId}`, b)).status === 404,
+    "Other accounts cannot read photos",
+  );
+  check(
+    (await request(`/api/v1/photos/${photoId}`, { ...a, account: b.account })).status === 409,
+    "Photo account switching is guarded",
+  );
   check((await request("/api/v1/sync")).status === 401, "Anonymous data is rejected");
   check(
     (await request("/api/v1/sync", { ...a, account: b.account })).status === 409,
@@ -159,12 +205,67 @@ try {
   check(response.status === 422, "Coordinate validation is enforced server-side");
   response = await request("/api/account", { ...a, method: "DELETE", body: { confirm: "wrong" } });
   check(response.status === 400, "Account deletion requires its confirmation token");
+  const photoEntity = { ...entity, id: crypto.randomUUID(), value: { ...entity.value, photoId } };
+  const photoMutation = { ...mutation, mutationId: crypto.randomUUID(), entity: photoEntity };
+  response = await request("/api/v1/sync", {
+    ...a,
+    body: photoMutation,
+    headers: { "X-Places-Photos": "1" },
+  });
+  check(
+    response.status === 200 && (await response.json()).record.value.photoId === photoId,
+    "Photo references sync after upload",
+  );
+  const legacy = await (await request("/api/v1/sync", a)).json();
+  check(
+    !legacy.records.find((r) => r.id === photoEntity.id).value.photoId,
+    "Old clients receive compatible records",
+  );
+  response = await request("/api/v1/sync", {
+    ...a,
+    body: {
+      ...photoMutation,
+      mutationId: crypto.randomUUID(),
+      baseRevision: 1,
+      entity: { ...photoEntity, value: entity.value },
+    },
+  });
+  check(response.status === 200, "Old clients can edit photo records");
+  const modern = await (
+    await request("/api/v1/sync", { ...a, headers: { "X-Places-Photos": "1" } })
+  ).json();
+  check(
+    modern.records.find((r) => r.id === photoEntity.id).value.photoId === photoId,
+    "Old clients preserve attached photos",
+  );
+  response = await request("/api/v1/sync", {
+    ...a,
+    body: {
+      ...photoMutation,
+      mutationId: crypto.randomUUID(),
+      entity: {
+        ...photoEntity,
+        id: crypto.randomUUID(),
+        value: { ...photoEntity.value, photoId: crypto.randomUUID() },
+      },
+    },
+  });
+  check(response.status === 422, "Missing photo references are rejected");
   response = await request("/api/account", {
     ...a,
     method: "DELETE",
     body: { confirm: "delete-places-account" },
   });
   check(response.status === 200, "Account deletion completed");
+  check(
+    (
+      await db
+        .prepare("SELECT count(*) AS n FROM places_photos WHERE account_id=?")
+        .bind(a.account)
+        .first()
+    ).n === 0,
+    "Account deletion removes photos",
+  );
   check(
     (
       await db

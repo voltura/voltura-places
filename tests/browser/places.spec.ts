@@ -1,4 +1,67 @@
 import { test, expect } from "@playwright/test";
+test("camera and library inputs support a durable offline photo and removable draft", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add coordinates", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
+  await page.getByRole("textbox", { name: "Latitude", exact: true }).fill("0");
+  await page.getByRole("textbox", { name: "Longitude", exact: true }).fill("0");
+  await expect(page.locator('input[capture="environment"]')).toHaveAttribute("accept", "image/*");
+  const picker = page.locator('input[type="file"][accept="image/*"]:not([capture])');
+  await picker.setInputFiles("tests/fixtures/photo.jpg");
+  await expect(page.locator(".photo-picker img")).toBeVisible();
+  await picker.setInputFiles({
+    name: "invalid.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("invalid"),
+  });
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator(".photo-picker img")).toBeVisible();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Edit place: Photo fixture", exact: true }),
+  ).toBeVisible();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await context.setOffline(true);
+  await page.reload();
+  await page.getByRole("button", { name: "Edit place: Photo fixture", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit place", exact: true }).click();
+  await expect(page.locator(".photo-picker img")).toBeVisible();
+  await page.getByRole("button", { name: "Remove photo", exact: true }).click();
+  await expect(page.locator(".photo-picker img")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo removed draft");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise((resolve) => {
+            const open = indexedDB.open("voltura-places");
+            open.onsuccess = () => {
+              const db = open.result;
+              const read = db.transaction("drafts").objectStore("drafts").get("guest");
+              read.onsuccess = () => {
+                resolve(
+                  read.result?.name === "Photo removed draft" && read.result?.photoId === null,
+                );
+                db.close();
+              };
+            };
+          }),
+      ),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
+    "Photo removed draft",
+  );
+  await expect(page.locator(".photo-picker img")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+});
 test("GPS denial leaves the library intact and offers recovery", async ({ page }) => {
   await page.addInitScript(() =>
     Object.defineProperty(navigator, "geolocation", {

@@ -16,6 +16,7 @@ export function Settings({
   preferences,
   onPreferences,
   onClose,
+  onCheckUpdates,
   onExport,
   onImport,
   categories,
@@ -34,6 +35,7 @@ export function Settings({
   preferences: Preferences;
   onPreferences: (p: Preferences) => void;
   onClose: () => void;
+  onCheckUpdates: () => void;
   onExport: () => void;
   onImport: () => void;
   categories: LocalRecord[];
@@ -112,6 +114,9 @@ export function Settings({
             <p className="muted">{t("installIOS")}</p>
             <p className="muted">{t("installOther")}</p>
           </details>
+          <button className="button outline" onClick={onCheckUpdates}>
+            {t("checkUpdates")}
+          </button>
           <details>
             <summary>{t("privacy")}</summary>
             <p className="muted">{t("privacyText")}</p>

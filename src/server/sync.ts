@@ -31,6 +31,14 @@ export async function handleSync(request: Request, env: Environment) {
   const session = (await sessionFor(request, env, env.DB)) as { account_id: string } | null;
   if (!session) return json({ error: "signInAgain" }, 401);
   const account = session.account_id;
+  const present = (record: RecordState) => {
+    if (request.headers.get("X-Places-Photos") !== "1" && record.kind === "place") {
+      const value = { ...record.value };
+      delete value.photoId;
+      return { ...record, value };
+    }
+    return record;
+  };
   if (request.headers.get("X-Places-Account") !== account)
     return json({ error: "accountChanged" }, 409);
   if (request.method === "GET") {
@@ -45,7 +53,7 @@ export async function handleSync(request: Request, env: Environment) {
     return json({
       version: 1,
       accountId: account,
-      records: records.map(decode),
+      records: records.map((r) => present(decode(r))),
       nextCursor: rows.results.length > 250 ? records.at(-1)!.id : null,
     });
   }
@@ -70,8 +78,29 @@ export async function handleSync(request: Request, env: Environment) {
     .first<{ body_hash: string; record: string }>();
   if (receipt) {
     if (receipt.body_hash !== hash) return json({ error: "invalidRetry", accountId: account }, 422);
-    return json({ accountId: account, record: recordSchema.parse(JSON.parse(receipt.record)) });
+    return json({
+      accountId: account,
+      record: present(recordSchema.parse(JSON.parse(receipt.record))),
+    });
   }
+  if (e.kind === "place" && e.value.photoId === undefined) {
+    const old = await env.DB.prepare(
+      "SELECT value FROM places_records WHERE account_id=? AND id=? AND kind='place'",
+    )
+      .bind(account, e.id)
+      .first<{ value: string }>();
+    const photoId = old ? JSON.parse(old.value).photoId : undefined;
+    if (photoId !== undefined) e.value.photoId = photoId;
+  }
+  if (
+    e.kind === "place" &&
+    e.value.photoId &&
+    !body.deleted &&
+    !(await env.DB.prepare("SELECT id FROM places_photos WHERE account_id=? AND id=?")
+      .bind(account, e.value.photoId)
+      .first())
+  )
+    return json({ error: "photoUnavailable", accountId: account }, 422);
   const value = JSON.stringify(e.value),
     revision = body.baseRevision + 1;
   const resultRecord = { ...e, revision, deleted: body.deleted };
@@ -133,7 +162,10 @@ export async function handleSync(request: Request, env: Environment) {
   if (accepted) {
     if (accepted.body_hash !== hash)
       return json({ error: "invalidRetry", accountId: account }, 422);
-    return json({ accountId: account, record: recordSchema.parse(JSON.parse(accepted.record)) });
+    return json({
+      accountId: account,
+      record: present(recordSchema.parse(JSON.parse(accepted.record))),
+    });
   }
   const current = await env.DB.prepare(
     "SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? AND id=?",
@@ -141,5 +173,5 @@ export async function handleSync(request: Request, env: Environment) {
     .bind(account, e.id)
     .first<Row>();
   if (!current) return json({ error: "libraryLimit", accountId: account }, 413);
-  return json({ accountId: account, record: decode(current) }, 409);
+  return json({ accountId: account, record: present(decode(current)) }, 409);
 }

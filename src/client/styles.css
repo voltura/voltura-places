@@ -850,6 +850,33 @@ hr {
   font-size: 13px;
   font-weight: 600;
 }
+.place-photo {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.photo-picker {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+.photo-picker legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+.photo-picker .action-pair {
+  gap: 10px;
+}
+.photo-picker .button {
+  font-size: 13px;
+  padding-inline: 12px;
+}
 .sheet-content input:not([type="radio"]),
 .sheet-content select {
   width: 100%;

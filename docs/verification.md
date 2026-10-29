@@ -19,3 +19,5 @@
 Physical iPhone/Android GPS, map handoff, installation, daylight readability and installed updates with unfinished work still require physical-device checks. Local fixtures and desktop browser checks are not substitutes.
 
 Real provider checks above are separate from automated fixtures. Do not describe desktop browser verification as physical-phone acceptance.
+
+Photo/update verification: 18 Vitest tests, 35 local workerd/D1 API checks, the real-handler authentication fixture and seven mobile Chromium flows pass. Photo checks cover private ownership, bounded uploads, immutable retries, legacy-client preservation, deletion cascades, backup round trips, invalid-image recovery, offline reload and removal drafts. A separate test verifies foreground/minute update checks. Two long-open preview tabs both displayed update prompts above dialogs; accepting in one restored the other tab's unfinished draft. Camera/library controls follow Air's separate capture/picker pattern. Physical iPhone camera capture and HEIC decoding remain unverified.

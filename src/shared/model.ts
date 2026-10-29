@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { decodePhoto, PHOTO_QUOTA } from "./photos";
 
 export const idSchema = z.string().regex(/^[a-zA-Z0-9-]{1,80}$/);
 export const categorySchema = z
@@ -17,6 +18,7 @@ export const placeSchema = z
     accuracy: z.number().finite().min(0).max(10000000).nullable(),
     capturedAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
+    photoId: z.string().uuid().nullable().optional(),
   })
   .strict();
 export type Place = z.infer<typeof placeSchema>;
@@ -55,7 +57,11 @@ export type Mutation = z.infer<typeof mutationSchema>;
 export const backupSchema = z
   .object({
     format: z.literal("voltura-places"),
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
+    photos: z
+      .array(z.object({ id: z.string().uuid(), data: z.string().max(350000) }).strict())
+      .max(1000)
+      .optional(),
     exportedAt: z.string().datetime(),
     places: z.array(z.object({ id: idSchema, value: placeSchema }).strict()).max(5000),
     categories: z.array(z.object({ id: idSchema, value: categorySchema }).strict()).max(200),
@@ -146,5 +152,18 @@ export function parseShare(hash: string) {
   }
 }
 export function validateBackup(input: unknown) {
-  return backupSchema.parse(input);
+  const backup = backupSchema.parse(input),
+    photos = backup.photos ?? [];
+  const needed = new Set(backup.places.flatMap((p) => (p.value.photoId ? [p.value.photoId] : [])));
+  if (
+    (photos.length && backup.version !== 2) ||
+    new Set(photos.map((p) => p.id)).size !== photos.length ||
+    photos.length !== needed.size ||
+    photos.some((p) => !needed.has(p.id))
+  )
+    throw new Error("invalidImport");
+  let bytes = 0;
+  for (const p of photos) bytes += decodePhoto(p.data).length;
+  if (bytes > PHOTO_QUOTA) throw new Error("photoQuota");
+  return backup;
 }

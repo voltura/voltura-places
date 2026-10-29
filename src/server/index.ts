@@ -1,5 +1,6 @@
 import { handleAccounts } from "./accounts.js";
 import { handleSync } from "./sync";
+import { handlePhoto } from "./photos";
 import type { Environment } from "./types";
 export type AssetMap = Record<string, [string, string]>;
 const security = {
@@ -7,7 +8,7 @@ const security = {
   "Referrer-Policy": "no-referrer",
   "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
 export function createWorker(assets: AssetMap, version: string) {
   return {
@@ -21,7 +22,9 @@ export function createWorker(assets: AssetMap, version: string) {
           );
         if (url.pathname.startsWith("/api/")) {
           let response: Response;
-          if (url.pathname === "/api/v1/sync") {
+          if (url.pathname.startsWith("/api/v1/photos/")) {
+            response = await handlePhoto(request, env);
+          } else if (url.pathname === "/api/v1/sync") {
             if (env.ACCOUNTS_ENABLED !== "true" || !env.DB)
               return Response.json(
                 { error: "serviceUnavailable" },
