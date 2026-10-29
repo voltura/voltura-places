@@ -130,11 +130,13 @@ export const en = {
   importLimit: "Choose a backup smaller than 80 MB.",
   storageFailure: "Could not save to this device. Free some browser storage and try again.",
   gpsDenied:
-    "Location access was denied. Allow location access in your browser settings, or add coordinates.",
+    "Location access was denied. Allow location access in your browser settings, or use a photo with location information.",
   gpsTimeout:
-    "The position took too long to arrive. Try again with a clearer view of the sky, or add coordinates.",
-  gpsUnavailable: "Your position is unavailable. Try again, or add coordinates.",
-  gpsUnsupported: "Location is unavailable in this browser. Add coordinates instead.",
+    "The position took too long to arrive. Try again with a clearer view of the sky, or use a photo with location information.",
+  gpsUnavailable:
+    "Your position is unavailable. Try again, or use a photo with location information.",
+  gpsUnsupported:
+    "Location is unavailable in this browser. Use a photo with location information instead.",
   retry: "Retry",
   syncNow: "Sync now",
   offline: "Offline · changes stay on this device",
@@ -212,7 +214,7 @@ export const en = {
   selectedTitle: "A little less searching. A little more exploring.",
   selectedBody: "Pick a saved place to see its details, share it, or open your preferred map app.",
   currentLocation: "Place",
-  invalidCoordinates: "Enter a name and valid latitude (−90 to 90) and longitude (−180 to 180).",
+  invalidCoordinates: "Enter a name and select a valid device or photo location.",
   unsavedDraft: "Draft restored",
   working: "Working…",
   cancelCapture: "Cancel locating",
@@ -362,11 +364,13 @@ export const sv: Record<Message, string> = {
   storageFailure:
     "Kunde inte spara på enheten. Frigör lagringsutrymme i webbläsaren och försök igen.",
   gpsDenied:
-    "Åtkomst till platsen nekades. Tillåt platsåtkomst i webbläsarens inställningar eller ange koordinater.",
+    "Åtkomst till platsen nekades. Tillåt platsåtkomst i webbläsarens inställningar eller använd en bild med platsinformation.",
   gpsTimeout:
-    "Positionen tog för lång tid. Försök med friare sikt mot himlen eller ange koordinater.",
-  gpsUnavailable: "Positionen är inte tillgänglig. Försök igen eller ange koordinater.",
-  gpsUnsupported: "Platsåtkomst saknas i webbläsaren. Ange koordinater i stället.",
+    "Positionen tog för lång tid. Försök med friare sikt mot himlen eller använd en bild med platsinformation.",
+  gpsUnavailable:
+    "Positionen är inte tillgänglig. Försök igen eller använd en bild med platsinformation.",
+  gpsUnsupported:
+    "Platsåtkomst saknas i webbläsaren. Använd en bild med platsinformation i stället.",
   retry: "Försök igen",
   syncNow: "Synkronisera nu",
   offline: "Offline · ändringar sparas på enheten",
@@ -444,7 +448,7 @@ export const sv: Record<Message, string> = {
   selectedTitle: "Lite mindre letande. Lite mer upptäckande.",
   selectedBody: "Välj en sparad plats för detaljer, delning eller din kartapp.",
   currentLocation: "Plats",
-  invalidCoordinates: "Ange ett namn, giltig latitud (−90 till 90) och longitud (−180 till 180).",
+  invalidCoordinates: "Ange ett namn och välj en giltig position från enheten eller en bild.",
   unsavedDraft: "Utkast återställt",
   working: "Arbetar…",
   cancelCapture: "Avbryt positionering",
