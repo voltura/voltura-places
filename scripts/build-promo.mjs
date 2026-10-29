@@ -1,6 +1,14 @@
-import { readFile, writeFile, mkdir, cp } from "node:fs/promises";
+import { readFile, writeFile, mkdir, cp, rm } from "node:fs/promises";
+import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 const content = JSON.parse(await readFile("site/content.json", "utf8"));
+const output = resolve(".artifacts/promo");
+if (
+  relative(process.cwd(), output) !== ".artifacts/promo" &&
+  relative(process.cwd(), output) !== ".artifacts\\promo"
+)
+  throw new Error("Unsafe promo build directory");
+await rm(output, { recursive: true, force: true });
 const css = await readFile("site/site.css"),
   hash = createHash("sha256").update(css).digest("hex").slice(0, 16);
 await mkdir(".artifacts/promo/assets", { recursive: true });
