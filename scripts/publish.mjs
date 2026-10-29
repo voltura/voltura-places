@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, unlink, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { spawn, execFileSync } from "node:child_process";
 import { connect } from "./sites-client.mjs";
 const root = process.cwd(),
@@ -51,7 +51,7 @@ try {
       project_id: manifest.project_id,
     });
     const skill = await sitesSkill();
-    const archive = resolve(".artifacts/places-site.tar.gz");
+    const archive = resolve(tmpdir(), "voltura-places-site.tar.gz");
     const output = await run(
       process.execPath,
       [
