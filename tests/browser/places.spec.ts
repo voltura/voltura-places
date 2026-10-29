@@ -77,18 +77,23 @@ test("invalid manual entry is rejected, saved entries search and edit", async ({
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("valid latitude");
   await page.getByRole("textbox", { name: "Latitude", exact: true }).fill("59");
+  await page.getByRole("combobox", { name: "Category", exact: true }).selectOption("mushrooms");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("textbox", { name: "Search your places" }).fill("missing");
   await expect(page.getByRole("heading", { name: "No matching places" })).toBeVisible();
   await page.getByRole("button", { name: "Clear search", exact: true }).first().click();
   await expect(page.getByRole("button", { name: "Edit place: Trailhead" })).toBeVisible();
+  await expect(page.getByRole("article")).toContainText("Mushrooms");
 });
 
 test("sign-out retains sign-in providers and rejects a late account response", async ({ page }) => {
   const identity = {
     id: "fixture-account",
-    methods: [{ provider: "email", label: "fixture@example.invalid" }],
+    methods: [
+      { provider: "email", label: "fixture@example.invalid" },
+      { provider: "google", label: "fixture@example.invalid" },
+    ],
   };
   let signedIn = true;
   let holdNext = false;
@@ -99,7 +104,7 @@ test("sign-out retains sign-in providers and rejects a late account response", a
   });
   const state = (account: typeof identity | null) => ({
     enabled: true,
-    providers: { google: true, email: true },
+    providers: { google: true, email: true, chatgpt: true },
     account,
   });
   await page.route("**/api/account", async (route) => {
@@ -122,6 +127,15 @@ test("sign-out retains sign-in providers and rejects a late account response", a
   await page.getByRole("button", { name: "Use the account library", exact: true }).click();
   await page.getByRole("button", { name: "Account & sync", exact: true }).click();
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await expect(page.getByText("Signed in", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".account-summary").getByText("fixture@example.invalid", { exact: true }),
+  ).toHaveCount(1);
+  await page.getByText("Sign-in methods", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Link ChatGPT", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Continue with ChatGPT", exact: true }),
+  ).toBeHidden();
   holdNext = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await oldRequested;
@@ -137,4 +151,39 @@ test("sign-out retains sign-in providers and rejects a late account response", a
       page.evaluate(() => JSON.parse(localStorage.getItem("places-account") ?? "null")?.account),
     )
     .toBeNull();
+});
+
+test("copy feedback stays above an open map dialog and follows it back to the page", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => {} } }),
+  );
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Add coordinates", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Copy example");
+  await page.getByRole("textbox", { name: "Latitude", exact: true }).fill("0");
+  await page.getByRole("textbox", { name: "Longitude", exact: true }).fill("0");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await page.getByRole("button", { name: "Open maps", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Open with…", exact: true });
+  await dialog.getByRole("button", { name: "Copy coordinates", exact: true }).click();
+  const toast = dialog.getByRole("status");
+  await expect(toast).toContainText("Copied");
+  expect(
+    await toast.evaluate((element) => {
+      const r = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    }),
+  ).toBe(true);
+  await toast.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Copy coordinates", exact: true }).click();
+  await dialog.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.locator("body > .toast")).toContainText("Copied");
+  await expect
+    .poll(() => page.locator("html").evaluate((element) => getComputedStyle(element).overflow))
+    .not.toBe("hidden");
 });

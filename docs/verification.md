@@ -4,10 +4,11 @@
 
 - TypeScript with unused-code checks, documentation checks and production Worker/PWA build passed.
 - Fresh `npm run dev` startup and its local health endpoint passed with the optional Wrangler explorer disabled; browser flows also passed against a fresh server.
-- Thirteen model/IndexedDB/publisher tests passed, including quota rollback, invalid imports, backup round trips, in-flight edits, account partitioning, stopping uploads on account changes and conflict/deletion recovery.
+- Fifteen model/IndexedDB/publisher tests passed, including quota rollback, invalid imports, backup round trips, in-flight edits, account partitioning, stopping uploads on account changes, conflict/deletion recovery and existing-library mushroom preset migration.
 - Local workerd/D1 integration passed authorization, CAS races, identical retries, changed retry rejection, deletion/session invalidation and coordinate validation.
 - Real Better Auth handlers passed signed fixture email delivery, hashed/single-use codes, expiry, attempt limits, simultaneous code reuse, Google token/state fixtures and explicit identity linking.
-- Five mobile Chromium flows passed GPS quick-save-before-naming, offline reload/manual saving, invalid manual input/search, and sign-out with a delayed account response. These use synthetic identity/GPS fixtures.
+- Six mobile Chromium flows passed GPS quick-save-before-naming, offline reload/manual saving, invalid manual input/search, clear signed-in account controls/sign-out with a delayed response, dark default, mushroom selection, and copy feedback above an open map dialog. These use synthetic identity/GPS/clipboard fixtures.
+- Desktop/mobile preview confirmed inset scrollbars preserve rounded panel corners, the header stays visible, and the background page is locked. Copy feedback was visibly clear inside the modal; Dark is the default for fresh preferences.
 - English/Swedish mobile and desktop layouts were visually inspected. Promo screenshots contain synthetic examples.
 - Initial app deployed through Sites; custom domain, DNS and TLS are active. `/api/health` and account configuration return HTTP 200. Forged native identity headers are rejected with HTTP 401 at the live gateway.
 - Promo publication at https://voltura.se/places/ passed exact HTTPS payload checks and unchanged Air/root file hashes and route responses. Initial backup: `2026-10-29T12-33-18Z`. This does not establish an authenticated Air session.

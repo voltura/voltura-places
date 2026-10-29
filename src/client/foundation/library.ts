@@ -14,6 +14,7 @@ export type Workspace = {
   records: LocalRecord[];
   flight?: { mutation: Mutation; generation: number };
   reconciled: boolean;
+  presetRevision?: number;
 };
 interface PlacesDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
@@ -29,6 +30,7 @@ const database = () =>
 const seed = (key: string): Workspace => ({
   key,
   reconciled: key === "guest",
+  presetRevision: 2,
   records: starters.map((e) => ({
     ...structuredClone(e),
     revision: 0,
@@ -45,7 +47,29 @@ const changed = () => {
 };
 export async function readWorkspace(key: string) {
   const db = await database();
-  return (await db.get("workspaces", key)) ?? seed(key);
+  const existing = await db.get("workspaces", key);
+  if (!existing) return seed(key);
+  if ((existing.presetRevision ?? 1) >= 2) return existing;
+  // Add the new preset once, preserving custom names, tombstones and in-flight writes.
+  if (
+    !existing.records.some((r) => r.id === "mushrooms") &&
+    existing.records.filter((r) => r.kind === "category" && !r.deleted).length >= 200
+  )
+    return existing;
+  return changeWorkspace(key, (w) => {
+    if ((w.presetRevision ?? 1) >= 2) return;
+    if (!w.records.some((r) => r.id === "mushrooms")) {
+      if (w.records.filter((r) => r.kind === "category" && !r.deleted).length >= 200) return;
+      w.records.push({
+        ...structuredClone(starters.find((e) => e.id === "mushrooms")!),
+        revision: 0,
+        deleted: false,
+        generation: 0,
+        dirty: key !== "guest" && w.reconciled,
+      });
+    }
+    w.presetRevision = 2;
+  });
 }
 export async function changeWorkspace(key: string, update: (w: Workspace) => void) {
   const db = await database(),

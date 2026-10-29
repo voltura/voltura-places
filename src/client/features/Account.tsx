@@ -72,31 +72,8 @@ export function AccountPanel({
       setOtp("");
       await onRefresh();
     });
-  return (
-    <section className="stack">
-      <div className="section-icon">
-        <Cloud />
-      </div>
-      <h3>{t("account")}</h3>
-      <p className="muted">{t("accountIntro")}</p>
-      {!state.enabled && <p className="notice">{t("accountUnavailable")}</p>}
-      {state.account && (
-        <>
-          <div className="account-summary">
-            <span className="status-dot" />
-            {state.account.methods.map((m) => m.label).join(" · ")}
-          </div>
-          <h4>{t("linkedMethods")}</h4>
-          <ul className="methods">
-            {state.account.methods.map((m) => (
-              <li key={m.provider}>
-                {m.provider === "email" ? "Email" : m.provider === "google" ? "Google" : "ChatGPT"}
-                <span>{m.label}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+  const signInControls = (
+    <div className="stack">
       {state.providers.google &&
         (!state.account || !state.account.methods.some((m) => m.provider === "google")) && (
           <button className="button outline" disabled={busy} onClick={() => void google()}>
@@ -108,7 +85,7 @@ export function AccountPanel({
       {state.providers.chatgpt &&
         (!state.account || !state.account.methods.some((m) => m.provider === "chatgpt")) && (
           <button className="button outline" disabled={busy} onClick={() => void native()}>
-            {t("continueChatGPT")}
+            {t(state.account ? "linkChatGPT" : "continueChatGPT")}
             <ArrowRight size={18} />
           </button>
         )}
@@ -161,6 +138,66 @@ export function AccountPanel({
             )}
           </form>
         )}
+    </div>
+  );
+  return (
+    <section className="stack">
+      <div className="section-icon">
+        <Cloud />
+      </div>
+      <h3>{t("account")}</h3>
+      {!state.account && (
+        <>
+          <p className="notice">{t("notSignedIn")}</p>
+          <p className="muted">{t("accountIntro")}</p>
+        </>
+      )}
+      {!state.enabled && <p className="notice">{t("accountUnavailable")}</p>}
+      {state.account && (
+        <>
+          <div className="account-summary">
+            <span className="status-dot" />
+            <div>
+              <strong>{t("signedIn")}</strong>
+              <span>{[...new Set(state.account.methods.map((m) => m.label))].join(" · ")}</span>
+            </div>
+          </div>
+          <p className="muted">{t("accountSyncIntro")}</p>
+          <div className="account-actions">
+            <button className="button quiet" onClick={onSync}>
+              {t("syncNow")}
+            </button>
+            <button
+              className="button outline"
+              disabled={busy}
+              onClick={() => void execute(onSignOut)}
+            >
+              {t("signOut")}
+            </button>
+          </div>
+          <p className="muted small">{t("signOutNotice")}</p>
+          <details>
+            <summary>{t("linkedMethods")}</summary>
+            <div className="stack">
+              <p className="muted small">{t("linkedMethodsIntro")}</p>
+              <ul className="methods">
+                {state.account.methods.map((m) => (
+                  <li key={m.provider}>
+                    {m.provider === "email"
+                      ? "Email"
+                      : m.provider === "google"
+                        ? "Google"
+                        : "ChatGPT"}
+                    <span>{m.label}</span>
+                  </li>
+                ))}
+              </ul>
+              {signInControls}
+            </div>
+          </details>
+        </>
+      )}
+      {!state.account && signInControls}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -168,18 +205,6 @@ export function AccountPanel({
       )}
       {state.account && (
         <>
-          <button className="button outline" onClick={onSync}>
-            {t("syncNow")}
-          </button>
-          <hr />
-          <p className="muted small">{t("signOutNotice")}</p>
-          <button
-            className="button outline"
-            disabled={busy}
-            onClick={() => void execute(onSignOut)}
-          >
-            {t("signOut")}
-          </button>
           <details>
             <summary>{t("deleteAccount")}</summary>
             <p className="muted small">{t("deleteAccountBody")}</p>

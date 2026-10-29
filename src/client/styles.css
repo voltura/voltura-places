@@ -21,6 +21,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   accent-color: var(--accent);
+  scrollbar-gutter: stable;
+}
+:root:has(dialog[open]) {
+  overflow: hidden;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -761,6 +765,7 @@ hr {
 .sheet {
   margin: auto;
   padding: 0;
+  padding-bottom: 14px;
   border: 1px solid var(--border);
   border-radius: 26px;
   background: var(--surface);
@@ -768,7 +773,11 @@ hr {
   width: min(100% - 32px, 480px);
   max-height: calc(100dvh - 40px);
   box-shadow: 0 24px 100px #10291c35;
-  overflow: auto;
+  overflow: hidden;
+}
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
 }
 .sheet-wide {
   width: min(100% - 32px, 610px);
@@ -782,8 +791,7 @@ hr {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  position: sticky;
-  top: 0;
+  flex: none;
   background: var(--surface);
   padding: 20px 24px 16px;
   z-index: 2;
@@ -795,6 +803,32 @@ hr {
 }
 .sheet-content {
   padding: 24px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) var(--surface);
+}
+@supports selector(::-webkit-scrollbar) {
+  .sheet-content {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  .sheet-content::-webkit-scrollbar {
+    width: 8px;
+  }
+  .sheet-content::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 8px;
+  }
+  .sheet-content::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--surface);
+    border-radius: 8px;
+  }
+  .sheet-content::-webkit-scrollbar-button {
+    display: none;
+  }
 }
 .sheet-content > p,
 .sheet-content > h3 {
@@ -933,6 +967,22 @@ details p {
   padding: 16px;
   background: var(--accent-soft);
   border-radius: 13px;
+}
+.account-summary > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.account-summary strong {
+  color: var(--accent);
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.account-actions > .button {
+  flex: 1;
 }
 .methods {
   padding: 0;

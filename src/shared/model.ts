@@ -91,6 +91,11 @@ export const starters: Entity[] = [
     kind: "category",
     value: { name: "Accommodation", color: "purple", builtIn: "accommodation" },
   },
+  {
+    id: "mushrooms",
+    kind: "category",
+    value: { name: "Mushrooms", color: "amber", builtIn: "mushrooms" },
+  },
   { id: "other", kind: "category", value: { name: "Other", color: "slate", builtIn: "other" } },
 ];
 export function mapURL(provider: string, p: Pick<Place, "latitude" | "longitude" | "name">) {

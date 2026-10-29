@@ -67,6 +67,7 @@ export const en = {
   parking: "Parking",
   food: "Food & drink",
   outdoors: "Outdoors",
+  mushrooms: "Mushrooms",
   accommodation: "Accommodation",
   other: "Other",
   green: "Forest",
@@ -104,6 +105,12 @@ export const en = {
   pending: "Changes waiting to sync",
   actionRequired: "Sync needs attention",
   account: "Account & sync",
+  signedIn: "Signed in",
+  notSignedIn: "Not signed in",
+  accountSyncIntro:
+    "Your places sync automatically when you're online. Use Sync now to retry or check for changes.",
+  linkedMethodsIntro: "You can sign in with any linked method. Adding another method is optional.",
+  linkChatGPT: "Link ChatGPT",
   accountIntro:
     "Your places work without an account. Sign in to back them up and use them on your phone and PC.",
   continueGoogle: "Continue with Google",
@@ -112,10 +119,10 @@ export const en = {
   sendCode: "Email a sign-in code",
   code: "Six-digit code",
   verify: "Sign in",
-  codeSent: "Check your email for a sign-in code. It expires in five minutes.",
+  codeSent: "Enter the six-digit code from your email below. It expires in five minutes.",
   signOut: "Sign out",
   signOutNotice:
-    "Your account library stays separate on this device. Your guest library will reopen.",
+    "Signing out reopens your separate guest library. Your cloud places stay in your account.",
   linkedMethods: "Sign-in methods",
   linkGoogle: "Link Google",
   linkEmail: "Link email",
@@ -249,6 +256,7 @@ export const sv: Record<Message, string> = {
   parking: "Parkering",
   food: "Mat och dryck",
   outdoors: "Friluftsliv",
+  mushrooms: "Svampar",
   accommodation: "Boende",
   other: "Övrigt",
   green: "Skog",
@@ -289,6 +297,13 @@ export const sv: Record<Message, string> = {
   pending: "Ändringar väntar på synkronisering",
   actionRequired: "Synkroniseringen behöver din hjälp",
   account: "Konto och synkronisering",
+  signedIn: "Inloggad",
+  notSignedIn: "Inte inloggad",
+  accountSyncIntro:
+    "Dina platser synkroniseras automatiskt när du är online. Välj Synkronisera nu för att försöka igen eller hämta ändringar.",
+  linkedMethodsIntro:
+    "Du kan logga in med valfri kopplad metod. Det är valfritt att lägga till fler metoder.",
+  linkChatGPT: "Koppla ChatGPT",
   accountIntro:
     "Dina platser fungerar utan konto. Logga in för säkerhetskopiering och åtkomst på telefon och dator.",
   continueGoogle: "Fortsätt med Google",
@@ -297,9 +312,10 @@ export const sv: Record<Message, string> = {
   sendCode: "Skicka en inloggningskod",
   code: "Sexsiffrig kod",
   verify: "Logga in",
-  codeSent: "En inloggningskod har skickats till din e-post. Den gäller i fem minuter.",
+  codeSent: "Ange den sexsiffriga koden från e-postmeddelandet nedan. Den gäller i fem minuter.",
   signOut: "Logga ut",
-  signOutNotice: "Kontots bibliotek hålls separat på enheten. Ditt gästbibliotek öppnas igen.",
+  signOutNotice:
+    "När du loggar ut öppnas ditt separata gästbibliotek. Dina molnlagrade platser finns kvar på kontot.",
   linkedMethods: "Inloggningsmetoder",
   linkGoogle: "Koppla Google",
   linkEmail: "Koppla e-post",

@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 import { synchronize } from "../src/client/foundation/sync";
 import {
   acknowledge,
+  changeWorkspace,
   deleteEntity,
   exportBackup,
   importBackup,
@@ -38,6 +39,47 @@ const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity
   },
 });
 describe("durable library boundaries", () => {
+  test("adds the mushroom preset once without losing a queued edit or restoring a deletion", async () => {
+    const key = crypto.randomUUID();
+    await changeWorkspace(key, (w) => {
+      delete w.presetRevision;
+      w.reconciled = true;
+      w.records = w.records.filter((r) => r.id !== "mushrooms");
+      w.records.find((r) => r.id === "outdoors")!.value.name = "My woods";
+    });
+    await saveEntity(key, makePlace());
+    const flight = await prepareMutation(key);
+    const migrated = await readWorkspace(key);
+    expect(migrated.flight).toEqual(flight);
+    expect(migrated.records.find((r) => r.id === "outdoors")!.value.name).toBe("My woods");
+    expect(migrated.records.find((r) => r.id === "mushrooms")).toMatchObject({
+      dirty: true,
+      value: { name: "Mushrooms", builtIn: "mushrooms" },
+    });
+    await deleteEntity(key, "mushrooms");
+    expect((await readWorkspace(key)).records.filter((r) => r.id === "mushrooms")).toMatchObject([
+      { deleted: true },
+    ]);
+  });
+
+  test("defers the preset migration when categories are full", async () => {
+    const key = crypto.randomUUID();
+    await changeWorkspace(key, (w) => {
+      delete w.presetRevision;
+      w.records = Array.from({ length: 200 }, (_, i) => ({
+        id: i ? `custom-${i}` : "other",
+        kind: "category" as const,
+        value: { name: `Category ${i}`, color: "green" as const },
+        revision: 0,
+        deleted: false,
+        generation: 0,
+        dirty: false,
+      }));
+    });
+    expect((await readWorkspace(key)).records).toHaveLength(200);
+    await deleteEntity(key, "custom-1");
+    expect((await readWorkspace(key)).records.find((r) => r.id === "mushrooms")).toBeDefined();
+  });
   test("switching accounts stops the old upload loop without discarding queued edits", async () => {
     const key = crypto.randomUUID(),
       first = makePlace(),

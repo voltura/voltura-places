@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
-  Check,
   LocateFixed,
   MapPin,
   Settings2,
@@ -15,6 +14,7 @@ import {
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
+import { Toast } from "../ui/Toast";
 import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
@@ -52,7 +52,7 @@ import {
 function loadPreferences(): Preferences {
   const defaults: Preferences = {
     language: navigator.language.startsWith("sv") ? "sv" : "en",
-    theme: "light",
+    theme: "dark",
     provider: "",
     lastCategory: "other",
   };
@@ -123,6 +123,7 @@ export function App() {
                 food: "Food & drink",
                 outdoors: "Outdoors",
                 accommodation: "Accommodation",
+                mushrooms: "Mushrooms",
                 other: "Other",
               } as Record<string, string>
             )[r.value.builtIn]
@@ -572,18 +573,7 @@ export function App() {
           )}
         </div>
       </div>
-      {notice && (
-        <div
-          className={`toast ${notice.error ? "error-toast" : ""}`}
-          role={notice.error ? "alert" : "status"}
-        >
-          {notice.error ? <MapPin size={18} /> : <Check size={18} />}
-          <span>{notice.text}</span>
-          <button className="icon-button" aria-label={t("close")} onClick={() => setNotice(null)}>
-            <X size={17} />
-          </button>
-        </div>
-      )}
+      {notice && <Toast {...notice} closeLabel={t("close")} onClose={() => setNotice(null)} />}
       <input
         ref={fileRef}
         hidden
