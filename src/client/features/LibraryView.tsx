@@ -7,11 +7,8 @@ import {
   MapPin,
   Navigation,
   MoreHorizontal,
-  Trees,
-  Signal,
   ChevronRight,
 } from "lucide-react";
-import { TrailArt } from "../ui/Brand";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
@@ -66,11 +63,10 @@ export function LibraryView({
   prefs,
 }: Props) {
   return (
-    <main className="app-main">
+    <main className={`app-main${current ? "" : " library-only"}`}>
       <section className="library-pane">
         <div className="library-title">
           <div>
-            <span className="eyebrow">{t("tagline")}</span>
             <h1>
               {t("library")}
               <span className="count">{places.length}</span>
@@ -131,13 +127,8 @@ export function LibraryView({
         </nav>
         {!places.length ? (
           <div className="empty-state">
-            <TrailArt />
             <h2>{t("emptyTitle")}</h2>
             <p>{t("emptyBody")}</p>
-            <span className="offline-tip">
-              <Signal size={16} />
-              {t("emptyTip")}
-            </span>
             <button className="button quiet" onClick={() => setEditor({})}>
               {t("manual")}
               <ChevronRight size={17} />
@@ -230,19 +221,7 @@ export function LibraryView({
           </section>
         )}
       </section>
-      <aside className="detail-pane">
-        {current ? (
-          renderDetails(current)
-        ) : (
-          <div className="detail-welcome">
-            <div className="terrain-lines" />
-            <Trees size={34} />
-            <h2>{t("selectedTitle")}</h2>
-            <p>{t("selectedBody")}</p>
-            <span className="eyebrow">VOLTURA PLACES</span>
-          </div>
-        )}
-      </aside>
+      {current && <aside className="detail-pane">{renderDetails(current)}</aside>}
     </main>
   );
 }

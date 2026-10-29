@@ -352,12 +352,6 @@ hr {
   justify-content: space-between;
   margin-bottom: 28px;
 }
-.library-title .eyebrow {
-  display: block;
-  margin-bottom: 9px;
-  font-size: 10px;
-  letter-spacing: 0.11em;
-}
 .count {
   font-size: 13px;
   letter-spacing: 0;
@@ -476,14 +470,6 @@ hr {
   text-align: center;
   padding: 0 30px 32px;
 }
-.trail-art {
-  width: 100%;
-  max-width: 360px;
-  height: auto;
-  max-height: 220px;
-  color: var(--accent);
-  margin: 4px 0 8px;
-}
 .empty-state h2 {
   font-size: 26px;
   max-width: 310px;
@@ -493,14 +479,6 @@ hr {
   max-width: 350px;
   color: var(--muted);
   font-size: 14px;
-}
-.offline-tip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 24px;
 }
 .empty-state > .button {
   margin-top: 8px;
@@ -606,56 +584,6 @@ hr {
   min-height: 525px;
   margin-top: 2px;
   overflow: hidden;
-}
-.detail-welcome {
-  position: relative;
-  min-height: 525px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 45px;
-  color: var(--accent);
-}
-.detail-welcome > svg {
-  margin-bottom: 25px;
-  stroke-width: 1.4;
-}
-.detail-welcome h2 {
-  color: var(--text);
-  font-size: 30px;
-  max-width: 275px;
-  line-height: 1.2;
-  margin-bottom: 18px;
-}
-.detail-welcome p {
-  font-size: 14px;
-  color: var(--muted);
-  max-width: 270px;
-}
-.detail-welcome > .eyebrow {
-  font-size: 9px;
-  letter-spacing: 0.19em;
-  position: absolute;
-  bottom: 36px;
-}
-.terrain-lines {
-  position: absolute;
-  inset: -130px -170px auto auto;
-  width: 350px;
-  height: 350px;
-  border: 1px solid var(--border);
-  border-radius: 45%;
-  box-shadow:
-    0 0 0 22px var(--surface),
-    0 0 0 23px var(--border),
-    0 0 0 46px var(--surface),
-    0 0 0 47px var(--border),
-    0 0 0 70px var(--surface),
-    0 0 0 71px var(--border);
-  transform: rotate(-25deg);
-  pointer-events: none;
-  opacity: 0.7;
 }
 .details-content {
   display: flex;
@@ -1167,14 +1095,8 @@ details p {
   .detail-pane {
     min-height: 580px;
   }
-  .detail-welcome {
-    min-height: 580px;
-  }
   .empty-state {
     padding-top: 22px;
-  }
-  .trail-art {
-    max-height: 245px;
   }
 }
 @media (max-width: 900px) {
@@ -1185,12 +1107,6 @@ details p {
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 28px;
     padding: 34px 24px 140px;
-  }
-  .detail-welcome {
-    padding: 30px;
-  }
-  .detail-welcome h2 {
-    font-size: 25px;
   }
   .details-content {
     padding: 24px;
@@ -1259,11 +1175,6 @@ details p {
   .library-title {
     margin-bottom: 24px;
   }
-  .library-title .eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.1em;
-    margin-bottom: 9px;
-  }
   h1 {
     font-size: 32px;
   }
@@ -1307,11 +1218,6 @@ details p {
   .empty-state {
     padding: 4px 12px 12px;
   }
-  .trail-art {
-    max-height: 190px;
-    max-width: 330px;
-    margin: 0 0 3px;
-  }
   .empty-state h2 {
     font-size: 26px;
     max-width: 270px;
@@ -1320,10 +1226,6 @@ details p {
   .empty-state > p {
     font-size: 14px;
     max-width: 300px;
-  }
-  .offline-tip {
-    font-size: 11px;
-    margin-top: 23px;
   }
   .empty-state > .button {
     font-size: 12px;
@@ -1452,9 +1354,6 @@ details p {
   .empty-state h2 {
     font-size: 24px;
   }
-  .library-title .eyebrow {
-    letter-spacing: 0.03em;
-  }
   .settings-tabs button {
     padding: 8px;
   }
@@ -1527,4 +1426,9 @@ details p {
   display: block;
   font-weight: normal;
   margin-top: 0.4rem;
+}
+
+.app-main.library-only {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 840px;
 }

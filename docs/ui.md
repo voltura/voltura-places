@@ -6,6 +6,8 @@ Save here stays in a safe-area bottom dock. Tap requests fresh high-accuracy GPS
 
 Cards expose name/category/date and Open maps. Search/category/sort use ordinary controls and scrolling. Desktop adds a details pane; mobile uses a sheet. Edit/share/delete are secondary. Destructive actions require confirmation. Core flows do not depend on gestures/hover/animation/map canvas.
 
+Keep the application functional and quiet: no slogans, decorative empty-library illustration, exploration copy, or unselected details welcome panel. An empty library gives one short Save here instruction. Show Works offline once in the save dock. Desktop uses a centred library until a selected place needs the details column. Product promotion belongs on the separate promotional site.
+
 First map opening asks for a provider and remembers it. OS/browser handlers control native-app opening. Sharing presents the irrevocable snapshot disclosure before share/copy. Settings separates preferences, categories, backups and accounts. Reconciliation/conflicts are explicit decisions. Status distinguishes local saving, pending operations, successful sync and failure.
 
 Modal sheets keep their header/close button visible and scroll only their inner content. Scrollbars stay inside the rounded panel, follow the theme, and do not scroll the background page. Normal page scrolling resumes when every sheet is closed.

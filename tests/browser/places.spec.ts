@@ -1,4 +1,19 @@
 import { test, expect } from "@playwright/test";
+test("desktop stays focused on the library and opens details only for a selected place", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "No saved places", exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary")).toHaveCount(0);
+  await expect(page.getByText("Works offline", { exact: true })).toHaveCount(1);
+  await expect(page.locator(".detail-welcome, .trail-art, .library-title .eyebrow")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Desktop trailhead");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByRole("complementary")).toContainText("Desktop trailhead");
+});
 test("optional accuracy review refines GPS and commits only the confirmed fix", async ({
   page,
 }) => {

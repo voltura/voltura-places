@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Check } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { getDraft, setDraft } from "../foundation/library";
 import { placeSchema, type Entity, type LocalRecord, type Place } from "../../shared/model";
@@ -143,12 +143,6 @@ export function Editor({
         onClose={dismiss}
         closeLabel={t("close")}
       >
-        {fresh && (
-          <p className="success-note">
-            <Check size={18} />
-            {t("renameHint")}
-          </p>
-        )}
         {updateReady && (
           <div className="notice stack">
             <strong>{t("updateReady")}</strong>
