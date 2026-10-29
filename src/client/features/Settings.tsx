@@ -25,6 +25,7 @@ export function Settings({
   account,
   onAccount,
   onSignOut,
+  onSync,
   onDeleteAccount,
   onRemoveDevice,
   initial = "preferences",
@@ -42,6 +43,7 @@ export function Settings({
   account: AccountState;
   onAccount: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  onSync: () => void;
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
   initial?: string;
@@ -202,6 +204,7 @@ export function Settings({
           t={t}
           onRefresh={onAccount}
           onSignOut={onSignOut}
+          onSync={onSync}
           onDelete={onDeleteAccount}
           onRemoveDevice={onRemoveDevice}
         />

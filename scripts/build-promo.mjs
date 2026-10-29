@@ -1,13 +1,24 @@
-import { readFile, writeFile, mkdir, cp, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdir, cp, rm, lstat, realpath } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 const content = JSON.parse(await readFile("site/content.json", "utf8"));
 const output = resolve(".artifacts/promo");
+await mkdir(resolve(".artifacts"), { recursive: true });
 if (
   relative(process.cwd(), output) !== ".artifacts/promo" &&
   relative(process.cwd(), output) !== ".artifacts\\promo"
 )
   throw new Error("Unsafe promo build directory");
+if (
+  (await lstat(resolve(".artifacts"))).isSymbolicLink() ||
+  (await realpath(resolve(".artifacts"))) !== resolve(".artifacts")
+)
+  throw new Error("Linked artifact directory");
+try {
+  if ((await lstat(output)).isSymbolicLink()) throw new Error("Linked promo output");
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
 await rm(output, { recursive: true, force: true });
 const css = await readFile("site/site.css"),
   hash = createHash("sha256").update(css).digest("hex").slice(0, 16);
@@ -17,9 +28,12 @@ await writeFile(`.artifacts/promo/assets/site.${hash}.css`, css);
 await cp("public/icon.svg", ".artifacts/promo/assets/icon.svg");
 for (const [language, c] of Object.entries(content)) {
   const prefix = language === "sv" ? "../" : "./";
+  const screenshot = await readFile(`site/assets/app-mobile${language === "sv" ? "-sv" : ""}.png`);
+  const screenshotName = `app-${language}.${createHash("sha256").update(screenshot).digest("hex").slice(0, 16)}.png`;
+  await writeFile(`.artifacts/promo/assets/${screenshotName}`, screenshot);
   const html = `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="${c.description}"><meta name="theme-color" content="#126a50"><title>Voltura Places — ${c.title}</title><link rel="canonical" href="https://voltura.se/places/${language === "sv" ? "sv/" : ""}"><link rel="alternate" hreflang="en" href="https://voltura.se/places/"><link rel="alternate" hreflang="sv" href="https://voltura.se/places/sv/"><meta property="og:title" content="Voltura Places — ${c.title}"><meta property="og:description" content="${c.description}"><meta property="og:type" content="website"><link rel="icon" href="${prefix}assets/icon.svg"><link rel="stylesheet" href="${prefix}assets/site.${hash}.css"></head><body>
 <header><div class="container"><a class="brand" href="https://voltura.se/"><img src="${prefix}assets/icon.svg" alt="" width="39" height="39"><span>voltura <strong>places</strong></span></a><nav><a class="nav-about" href="#how">${c.about}</a><a class="language" href="${language === "sv" ? "../" : "sv/"}" lang="${language === "sv" ? "en" : "sv"}">${language === "sv" ? "English" : "Svenska"}</a><a href="https://places.voltura.se/">${c.open} ↗</a></nav></div></header>
-<main><section class="container hero"><div class="hero-copy"><div class="eyebrow">${c.eyebrow}</div><h1>${c.title}<br><span>${c.titleSecond}</span></h1><p>${c.description}</p><div class="cta"><a class="button" href="https://places.voltura.se/">${c.open} <span>↗</span></a><a class="link" href="https://github.com/voltura/voltura-places">${c.github}</a></div><p class="free">${c.free}</p></div><div class="hero-visual"><div class="terrain"></div><div class="phone" aria-label="${c.example}"><div class="phone-brand"><img src="${prefix}assets/icon.svg" alt="">voltura <strong>places</strong></div><span class="example">${c.example}</span><h3>${language === "sv" ? "Dina platser" : "Your places"}</h3><div class="phone-search">⌕ &nbsp; ${language === "sv" ? "Sök bland dina platser" : "Search your places"}</div>${[c.trailhead, c.clearing, c.parking].map((name, i) => `<div class="sample-card"><span class="sample-pin">⌖</span><div><strong>${name}</strong><small>${i === 2 ? (language === "sv" ? "Parkering" : "Parking") : language === "sv" ? "Friluftsliv" : "Outdoors"}</small><div class="sample-map">↗ &nbsp; ${c.map}</div></div></div>`).join("")}<div class="phone-save">⌖ &nbsp; ${c.saveHere}</div><div class="phone-status">● &nbsp; ${c.saved}</div></div></div></section>
+<main><section class="container hero"><div class="hero-copy"><div class="eyebrow">${c.eyebrow}</div><h1>${c.title}<br><span>${c.titleSecond}</span></h1><p>${c.description}</p><div class="cta"><a class="button" href="https://places.voltura.se/">${c.open} <span>↗</span></a><a class="link" href="https://github.com/voltura/voltura-places">${c.github}</a></div><p class="free">${c.free}</p></div><div class="hero-visual"><div class="terrain"></div><figure class="phone phone-screenshot"><img src="${prefix}assets/${screenshotName}" alt="Voltura Places — ${c.example}" width="390" height="844"><figcaption>${c.example}</figcaption></figure></div></section>
 <section id="how" class="container chapter"><div class="chapter-heading"><div class="eyebrow">VOLTURA PLACES</div><h2>${c.how}</h2></div><div class="steps">${c.steps.map(([n, title, text]) => `<article class="step"><span class="step-number">${n}</span><h3>${title}</h3><p>${text}</p></article>`).join("")}</div></section>
 <section class="container chapter"><div class="outdoor"><div><div class="eyebrow">OFFLINE FIRST</div><h2>${c.offlineTitle}</h2></div><p>${c.offlineText}</p></div></section>
 <section class="container chapter split"><div><h2>${c.installTitle}</h2><p>${c.installText}</p><div class="install-steps"><span>${c.ios}</span><span>${c.android}</span></div><div class="cta"><a class="button" href="https://places.voltura.se/">${c.open} ↗</a></div></div><div id="privacy"><h2>${c.privacyTitle}</h2><p>${c.privacyText}</p><details><summary>${c.privacy}</summary><p>${c.privacyDetail}</p></details></div></section>

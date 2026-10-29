@@ -7,6 +7,7 @@ export function AccountPanel({
   t,
   onRefresh,
   onSignOut,
+  onSync,
   onDelete,
   onRemoveDevice,
 }: {
@@ -14,6 +15,7 @@ export function AccountPanel({
   t: (k: Message) => string;
   onRefresh: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  onSync: () => void;
   onDelete: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
 }) {
@@ -166,6 +168,9 @@ export function AccountPanel({
       )}
       {state.account && (
         <>
+          <button className="button outline" onClick={onSync}>
+            {t("syncNow")}
+          </button>
           <hr />
           <p className="muted small">{t("signOutNotice")}</p>
           <button

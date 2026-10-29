@@ -17,7 +17,9 @@
     "publish:promo": "node scripts/publish-promo.mjs",
     "publish:promo:dry-run": "node scripts/publish-promo.mjs --dry-run",
     "format": "oxfmt .",
-    "format:check": "oxfmt --check ."
+    "format:check": "oxfmt --check .",
+    "test:auth": "node --test tests/auth-runtime.test.mjs",
+    "dev:promo": "node scripts/serve-promo.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.14",

@@ -24,6 +24,7 @@ export async function api<T>(
     method: method ?? (body === undefined ? "GET" : "POST"),
     credentials: "same-origin",
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
     headers: {
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       ...(account ? { "X-Places-Account": account } : {}),
@@ -55,7 +56,11 @@ export const fetchSnapshot = async (account: string) => {
   throw new Error("libraryLimit");
 };
 let running = false;
-export async function synchronize(account: string, onStatus: (s: string) => void) {
+export async function synchronize(
+  account: string,
+  onStatus: (s: string) => void,
+  isCurrent: () => boolean = () => true,
+) {
   if (running) return;
   const run = async () => {
     running = true;
@@ -68,12 +73,14 @@ export async function synchronize(account: string, onStatus: (s: string) => void
       onStatus("syncing");
       // Persist exact request bodies before network access. A lost response retries the same ID/body.
       for (let i = 0; i < 5200; i++) {
+        if (!isCurrent()) return;
         const flight = await prepareMutation(account);
         if (!flight) break;
         const response = await fetch("/api/v1/sync", {
           method: "POST",
           credentials: "same-origin",
           cache: "no-store",
+          signal: AbortSignal.timeout(20000),
           headers: { "Content-Type": "application/json", "X-Places-Account": account },
           body: JSON.stringify(flight.mutation),
         });
@@ -85,6 +92,7 @@ export async function synchronize(account: string, onStatus: (s: string) => void
         if (remote.id !== flight.mutation.entity.id) throw new Error("invalidResponse");
         await acknowledge(account, flight.mutation.mutationId, remote, response.status === 409);
       }
+      if (!isCurrent()) return;
       const snapshot = await fetchSnapshot(account);
       if (snapshot.accountId !== account) throw new Error("accountChanged");
       await mergeSnapshot(account, snapshot.records);

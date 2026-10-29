@@ -1,4 +1,48 @@
 import { test, expect } from "@playwright/test";
+test("GPS denial leaves the library intact and offers recovery", async ({ page }) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        getCurrentPosition: (_success: unknown, error: (e: { code: number }) => void) =>
+          error({ code: 1 }),
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Location access was denied");
+  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+});
+test("an unfinished manual draft reopens after reload", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add coordinates", exact: true }).first().click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Unfinished draft");
+  await page.waitForFunction(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const open = indexedDB.open("voltura-places");
+        open.onsuccess = () => {
+          const db = open.result;
+          const get = db.transaction("drafts").objectStore("drafts").get("guest");
+          get.onsuccess = () => {
+            resolve(get.result?.name === "Unfinished draft");
+            db.close();
+          };
+          get.onerror = () => {
+            resolve(false);
+            db.close();
+          };
+        };
+        open.onerror = () => resolve(false);
+      }),
+  );
+  await page.reload();
+  await expect(page.getByRole("dialog", { name: "Add coordinates" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
+    "Unfinished draft",
+  );
+});
 test("GPS quick save commits before naming and survives offline reload", async ({
   page,
   context,

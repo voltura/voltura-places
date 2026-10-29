@@ -10,6 +10,8 @@ Places contain name, categoryId, WGS84 latitude/longitude, nullable accuracy in 
 
 GET /api/v1/sync returns `{version:1,accountId,records}`. POST accepts `{version:1,mutationId,baseRevision,deleted,entity}` and returns the accepted record or 409/current record. Require a Places session and matching X-Places-Account header. Writes also require the canonical Origin.
 
+Reads use 250-record pages with `nextCursor`; pass it as `?after=` for the next page. Pull up to 50,000 records including deletion history, so tombstones do not consume the live-place capacity. A boundary failure preserves the local workspace.
+
 Persist exact in-flight bodies before network access. D1 atomically commits CAS record changes and body-hashed receipts. Same-ID/same-body retries return receipts; changed bodies are rejected. Tombstones/receipts persist until account deletion. Device clocks never select winners.
 
 Independent record edits merge. Same-record conflicts retain both versions. Keep device rebases on the cloud revision; Keep cloud accepts it; Keep both accepts cloud and creates a fresh device identity. Guest/account workspaces and pending writes remain partitioned. First sign-in explicitly reconciles guest merge or cloud-only.

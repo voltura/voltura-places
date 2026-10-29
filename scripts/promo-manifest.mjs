@@ -5,7 +5,7 @@ export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex"
 export function assertDestination(path) {
   if (
     typeof path !== "string" ||
-    !/^places\/(?:index\.html|sv\/index\.html|assets\/(?:site\.[a-f0-9]{16}\.css|icon\.svg)|mail\/relay\.php)$/.test(
+    !/^places\/(?:index\.html|sv\/index\.html|assets\/(?:site\.[a-f0-9]{16}\.css|app-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg)|mail\/relay\.php)$/.test(
       path,
     )
   )
@@ -30,8 +30,8 @@ export async function promoManifest() {
     }
   }
   await collect();
-  if (entries.length !== 4)
-    throw new Error("Expected two promo pages, one stylesheet and one icon.");
+  if (entries.length !== 6)
+    throw new Error("Expected two promo pages, two screenshots, one stylesheet and one icon.");
   return entries.sort(
     (a, b) =>
       Number(a.path.endsWith("index.html")) - Number(b.path.endsWith("index.html")) ||

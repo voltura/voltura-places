@@ -495,3 +495,24 @@ section[id] {
     scroll-behavior: auto !important;
   }
 }
+
+.phone-screenshot {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  background: #f5f7f4;
+}
+.phone-screenshot > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.phone-screenshot figcaption {
+  font-size: 9px;
+  text-align: center;
+  color: #5c6c60;
+  background: #fff;
+  padding: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

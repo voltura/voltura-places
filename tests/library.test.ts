@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { synchronize } from "../src/client/foundation/sync";
 import {
   acknowledge,
   deleteEntity,
@@ -37,6 +38,54 @@ const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity
   },
 });
 describe("durable library boundaries", () => {
+  test("switching accounts stops the old upload loop without discarding queued edits", async () => {
+    const key = crypto.randomUUID(),
+      first = makePlace(),
+      second = makePlace();
+    await reconcileAccount(key, [], false);
+    await saveEntity(key, first);
+    await saveEntity(key, second);
+    let current = true;
+    const navigatorBefore = globalThis.navigator;
+    vi.stubGlobal("navigator", { onLine: true });
+    const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      current = false;
+      return Response.json({
+        accountId: key,
+        record: { ...body.entity, revision: 1, deleted: false },
+      });
+    });
+    try {
+      await synchronize(
+        key,
+        () => {},
+        () => current,
+      );
+      expect(network).toHaveBeenCalledTimes(1);
+      const w = await readWorkspace(key);
+      expect(w.records.find((r) => r.id === first.id)?.dirty).toBe(false);
+      expect(w.records.find((r) => r.id === second.id)?.dirty).toBe(true);
+    } finally {
+      network.mockRestore();
+      vi.stubGlobal("navigator", navigatorBefore);
+    }
+  });
+  test("quota failure rolls back and does not claim a durable save", async () => {
+    const key = crypto.randomUUID();
+    const existing = makePlace();
+    await saveEntity(key, existing);
+    const before = await readWorkspace(key);
+    const put = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementationOnce(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    try {
+      await expect(saveEntity(key, makePlace())).rejects.toThrow();
+    } finally {
+      put.mockRestore();
+    }
+    expect(await readWorkspace(key)).toEqual(before);
+  });
   test("save survives reload, and a flight survives response loss without changing its ID/body", async () => {
     const key = crypto.randomUUID();
     await reconcileAccount(key, [], false);

@@ -9,6 +9,7 @@ const protectedPaths = [
   "robots.txt",
   "web.config",
   "air/index.html",
+  "air/index.php",
   "air/app/index.html",
   "a/index.php",
   "s/index.php",
@@ -18,8 +19,10 @@ const routes = ["/air/", "/air/app/", "/a/", "/s/", "/d/", "/fortnox/"];
 const wait = () => new Promise((r) => setTimeout(r, 1100));
 let client;
 try {
-  const args = process.argv.slice(2),
-    manifest = await promoManifest();
+  const args = process.argv.slice(2);
+  const rollbackId = args[0] === "--rollback" ? args[1] : null;
+  if (!rollbackId) await import("./build-promo.mjs");
+  const manifest = rollbackId ? [] : await promoManifest();
   if (args[0] === "--dry-run") {
     console.log(
       JSON.stringify(
@@ -34,7 +37,6 @@ try {
       ),
     );
   } else {
-    const rollbackId = args[0] === "--rollback" ? args[1] : null;
     if (args.length && !rollbackId)
       throw new Error("Usage: publish:promo [--dry-run | --rollback <backup-id>]");
     const git = (a) => execFileSync("git", a, { encoding: "utf8", windowsHide: true }).trim();
@@ -81,14 +83,20 @@ try {
       if (!/^[0-9TZ-]+$/.test(rollbackId)) throw new Error("Invalid backup ID");
       const folder = resolve(".artifacts/backups", rollbackId),
         record = JSON.parse(await readFile(`${folder}/journal.json`, "utf8"));
+      const restore = [];
       for (const item of record.files.filter((f) => f.attempted).reverse()) {
         await safe(item.path);
         const current = (await client.exists(item.path)) ? await client.get(item.path) : null;
         if (current && digest(current) !== item.sha256 && digest(current) !== item.previousHash)
           throw new Error("Rollback would overwrite unrelated content.");
-        if (item.previous) {
-          await atomic(item.path, Buffer.from(item.previous, "base64"));
-        } else if (current) await client.delete(item.path);
+        const bytes = item.previous ? Buffer.from(item.previous, "base64") : null;
+        if (bytes && digest(bytes) !== item.previousHash)
+          throw new Error("Backup hash mismatch; no rollback files written.");
+        restore.push({ path: item.path, bytes, exists: Boolean(current) });
+      }
+      for (const item of restore) {
+        if (item.bytes) await atomic(item.path, item.bytes);
+        else if (item.exists) await client.delete(item.path);
       }
       if (JSON.stringify(await baseline()) !== JSON.stringify(record.protectedBefore))
         throw new Error("Protected file mismatch after rollback");

@@ -21,6 +21,7 @@ npm run check
 npm test
 npm run build
 npm run test:api
+npm run test:auth
 npm run test:browser
 ```
 

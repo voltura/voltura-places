@@ -41,9 +41,11 @@ try {
     // Run the same checks used by CI, then build the immutable artifact.
     for (const args of [
       ["node_modules/typescript/bin/tsc", "--noEmit"],
+      ["scripts/check-docs.mjs"],
       ["node_modules/vitest/vitest.mjs", "run"],
       ["scripts/build.mjs"],
       ["scripts/test-api.mjs"],
+      ["--test", "tests/auth-runtime.test.mjs"],
     ])
       await run(process.execPath, args);
     git(["push", "origin", "main"]);

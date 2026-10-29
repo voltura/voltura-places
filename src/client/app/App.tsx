@@ -1,20 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDownUp,
   ArrowUpRight,
   Check,
-  ChevronRight,
-  Cloud,
   LocateFixed,
   MapPin,
-  MoreHorizontal,
-  Navigation,
-  Plus,
-  Search,
   Settings2,
   Share2,
-  Signal,
-  Trees,
   X,
   Pencil,
   Trash2,
@@ -24,11 +15,14 @@ import {
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
-import { Brand, TrailArt } from "../ui/Brand";
+import { Brand } from "../ui/Brand";
+import { PlaceDetails } from "../features/PlaceDetails";
+import { LibraryView } from "../features/LibraryView";
+import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
 import { messages, type Message } from "../foundation/i18n";
-import { api, fetchSnapshot, synchronize, type AccountState } from "../foundation/sync";
+import { api, synchronize, type AccountState } from "../foundation/sync";
 import { cachedAccount, currentAccount, signOutLocally } from "../foundation/account";
 import {
   channel,
@@ -36,9 +30,7 @@ import {
   exportBackup,
   getDraft,
   flushDrafts,
-  importBackup,
   readWorkspace,
-  reconcileAccount,
   removeWorkspace,
   resolveConflict,
   saveEntity,
@@ -101,8 +93,7 @@ export function App() {
       name: string;
       color: string;
     } | null>(null),
-    [backup, setBackup] = useState<Backup | null>(null),
-    [replace, setReplace] = useState(false);
+    [backup, setBackup] = useState<Backup | null>(null);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [locating, setLocating] = useState(false),
     [status, setStatus] = useState("localOnly"),
@@ -110,7 +101,6 @@ export function App() {
   const [shared, setShared] = useState(() => parseShare(location.hash)),
     [sharePlace, setSharePlace] = useState<PlaceRecord | null>(null);
   const [reconciling, setReconciling] = useState(false),
-    [busy, setBusy] = useState(false),
     [menu, setMenu] = useState<PlaceRecord | null>(null),
     [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
   const capture = useRef(0),
@@ -167,7 +157,10 @@ export function App() {
     const key = scopeRef.current;
     try {
       const w = await readWorkspace(key);
-      if (scopeRef.current === key) setWorkspace(w);
+      if (scopeRef.current === key) {
+        setWorkspace(w);
+        setReconciling(key !== "guest" && !w.reconciled);
+      }
     } catch {
       setNotice({ text: t("storageFailure"), error: true });
     }
@@ -175,9 +168,13 @@ export function App() {
   const sync = useCallback(() => {
     const key = scopeRef.current;
     if (key !== "guest")
-      void synchronize(key, (s) => {
-        if (scopeRef.current === key) setStatus(s);
-      }).then(refresh);
+      void synchronize(
+        key,
+        (s) => {
+          if (scopeRef.current === key) setStatus(s);
+        },
+        () => scopeRef.current === key,
+      ).then(refresh);
   }, [refresh]);
   const refreshAccount = useCallback(async () => {
     const next = await currentAccount();
@@ -428,20 +425,20 @@ export function App() {
         return;
       }
       setBackup(validateBackup(JSON.parse(await file.text())));
-      setReplace(false);
       setSettings(null);
     } catch {
       notify("invalidImport", true);
     }
   }
   async function signOut() {
-    await signOutLocally(account.account?.id);
+    const signingOutId = account.account?.id;
     setAccount(defaults);
     scopeRef.current = "guest";
     setScope("guest");
     setSelected(null);
     setEditor(null);
     setReconciling(false);
+    void signOutLocally(signingOutId);
     await refresh();
     setStatus("localOnly");
   }
@@ -459,55 +456,20 @@ export function App() {
     const c = categoryFor(id);
     return c?.kind === "category" ? c.value.color : "slate";
   };
-  const Details = ({ record }: { record: PlaceRecord }) => (
-    <div className="details-content">
-      <div className={`detail-marker ${categoryColor(record.value.categoryId)}`}>
-        <MapPin size={38} />
-      </div>
-      <span className="eyebrow">
-        {categoryFor(record.value.categoryId)
-          ? categoryLabel(categoryFor(record.value.categoryId)!)
-          : t("other")}
-      </span>
-      <h2>{record.value.name}</h2>
-      <p className="coordinate-display">
-        {record.value.latitude.toFixed(6)}, {record.value.longitude.toFixed(6)}
-      </p>
-      <dl>
-        <div>
-          <dt>{t("captured")}</dt>
-          <dd>{formatDate(record.value.capturedAt)}</dd>
-        </div>
-        {record.value.accuracy !== null && (
-          <div>
-            <dt>{t("accuracy")}</dt>
-            <dd>±{Math.round(record.value.accuracy)} m</dd>
-          </div>
-        )}
-      </dl>
-      <button className="button primary" onClick={() => openMaps(record.value)}>
-        <Navigation size={20} />
-        {t("openMaps")}
-        <ArrowUpRight size={18} />
-      </button>
-      <div className="action-pair">
-        <button className="button outline" onClick={() => setSharePlace(record)}>
-          <Share2 size={18} />
-          {t("share")}
-        </button>
-        <button className="button outline" onClick={() => setEditor({ entity: record })}>
-          <Pencil size={18} />
-          {t("edit")}
-        </button>
-      </div>
-      <button
-        className="button quiet"
-        onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
-      >
-        <Copy size={17} />
-        {t("copyCoordinates")}
-      </button>
-    </div>
+  const renderDetails = (record: PlaceRecord) => (
+    <PlaceDetails
+      record={record}
+      categoryColor={categoryColor}
+      categoryFor={categoryFor}
+      categoryLabel={categoryLabel}
+      t={t}
+      formatDate={formatDate}
+      openMaps={openMaps}
+      chooseMaps={setMaps}
+      setSharePlace={setSharePlace}
+      setEditor={setEditor}
+      copy={copy}
+    />
   );
   return (
     <>
@@ -539,189 +501,39 @@ export function App() {
           </div>
         </div>
       </header>
-      <main className="app-main">
-        <section className="library-pane">
-          <div className="library-title">
-            <div>
-              <span className="eyebrow">{t("tagline")}</span>
-              <h1>
-                {t("library")}
-                <span className="count">{places.length}</span>
-              </h1>
-            </div>
-            <button
-              className="icon-button add-manual"
-              onClick={() => setEditor({})}
-              aria-label={t("manual")}
-              title={t("manual")}
-            >
-              <Plus />
-            </button>
-          </div>
-          <div className="search-row">
-            <div className="search-field">
-              <Search size={20} />
-              <input
-                aria-label={t("search")}
-                placeholder={t("search")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  className="icon-button"
-                  aria-label={t("clearSearch")}
-                  onClick={() => setSearch("")}
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-            <label className="sort-button">
-              <ArrowDownUp size={20} />
-              <select aria-label={t("sort")} value={sort} onChange={(e) => setSort(e.target.value)}>
-                <option value="newest">{t("newest")}</option>
-                <option value="name">{t("byName")}</option>
-              </select>
-            </label>
-          </div>
-          <nav className="category-chips" aria-label={t("categories")}>
-            <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
-              {t("all")}
-            </button>
-            {categories
-              .filter((c) => places.some((p) => p.value.categoryId === c.id))
-              .map((c) => (
-                <button
-                  key={c.id}
-                  className={filter === c.id ? "active" : ""}
-                  onClick={() => setFilter(c.id)}
-                >
-                  <span className={`category-dot ${c.kind === "category" ? c.value.color : ""}`} />
-                  {categoryLabel(c)}
-                </button>
-              ))}
-          </nav>
-          {!places.length ? (
-            <div className="empty-state">
-              <TrailArt />
-              <h2>{t("emptyTitle")}</h2>
-              <p>{t("emptyBody")}</p>
-              <span className="offline-tip">
-                <Signal size={16} />
-                {t("emptyTip")}
-              </span>
-              <button className="button quiet" onClick={() => setEditor({})}>
-                {t("manual")}
-                <ChevronRight size={17} />
-              </button>
-            </div>
-          ) : !filtered.length ? (
-            <div className="no-results">
-              <Search size={30} />
-              <h2>{t("noResults")}</h2>
-              <button
-                className="button quiet"
-                onClick={() => {
-                  setSearch("");
-                  setFilter("all");
-                }}
-              >
-                {t("clearSearch")}
-              </button>
-            </div>
-          ) : (
-            <div className="place-list">
-              {filtered.map((p) => (
-                <article key={p.id} className={`place-card ${selected === p.id ? "selected" : ""}`}>
-                  <button className="card-main" onClick={() => setSelected(p.id)}>
-                    <span className={`place-marker ${categoryColor(p.value.categoryId)}`}>
-                      <MapPin size={24} />
-                    </span>
-                    <span className="card-text">
-                      <strong>{p.value.name}</strong>
-                      <span>
-                        {categoryFor(p.value.categoryId)
-                          ? categoryLabel(categoryFor(p.value.categoryId)!)
-                          : t("other")}
-                        <span className="middle-dot">·</span>
-                        {new Intl.DateTimeFormat(prefs.language, {
-                          day: "numeric",
-                          month: "short",
-                        }).format(new Date(p.value.capturedAt))}
-                      </span>
-                    </span>
-                  </button>
-                  <div className="card-actions">
-                    <button className="card-maps" onClick={() => openMaps(p.value)}>
-                      <Navigation size={17} />
-                      {t("openMaps")}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`${t("edit")}: ${p.value.name}`}
-                      onClick={() => setMenu(p)}
-                    >
-                      <MoreHorizontal size={21} />
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-          {conflicts.length > 0 && (
-            <section className="conflict-notice">
-              <h2>{t("conflicts")}</h2>
-              <p>{t("conflictBody")}</p>
-              {conflicts.map((r) => (
-                <div className="conflict" key={r.id}>
-                  <strong>{r.kind === "place" ? r.value.name : categoryLabel(r)}</strong>
-                  <p>
-                    {t("device")}: {r.deleted ? t("deleted") : r.value.name}
-                    <br />
-                    {t("cloud")}: {r.conflict?.deleted ? t("deleted") : r.conflict?.value.name}
-                  </p>
-                  <div className="stack">
-                    {(["device", "cloud", "both"] as const).map((choice) => (
-                      <button
-                        key={choice}
-                        className="button outline"
-                        onClick={() =>
-                          void resolveConflict(scope, r.id, choice).then(() => {
-                            void refresh();
-                            sync();
-                          })
-                        }
-                      >
-                        {t(
-                          choice === "device"
-                            ? "keepDevice"
-                            : choice === "cloud"
-                              ? "keepCloud"
-                              : "keepBoth",
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-        </section>
-        <aside className="detail-pane">
-          {current ? (
-            <Details record={current} />
-          ) : (
-            <div className="detail-welcome">
-              <div className="terrain-lines" />
-              <Trees size={34} />
-              <h2>{t("selectedTitle")}</h2>
-              <p>{t("selectedBody")}</p>
-              <span className="eyebrow">VOLTURA PLACES</span>
-            </div>
-          )}
-        </aside>
-      </main>
+      <LibraryView
+        {...{
+          t,
+          places,
+          filtered,
+          categories,
+          filter,
+          setFilter,
+          search,
+          setSearch,
+          sort,
+          setSort,
+          selected,
+          setSelected,
+          setEditor,
+          categoryLabel,
+          categoryFor,
+          categoryColor,
+          openMaps,
+          setMenu,
+          conflicts,
+          current,
+          renderDetails,
+          prefs,
+        }}
+        onResolve={(id, choice) =>
+          void resolveConflict(scope, id, choice).then(() => {
+            void refresh();
+            sync();
+          })
+        }
+      />
+
       <div className="save-dock">
         <div className="dock-inner">
           <div className="dock-hint">
@@ -784,6 +596,12 @@ export function App() {
           onClose={() => setEditor(null)}
           onSave={save}
           workspace={scope}
+          updateReady={update}
+          onUpdate={() =>
+            void flushDrafts()
+              .then(() => swUpdate.current?.(true))
+              .catch(() => notify("storageFailure", true))
+          }
         />
       )}
       {settings && (
@@ -816,6 +634,7 @@ export function App() {
           account={account}
           onAccount={refreshAccount}
           onSignOut={signOut}
+          onSync={sync}
           onDeleteAccount={deleteAccount}
           onRemoveDevice={async () => {
             const id = account.account!.id;
@@ -971,90 +790,32 @@ export function App() {
         </Sheet>
       )}
       {backup && (
-        <Sheet title={t("importTitle")} onClose={() => setBackup(null)} closeLabel={t("close")}>
-          <div className="stack">
-            <p>
-              {backup.places.length} {t("places")} · {backup.categories.length}{" "}
-              {t("categories").toLowerCase()}
-            </p>
-            <p className="muted">{t("importDescription")}</p>
-            <label className="radio-card">
-              <input type="radio" checked={!replace} onChange={() => setReplace(false)} />
-              <span>
-                <strong>{t("merge")}</strong>
-                <small>{t("mergeBody")}</small>
-              </span>
-            </label>
-            <label className="radio-card">
-              <input type="radio" checked={replace} onChange={() => setReplace(true)} />
-              <span>
-                <strong>{t("replace")}</strong>
-                <small>{t("replaceBody")}</small>
-              </span>
-            </label>
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={() => {
-                if (replace && !confirm(t("confirmReplace"))) return;
-                setBusy(true);
-                void importBackup(scope, backup, replace)
-                  .then(() => {
-                    setBackup(null);
-                    notify("imported");
-                    void refresh();
-                    sync();
-                  })
-                  .catch((error) =>
-                    notify(
-                      error instanceof Error && error.message === "syncBusy"
-                        ? "syncBusy"
-                        : "storageFailure",
-                      true,
-                    ),
-                  )
-                  .finally(() => setBusy(false));
-              }}
-            >
-              {t(busy ? "working" : "import")}
-            </button>
-          </div>
-        </Sheet>
+        <ImportDialog
+          backup={backup}
+          workspace={scope}
+          t={t}
+          onClose={() => setBackup(null)}
+          onComplete={() => {
+            setBackup(null);
+            notify("imported");
+            void refresh();
+            sync();
+          }}
+        />
       )}
       {reconciling && account.account && (
-        <Sheet
-          title={t("reconcileTitle")}
+        <ReconcileDialog
+          accountId={account.account.id}
+          t={t}
           onClose={() => {
             void signOut();
           }}
-          closeLabel={t("close")}
-        >
-          <div className="stack">
-            <p className="muted">{t("reconcileBody")}</p>
-            {[true, false].map((merge) => (
-              <button
-                key={String(merge)}
-                className={`button ${merge ? "primary" : "outline"}`}
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  const id = account.account!.id;
-                  void fetchSnapshot(id)
-                    .then((snapshot) => reconcileAccount(id, snapshot.records, merge))
-                    .then(() => {
-                      setReconciling(false);
-                      void refresh();
-                      sync();
-                    })
-                    .catch(() => notify("serviceUnavailable", true))
-                    .finally(() => setBusy(false));
-                }}
-              >
-                {t(merge ? "mergeGuest" : "cloudOnly")}
-              </button>
-            ))}
-          </div>
-        </Sheet>
+          onComplete={() => {
+            setReconciling(false);
+            void refresh();
+            sync();
+          }}
+        />
       )}
       {menu && (
         <Sheet title={menu.value.name} onClose={() => setMenu(null)} closeLabel={t("close")}>
@@ -1088,7 +849,7 @@ export function App() {
       )}
       {current && mobile && !editor && !menu && !sharePlace && !settings && !maps && (
         <Sheet title={current.value.name} onClose={() => setSelected(null)} closeLabel={t("close")}>
-          <Details record={current} />
+          {renderDetails(current)}
         </Sheet>
       )}
       {update && (

@@ -1166,7 +1166,7 @@ details p {
     height: 8px;
   }
   .header-actions > .icon-button {
-    min-width: 44px;
+    min-width: 48px;
     padding: 10px;
   }
   .app-main {
@@ -1328,8 +1328,8 @@ details p {
     max-width: 280px;
   }
   .toast .icon-button {
-    min-width: 40px;
-    min-height: 44px;
+    min-width: 48px;
+    min-height: 48px;
   }
   .update-banner {
     bottom: calc(99px + env(safe-area-inset-bottom));

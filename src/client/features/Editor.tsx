@@ -22,6 +22,8 @@ export function Editor({
   workspace,
   fresh = false,
   draftId,
+  updateReady = false,
+  onUpdate,
 }: {
   entity?: Entity;
   categories: LocalRecord[];
@@ -32,6 +34,8 @@ export function Editor({
   workspace: string;
   fresh?: boolean;
   draftId?: string;
+  updateReady?: boolean;
+  onUpdate?: () => void;
 }) {
   const initial = entity?.kind === "place" ? entity.value : null;
   const [name, setName] = useState(initial?.name ?? ""),
@@ -110,6 +114,15 @@ export function Editor({
           <Check size={18} />
           {t("renameHint")}
         </p>
+      )}
+      {updateReady && (
+        <div className="notice stack">
+          <strong>{t("updateReady")}</strong>
+          <p>{t("updateHint")}</p>
+          <button type="button" className="button outline" onClick={onUpdate}>
+            {t("update")}
+          </button>
+        </div>
       )}
       <form
         onSubmit={(e) => {

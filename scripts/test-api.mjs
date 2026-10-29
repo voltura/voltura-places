@@ -175,6 +175,36 @@ try {
     "Account deletion cascades data",
   );
   check((await request("/api/v1/sync", a)).status === 401, "Deleted sessions cannot read data");
+  for (let start = 0; start < 251; start += 25) {
+    const batch = [];
+    for (let i = start; i < Math.min(start + 25, 251); i++)
+      batch.push(
+        db
+          .prepare(
+            "INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation) VALUES(?,?,?,?,1,0,?)",
+          )
+          .bind(
+            b.account,
+            `page-${String(i).padStart(4, "0")}`,
+            "place",
+            JSON.stringify(entity.value),
+            crypto.randomUUID(),
+          ),
+      );
+    await db.batch(batch);
+  }
+  const firstPage = await (await request("/api/v1/sync", b)).json();
+  check(
+    firstPage.records.length === 250 && !!firstPage.nextCursor,
+    "Sync reads are bounded and expose the next cursor",
+  );
+  const finalPage = await (
+    await request(`/api/v1/sync?after=${encodeURIComponent(firstPage.nextCursor)}`, b)
+  ).json();
+  check(
+    finalPage.records.length === 1 && finalPage.nextCursor === null,
+    "Paged reads preserve the final record",
+  );
   console.log(
     `Passed ${checks} real workerd/D1 authorization, CAS, retry and recovery checks. No production data or emails used.`,
   );

@@ -9,5 +9,6 @@ Each durable fact has one owner; update the owner and derived surfaces together.
 | [UI](ui.md)                     | Interaction and accessibility             |
 | [Deployment](deployment.md)     | Setup, secrets, publication/recovery      |
 | [Verification](verification.md) | Observed checks and limits                |
+| [Assets](assets.md)             | Artwork and screenshot provenance         |
 
 AGENTS.md owns AI workflow and isolation. README introduces the present product.

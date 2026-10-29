@@ -1,0 +1,10 @@
+# Copy to ignored .dev.vars only for local authentication testing.
+# The default local app already supports offline saving and backups.
+AUTH_ORIGIN=http://127.0.0.1:5174
+ACCOUNTS_ENABLED=false
+SITES_NATIVE_AUTH=false
+# AUTH_SECRET must be at least 32 random bytes for a real environment.
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+# MAIL_RELAY_URL=
+# MAIL_RELAY_SECRET=

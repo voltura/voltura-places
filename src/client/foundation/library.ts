@@ -60,6 +60,7 @@ export async function changeWorkspace(key: string, update: (w: Workspace) => voi
     try {
       tx.abort();
     } catch {}
+    await tx.done.catch(() => {});
     throw error;
   }
   changed();
