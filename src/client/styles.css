@@ -877,7 +877,7 @@ hr {
   font-size: 13px;
   padding-inline: 12px;
 }
-.sheet-content input:not([type="radio"]),
+.sheet-content input:not([type="radio"]):not([type="checkbox"]),
 .sheet-content select {
   width: 100%;
   min-height: 56px;
@@ -1510,8 +1510,9 @@ details p {
 .gps-level-4 {
   color: var(--accent);
 }
-.gps-setting {
+.sheet-content .gps-setting {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 1rem;
   min-height: 56px;
