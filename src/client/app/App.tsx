@@ -54,8 +54,10 @@ import {
 } from "../../shared/model";
 
 function loadPreferences(): Preferences {
+  const requested = new URLSearchParams(location.search).get("lang");
+  const linkedLanguage = requested === "sv" || requested === "en" ? requested : null;
   const defaults: Preferences = {
-    language: navigator.language.startsWith("sv") ? "sv" : "en",
+    language: linkedLanguage ?? (navigator.language.startsWith("sv") ? "sv" : "en"),
     theme: "dark",
     provider: "",
     lastCategory: "other",
@@ -73,6 +75,7 @@ function loadPreferences(): Preferences {
       return {
         ...defaults,
         ...v,
+        language: linkedLanguage ?? v.language,
         reviewGps: v.reviewGps === true,
         units: v.units === "imperial" ? "imperial" : "metric",
       };
@@ -84,6 +87,13 @@ const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
   const [prefs, setPrefs] = useState(loadPreferences),
     t = useMemo(() => messages(prefs.language), [prefs.language]);
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (["sv", "en"].includes(url.searchParams.get("lang") ?? "")) {
+      url.searchParams.delete("lang");
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    }
+  }, []);
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [scope, setScope] = useState(() => cachedAccount().account?.id ?? "guest"),
     [account, setAccount] = useState<AccountState>(cachedAccount);

@@ -1,4 +1,21 @@
 import { test, expect } from "@playwright/test";
+test("a Swedish app link overrides English browser/preferences and remembers the choice", async ({
+  page,
+}) => {
+  await page.goto("/?lang=sv");
+  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+  await expect(page).toHaveURL("/");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await page.goto("/?lang=en");
+  await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeVisible();
+  await page.goto("/?lang=sv&source=family");
+  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page).toHaveURL("/?source=family");
+  await page.goto("/?lang=unknown");
+  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+});
 test("desktop stays focused on the library and opens details only for a selected place", async ({
   page,
 }) => {

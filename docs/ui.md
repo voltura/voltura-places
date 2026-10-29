@@ -2,6 +2,8 @@
 
 Dark is the default for a new installation; existing saved theme choices are preserved. Light/System and English/Swedish are device preferences. Semantic CSS tokens, readable typography and restrained surfaces distinguish Places from Music's styling. Primary targets are at least 56px; regular targets at least 48px.
 
+Share `https://places.voltura.se/?lang=sv` to open directly in Swedish, overriding browser language and previous preferences. `?lang=en` opens English. The choice is persisted normally, and the language parameter is consumed after launch so a later Settings change remains effective. Other query parameters and shared-place fragments are preserved; unknown language values are ignored.
+
 Save here stays in a safe-area bottom dock. Tap requests fresh high-accuracy GPS, shows progress and permits cancel. After local commit it opens a non-blocking editor. Defaults use localized date/time and last-used category (Other initially). Closing keeps the saved place. Editor drafts persist separately.
 
 Cards expose name/category/date and Open maps. Search/category/sort use ordinary controls and scrolling. Desktop adds a details pane; mobile uses a sheet. Edit/share/delete are secondary. Destructive actions require confirmation. Core flows do not depend on gestures/hover/animation/map canvas.
