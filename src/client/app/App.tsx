@@ -70,7 +70,6 @@ function loadPreferences(): Preferences {
 }
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
-const defaults: AccountState = { enabled: false, providers: {}, account: null };
 export function App() {
   const [prefs, setPrefs] = useState(loadPreferences),
     t = useMemo(() => messages(prefs.language), [prefs.language]);
@@ -106,7 +105,8 @@ export function App() {
   const capture = useRef(0),
     fileRef = useRef<HTMLInputElement>(null),
     swUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null),
-    scopeRef = useRef(scope);
+    scopeRef = useRef(scope),
+    accountRequest = useRef(0);
   scopeRef.current = scope;
   const categories = useMemo(
     () => workspace?.records.filter((r) => r.kind === "category" && !r.deleted) ?? [],
@@ -177,7 +177,9 @@ export function App() {
       ).then(refresh);
   }, [refresh]);
   const refreshAccount = useCallback(async () => {
+    const request = ++accountRequest.current;
     const next = await currentAccount();
+    if (request !== accountRequest.current) return;
     setAccount(next);
     const key = next.account?.id ?? "guest";
     if (scopeRef.current !== key) {
@@ -189,6 +191,7 @@ export function App() {
       setLocating(false);
     }
     const w = await readWorkspace(key);
+    if (request !== accountRequest.current || scopeRef.current !== key) return;
     setWorkspace(w);
     setReconciling(key !== "guest" && !w.reconciled);
   }, []);
@@ -432,15 +435,21 @@ export function App() {
   }
   async function signOut() {
     const signingOutId = account.account?.id;
-    setAccount(defaults);
+    accountRequest.current++;
+    setAccount((previous) => ({ ...previous, account: null }));
+    setWorkspace(null);
     scopeRef.current = "guest";
     setScope("guest");
     setSelected(null);
     setEditor(null);
     setReconciling(false);
-    void signOutLocally(signingOutId);
+    capture.current++;
+    setLocating(false);
+    const logout = signOutLocally(signingOutId);
     await refresh();
     setStatus("localOnly");
+    await logout;
+    await refreshAccount().catch(() => {});
   }
   async function deleteAccount() {
     const id = account.account!.id;

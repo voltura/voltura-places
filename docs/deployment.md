@@ -6,6 +6,8 @@ Public source: voltura/voltura-places. App: https://places.voltura.se/. Promo: h
 
 Runtime keys: AUTH_ORIGIN, AUTH_SECRET, ACCOUNTS_ENABLED, optional SITES_NATIVE_AUTH, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, MAIL_RELAY_URL and MAIL_RELAY_SECRET. Configure secrets using native Sites tools; never in frontend/Git. Google requires a dedicated Places web client redirecting to https://places.voltura.se/api/auth/callback/google. Never repurpose Music's client/callbacks.
 
+The owner machine retains the Places OAuth client backup with Windows current-user encryption at `%LOCALAPPDATA%/Voltura Places/google-oauth-client.dpapi`. Plaintext browser downloads are removed after backup verification and Sites configuration. Never print decrypted values or commit them.
+
 The dedicated email relay uses its own 32-byte HMAC secret and fixed sender places@voltura.se. Keep PHP config/state outside every document root. Codes expire in five minutes, allow three failed attempts, and are stored hashed. The relay rejects replay and enforces recipient/global limits. Real receipt is a human verification step.
 
 ## Publication

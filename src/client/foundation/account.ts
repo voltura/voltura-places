@@ -15,6 +15,7 @@ const stateSchema = z.object({
     .nullable(),
 });
 const empty: AccountState = { enabled: false, providers: {}, account: null };
+let identityRevision = 0;
 export function cachedAccount(): AccountState {
   try {
     if (localStorage.getItem("places-pending-logout")) return empty;
@@ -24,6 +25,7 @@ export function cachedAccount(): AccountState {
   }
 }
 export async function currentAccount(): Promise<AccountState> {
+  const revision = ++identityRevision;
   const pending = localStorage.getItem("places-pending-logout");
   if (pending) {
     try {
@@ -34,12 +36,14 @@ export async function currentAccount(): Promise<AccountState> {
     }
   }
   const result = stateSchema.parse(await api("/api/account"));
+  if (revision !== identityRevision) throw new Error("accountChanged");
   try {
     localStorage.setItem("places-account", JSON.stringify(result));
   } catch {}
   return result;
 }
 export async function signOutLocally(accountId?: string) {
+  identityRevision++;
   // Hide the account workspace immediately, even when logout cannot reach the server.
   try {
     localStorage.removeItem("places-account");

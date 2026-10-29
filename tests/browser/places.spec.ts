@@ -84,3 +84,57 @@ test("invalid manual entry is rejected, saved entries search and edit", async ({
   await page.getByRole("button", { name: "Clear search", exact: true }).first().click();
   await expect(page.getByRole("button", { name: "Edit place: Trailhead" })).toBeVisible();
 });
+
+test("sign-out retains sign-in providers and rejects a late account response", async ({ page }) => {
+  const identity = {
+    id: "fixture-account",
+    methods: [{ provider: "email", label: "fixture@example.invalid" }],
+  };
+  let signedIn = true;
+  let holdNext = false;
+  let releaseOld: (() => Promise<void>) | undefined;
+  let held: (() => void) | undefined;
+  const oldRequested = new Promise<void>((resolve) => {
+    held = resolve;
+  });
+  const state = (account: typeof identity | null) => ({
+    enabled: true,
+    providers: { google: true, email: true },
+    account,
+  });
+  await page.route("**/api/account", async (route) => {
+    if (holdNext) {
+      holdNext = false;
+      releaseOld = () => route.fulfill({ json: state(identity) });
+      held!();
+      return;
+    }
+    await route.fulfill({ json: state(signedIn ? identity : null) });
+  });
+  await page.route("**/api/account/sign-out", async (route) => {
+    signedIn = false;
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/api/v1/sync", (route) =>
+    route.fulfill({ json: { version: 1, accountId: identity.id, records: [] } }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use the account library", exact: true }).click();
+  await page.getByRole("button", { name: "Account & sync", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  holdNext = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await oldRequested;
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "G Continue with Google", exact: true }),
+  ).toBeEnabled();
+  await releaseOld!();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeHidden();
+  await expect(page.getByText("Account service is unavailable", { exact: false })).toBeHidden();
+  await expect
+    .poll(() =>
+      page.evaluate(() => JSON.parse(localStorage.getItem("places-account") ?? "null")?.account),
+    )
+    .toBeNull();
+});
