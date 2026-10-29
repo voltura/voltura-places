@@ -1,11 +1,13 @@
 import { MapPin, Navigation, ArrowUpRight, Share2, Pencil, Copy } from "lucide-react";
 import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
+import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 export function PlaceDetails({
   record,
   workspace,
+  units,
   categoryColor,
   categoryFor,
   categoryLabel,
@@ -19,6 +21,7 @@ export function PlaceDetails({
 }: {
   record: PlaceRecord;
   workspace: string;
+  units: DistanceUnits;
   categoryColor: (id: string) => string;
   categoryFor: (id: string) => LocalRecord | undefined;
   categoryLabel: (r: LocalRecord) => string;
@@ -53,7 +56,7 @@ export function PlaceDetails({
         {record.value.accuracy !== null && (
           <div>
             <dt>{t("accuracy")}</dt>
-            <dd>±{Math.round(record.value.accuracy)} m</dd>
+            <dd>{formatAccuracy(record.value.accuracy, units)}</dd>
           </div>
         )}
       </dl>

@@ -5,11 +5,14 @@ import { AccountPanel } from "./Account";
 import type { AccountState } from "../foundation/sync";
 import type { Language, Message } from "../foundation/i18n";
 import type { LocalRecord } from "../../shared/model";
+import type { DistanceUnits } from "../foundation/distance";
 export type Preferences = {
   language: Language;
   theme: "light" | "dark" | "system";
   provider: "google" | "apple" | "geo" | "";
   lastCategory: string;
+  reviewGps: boolean;
+  units: DistanceUnits;
 };
 export function Settings({
   t,
@@ -108,6 +111,29 @@ export function Settings({
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            {t("distanceUnits")}
+            <select
+              value={preferences.units}
+              onChange={(e) =>
+                onPreferences({ ...preferences, units: e.target.value as DistanceUnits })
+              }
+            >
+              <option value="metric">{t("metres")}</option>
+              <option value="imperial">{t("feet")}</option>
+            </select>
+          </label>
+          <label className="gps-setting">
+            <input
+              type="checkbox"
+              checked={preferences.reviewGps}
+              onChange={(e) => onPreferences({ ...preferences, reviewGps: e.target.checked })}
+            />
+            <span>
+              {t("reviewGpsSetting")}
+              <small>{t("reviewGpsHint")}</small>
+            </span>
           </label>
           <details>
             <summary>{t("install")}</summary>

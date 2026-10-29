@@ -1,4 +1,101 @@
 import { test, expect } from "@playwright/test";
+test("optional accuracy review refines GPS and commits only the confirmed fix", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const watches = new Map<number, ReturnType<typeof setTimeout>[]>();
+    let next = 0;
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (success: (p: unknown) => void) => {
+          const id = ++next;
+          watches.set(
+            id,
+            [80, 25, 6].map((accuracy, i) =>
+              setTimeout(
+                () =>
+                  success({
+                    timestamp: Date.now(),
+                    coords: { latitude: 0, longitude: 0, accuracy },
+                  }),
+                100 + i * 400,
+              ),
+            ),
+          );
+          return id;
+        },
+        clearWatch: (id: number) => {
+          watches.get(id)?.forEach(clearTimeout);
+          watches.delete(id);
+          document.documentElement.dataset.gpsStopped = "true";
+        },
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const toggle = page.getByRole("checkbox", {
+    name: "Review GPS accuracy before saving",
+    exact: false,
+  });
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+  await page
+    .getByRole("combobox", { name: "Distance units", exact: true })
+    .selectOption("imperial");
+  await page.reload();
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  const review = page.getByRole("dialog", { name: "Check your location", exact: true });
+  await expect(review).toBeVisible();
+  await expect(review.getByRole("meter")).toHaveAttribute("aria-valuenow", "4");
+  await expect(review).toContainText("±20 ft");
+  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeAttached();
+  await review.getByRole("button", { name: "Use this position", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Saved on this device", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Saved on this device", exact: true }),
+  ).toContainText("±20 ft");
+  await expect(page.locator("html")).toHaveAttribute("data-gps-stopped", "true");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Add place", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Keep my draft");
+  await page.getByRole("button", { name: "Use current location", exact: true }).click();
+  await expect(review).toBeVisible();
+  await review.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
+    "Keep my draft",
+  );
+});
+test("accuracy review handles denied permission and cancel without saving", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "places-preferences",
+      JSON.stringify({ language: "en", theme: "dark", provider: "", reviewGps: true }),
+    );
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (_s: unknown, error: (e: unknown) => void) => {
+          setTimeout(() => error({ code: 1 }), 20);
+          return 1;
+        },
+        clearWatch: () => {},
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  const review = page.getByRole("dialog", { name: "Check your location", exact: true });
+  await expect(review.getByRole("alert")).toContainText("Location access was denied");
+  await expect(
+    review.getByRole("button", { name: "Use this position", exact: true }),
+  ).toBeDisabled();
+  await review.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeVisible();
+});
 test.beforeEach(async ({ context }) => {
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 8 });

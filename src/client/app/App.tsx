@@ -23,6 +23,7 @@ import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
+import { LocationReview } from "../features/LocationReview";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
 import { messages, type Message } from "../foundation/i18n";
@@ -58,6 +59,8 @@ function loadPreferences(): Preferences {
     theme: "dark",
     provider: "",
     lastCategory: "other",
+    reviewGps: false,
+    units: "metric",
   };
   try {
     const v = JSON.parse(localStorage.getItem("places-preferences") ?? "null");
@@ -67,7 +70,12 @@ function loadPreferences(): Preferences {
       ["light", "dark", "system"].includes(v.theme) &&
       ["", "google", "apple", "geo"].includes(v.provider)
     )
-      return { ...defaults, ...v };
+      return {
+        ...defaults,
+        ...v,
+        reviewGps: v.reviewGps === true,
+        units: v.units === "imperial" ? "imperial" : "metric",
+      };
   } catch {}
   return defaults;
 }
@@ -98,6 +106,7 @@ export function App() {
     [backup, setBackup] = useState<Backup | null>(null);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [locating, setLocating] = useState(false),
+    [gpsReview, setGpsReview] = useState(false),
     [status, setStatus] = useState(() => (cachedAccount().account ? "pending" : "localOnly")),
     [update, setUpdate] = useState(false);
   const [shared, setShared] = useState(() => parseShare(location.hash)),
@@ -193,6 +202,7 @@ export function App() {
       setStatus(key === "guest" ? "localOnly" : "pending");
       setSelected(null);
       setEditor(null);
+      setGpsReview(false);
       capture.current++;
       setLocating(false);
     }
@@ -328,51 +338,54 @@ export function App() {
     setStatus(scopeRef.current === "guest" ? "localOnly" : "pending");
     sync();
   }
+  async function persistPosition(position: GeolocationPosition, operation: number, key: string) {
+    if (operation !== capture.current || key !== scopeRef.current) return;
+    const now = new Date().toISOString(),
+      categoryId = categories.some((c) => c.id === prefs.lastCategory)
+        ? prefs.lastCategory
+        : "other";
+    const entity: Entity = {
+      id: crypto.randomUUID(),
+      kind: "place",
+      value: placeSchema.parse({
+        name: `${t("currentLocation")} · ${new Intl.DateTimeFormat(prefs.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())}`,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        categoryId,
+        capturedAt: new Date(position.timestamp).toISOString(),
+        updatedAt: now,
+      }),
+    };
+    try {
+      await saveEntity(key, entity);
+      if (key === scopeRef.current) {
+        await refresh();
+        setSelected(entity.id);
+        setEditor({ entity, fresh: true });
+        sync();
+      }
+    } catch {
+      notify("storageFailure", true);
+    } finally {
+      if (operation === capture.current) setLocating(false);
+    }
+  }
   function saveHere() {
     if (!navigator.geolocation) {
       notify("gpsUnsupported", true);
       return;
     }
+    setNotice(null);
+    if (prefs.reviewGps) {
+      setGpsReview(true);
+      return;
+    }
     const operation = ++capture.current,
       key = scopeRef.current;
     setLocating(true);
-    setNotice(null);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        void (async () => {
-          if (operation !== capture.current || key !== scopeRef.current) return;
-          const now = new Date().toISOString(),
-            categoryId = categories.some((c) => c.id === prefs.lastCategory)
-              ? prefs.lastCategory
-              : "other";
-          const entity: Entity = {
-            id: crypto.randomUUID(),
-            kind: "place",
-            value: placeSchema.parse({
-              name: `${t("currentLocation")} · ${new Intl.DateTimeFormat(prefs.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date())}`,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              categoryId,
-              capturedAt: now,
-              updatedAt: now,
-            }),
-          };
-          try {
-            await saveEntity(key, entity);
-            if (key === scopeRef.current) {
-              await refresh();
-              setSelected(entity.id);
-              setEditor({ entity, fresh: true });
-              sync();
-            }
-          } catch {
-            notify("storageFailure", true);
-          } finally {
-            if (operation === capture.current) setLocating(false);
-          }
-        })();
-      },
+      (position) => void persistPosition(position, operation, key),
       (error) => {
         if (operation !== capture.current) return;
         setLocating(false);
@@ -462,6 +475,7 @@ export function App() {
     setSelected(null);
     setEditor(null);
     setReconciling(false);
+    setGpsReview(false);
     capture.current++;
     setLocating(false);
     const logout = signOutLocally(signingOutId);
@@ -488,6 +502,7 @@ export function App() {
     <PlaceDetails
       record={record}
       workspace={scope}
+      units={prefs.units}
       categoryColor={categoryColor}
       categoryFor={categoryFor}
       categoryLabel={categoryLabel}
@@ -611,6 +626,8 @@ export function App() {
           categories={categories}
           categoryLabel={categoryLabel}
           t={t}
+          units={prefs.units}
+          reviewGps={prefs.reviewGps}
           onClose={() => setEditor(null)}
           onSave={save}
           workspace={scope}
@@ -885,6 +902,18 @@ export function App() {
         <Sheet title={current.value.name} onClose={() => setSelected(null)} closeLabel={t("close")}>
           {renderDetails(current)}
         </Sheet>
+      )}
+      {gpsReview && (
+        <LocationReview
+          units={prefs.units}
+          t={t}
+          onClose={() => setGpsReview(false)}
+          onConfirm={(position) => {
+            setGpsReview(false);
+            setLocating(true);
+            void persistPosition(position, ++capture.current, scopeRef.current);
+          }}
+        />
       )}
       {update && !editor && (
         <DialogLayer>

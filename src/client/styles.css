@@ -1469,3 +1469,61 @@ details p {
     scroll-behavior: auto !important;
   }
 }
+.gps-review {
+  text-align: center;
+}
+.gps-review > svg {
+  margin: 0 auto;
+  color: var(--accent);
+}
+.gps-reading {
+  display: grid;
+  gap: 0.5rem;
+}
+.gps-number {
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.gps-bars {
+  display: flex;
+  gap: 0.5rem;
+  height: 24px;
+}
+.gps-bars span {
+  flex: 1;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  opacity: 0.2;
+}
+.gps-bars .active {
+  background: currentColor;
+  opacity: 1;
+}
+.gps-level-1 {
+  color: #c86540;
+}
+.gps-level-2 {
+  color: #b98a26;
+}
+.gps-level-3,
+.gps-level-4 {
+  color: var(--accent);
+}
+.gps-setting {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 56px;
+}
+.gps-setting input {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  accent-color: var(--accent);
+}
+.gps-setting small {
+  display: block;
+  font-weight: normal;
+  margin-top: 0.4rem;
+}
