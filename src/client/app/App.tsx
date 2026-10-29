@@ -23,19 +23,17 @@ import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
-import { FamilyPanel, FamilyInvitation } from "../features/Family";
+import { FamilyPanel } from "../features/Family";
 import {
   cachedFamily,
   fetchFamily,
-  storeFamily,
+  storeFamilies,
   initialWorkspace,
-  familyInvitation,
-  rememberInvitation,
   type FamilyCache,
 } from "../foundation/family";
 import { familyKey, workspaceIdentity, type Family } from "../../shared/families";
 import { LocationReview } from "../features/LocationReview";
-import { validPosition } from "../foundation/location-review";
+import { validPosition, captureLocation } from "../foundation/location-review";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
 import { messages, type Message } from "../foundation/i18n";
@@ -98,6 +96,19 @@ function loadPreferences(): Preferences {
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
+  const [accountChoice, setAccountChoice] = useState(() => {
+    try {
+      return !cachedAccount().account && localStorage.getItem("places-account-choice") !== "done";
+    } catch {
+      return false;
+    }
+  });
+  const completeAccountChoice = () => {
+    try {
+      localStorage.setItem("places-account-choice", "done");
+    } catch {}
+    setAccountChoice(false);
+  };
   const [prefs, setPrefs] = useState(loadPreferences),
     t = useMemo(() => messages(prefs.language), [prefs.language]);
   useEffect(() => {
@@ -111,24 +122,21 @@ export function App() {
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
   const authRef = useRef(account.account?.id);
+  useEffect(() => {
+    if (account.account) completeAccountChoice();
+  }, [account.account?.id]);
   const familyRequest = useRef(0);
   authRef.current = account.account?.id;
   const [familyCache, setFamilyCache] = useState<FamilyCache>(() =>
     cachedFamily(cachedAccount().account?.id),
   );
-  const [inviteToken, setInviteToken] = useState(familyInvitation);
   const selectedFamily = workspaceIdentity(scope).family;
-  const canWrite =
-    !selectedFamily || (familyCache.active && familyCache.family?.id === selectedFamily);
+  const selectedGroup = [...familyCache.families, ...familyCache.inactive].find(
+    (f) => f.id === selectedFamily,
+  );
+  const canWrite = !selectedFamily || familyCache.families.some((f) => f.id === selectedFamily);
   const writeAllowed = useRef(canWrite);
   writeAllowed.current = canWrite;
-  useEffect(() => {
-    if (inviteToken) {
-      rememberInvitation(inviteToken);
-      if (location.hash.startsWith("#family="))
-        history.replaceState(history.state, "", location.pathname + location.search);
-    }
-  }, [inviteToken]);
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest"),
@@ -157,6 +165,7 @@ export function App() {
     [menu, setMenu] = useState<PlaceRecord | null>(null),
     [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
   const capture = useRef(0),
+    stopCapture = useRef(() => {}),
     fileRef = useRef<HTMLInputElement>(null),
     swUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null),
     updateMonitor = useRef<ReturnType<typeof watchForUpdates> | null>(null),
@@ -256,6 +265,7 @@ export function App() {
       setFilter("all");
       setGpsReview(false);
       capture.current++;
+      stopCapture.current();
       setLocating(false);
     }
     const selectedKey = scopeRef.current;
@@ -272,10 +282,7 @@ export function App() {
             request === accountRequest.current &&
             workspaceIdentity(scopeRef.current).account === next.account!.id
           ) {
-            setFamilyCache(storeFamily(next.account!.id, value.active ? value.family : null));
-            const selected = workspaceIdentity(scopeRef.current).family;
-            if (selected && value.active && selected !== value.family?.id)
-              switchLibrary(next.account!.id);
+            setFamilyCache(storeFamilies(next.account!.id, value));
           }
         })
         .catch(() => {});
@@ -293,6 +300,7 @@ export function App() {
   useEffect(() => {
     void refreshAccount().catch(() => {});
   }, [refreshAccount]);
+  useEffect(() => () => stopCapture.current(), []);
   useEffect(() => {
     let active = true;
     void Promise.all([getDraft(scope), readWorkspace(scope)])
@@ -379,7 +387,7 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (location.hash && !shared && !inviteToken) notify("invalidShare", true);
+    if (location.hash && !shared) notify("invalidShare", true);
     if (shared) history.replaceState(null, "", location.pathname + location.search);
     let disposed = false;
     if (import.meta.env.PROD)
@@ -463,23 +471,15 @@ export function App() {
     const operation = ++capture.current,
       key = scopeRef.current;
     setLocating(true);
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (position) => void persistPosition(position, operation, key),
-        (error) => {
-          if (operation !== capture.current) return;
-          setLocating(false);
-          notify(
-            error.code === 1 ? "gpsDenied" : error.code === 3 ? "gpsTimeout" : "gpsUnavailable",
-            true,
-          );
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
-      );
-    } catch {
-      setLocating(false);
-      notify("gpsUnavailable", true);
-    }
+    stopCapture.current();
+    stopCapture.current = captureLocation(
+      (position) => void persistPosition(position, operation, key),
+      (error) => {
+        if (operation !== capture.current) return;
+        setLocating(false);
+        notify(error, true);
+      },
+    );
   }
   const openMaps = (p: Place) => {
     if (prefs.provider) location.assign(mapURL(prefs.provider, p));
@@ -561,7 +561,7 @@ export function App() {
     authRef.current = undefined;
     accountRequest.current++;
     setAccount((previous) => ({ ...previous, account: null }));
-    setFamilyCache({ family: null, active: false });
+    setFamilyCache(cachedFamily());
     setWorkspace(null);
     scopeRef.current = "guest";
     setScope("guest");
@@ -578,6 +578,7 @@ export function App() {
     setReconciling(false);
     setGpsReview(false);
     capture.current++;
+    stopCapture.current();
     setLocating(false);
     const logout = signOutLocally(signingOutId);
     await refresh();
@@ -609,20 +610,22 @@ export function App() {
     setSearch("");
     setFilter("all");
     capture.current++;
+    stopCapture.current();
     setLocating(false);
     try {
       localStorage.setItem(`places-workspace:${authRef.current}`, key);
     } catch {}
     void refresh();
   }
-  function familyChanged(family: Family | null) {
+  function familyChanged(families: Family[]) {
     familyRequest.current++;
-    if (account.account && authRef.current === account.account.id)
-      setFamilyCache(storeFamily(account.account.id, family));
+    if (account.account && authRef.current === account.account.id) {
+      setFamilyCache(storeFamilies(account.account.id, families));
+    }
   }
-  async function copyToFamily(id: string) {
-    if (!account.account || !familyCache.active || !familyCache.family) return;
-    const key = familyKey(account.account.id, familyCache.family.id);
+  async function copyToFamily(id: string, groupId: string) {
+    if (!account.account || !familyCache.families.some((f) => f.id === groupId)) return;
+    const key = familyKey(account.account.id, groupId);
     try {
       await copyPlaceToWorkspace(scopeRef.current, key, id);
       await synchronize(
@@ -674,16 +677,22 @@ export function App() {
             <button
               className={`sync-pill ${status === "actionRequired" ? "warning" : ""}`}
               onClick={() => setSettings("account")}
-              aria-label={t("account")}
+              aria-label={
+                account.account
+                  ? t("account")
+                  : `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+              }
             >
               <span className="status-dot" />
-              {t(
-                (!navigator.onLine
-                  ? "offline"
-                  : scope === "guest"
-                    ? "localOnly"
-                    : status) as Message,
-              )}
+              {!account.account
+                ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+                : t(
+                    (!navigator.onLine
+                      ? "offline"
+                      : scope === "guest"
+                        ? "localOnly"
+                        : status) as Message,
+                  )}
             </button>
             <button
               className="icon-button"
@@ -695,7 +704,7 @@ export function App() {
           </div>
         </div>
       </header>
-      {account.account && familyCache.family && (
+      {account.account && (familyCache.families.length > 0 || familyCache.inactive.length > 0) && (
         <section className="library-switcher" aria-label={t("libraryChoice")}>
           <button
             className={`button ${!selectedFamily ? "primary" : "outline"}`}
@@ -704,14 +713,17 @@ export function App() {
           >
             {t("privateLibrary")}
           </button>
-          <button
-            className={`button ${selectedFamily ? "primary" : "outline"}`}
-            onClick={() => switchLibrary(familyKey(account.account!.id, familyCache.family!.id))}
-            aria-pressed={!!selectedFamily}
-          >
-            {familyCache.family.name}
-            {!familyCache.active && ` · ${t("familyLocalCopy")}`}
-          </button>
+          {[...familyCache.families, ...familyCache.inactive].map((group) => (
+            <button
+              key={group.id}
+              className={`button ${selectedFamily === group.id ? "primary" : "outline"}`}
+              onClick={() => switchLibrary(familyKey(account.account!.id, group.id))}
+              aria-pressed={selectedFamily === group.id}
+            >
+              {group.name}
+              {!familyCache.families.some((f) => f.id === group.id) && ` · ${t("familyLocalCopy")}`}
+            </button>
+          ))}
         </section>
       )}
       {selectedFamily && (
@@ -721,7 +733,7 @@ export function App() {
       )}
       <LibraryView
         canWrite={canWrite}
-        title={selectedFamily ? (familyCache.family?.name ?? t("familyLibrary")) : undefined}
+        title={selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : undefined}
         {...{
           t,
           places,
@@ -782,6 +794,7 @@ export function App() {
               aria-label={t("cancelCapture")}
               onClick={() => {
                 capture.current++;
+                stopCapture.current();
                 setLocating(false);
               }}
             >
@@ -791,6 +804,29 @@ export function App() {
         </div>
       </div>
       {notice && <Toast {...notice} closeLabel={t("close")} onClose={() => setNotice(null)} />}
+      {accountChoice && !account.account && !settings && !shared && (
+        <Sheet
+          title={t("accountChoiceTitle")}
+          closeLabel={t("close")}
+          onClose={completeAccountChoice}
+        >
+          <div className="stack">
+            <p>{t("accountChoiceBody")}</p>
+            <button
+              className="button primary"
+              onClick={() => {
+                completeAccountChoice();
+                setSettings("account");
+              }}
+            >
+              {t("signInOrCreate")}
+            </button>
+            <button className="button outline" onClick={completeAccountChoice}>
+              {t("continueGuest")}
+            </button>
+          </div>
+        </Sheet>
+      )}
       <input
         ref={fileRef}
         hidden
@@ -833,14 +869,13 @@ export function App() {
               cache={familyCache}
               t={t}
               onChanged={familyChanged}
-              onOpen={() => {
-                if (account.account && familyCache.family)
-                  switchLibrary(familyKey(account.account.id, familyCache.family.id));
+              preferredGroup={selectedFamily ?? undefined}
+              onOpen={(groupId) => {
+                if (account.account) switchLibrary(familyKey(account.account.id, groupId));
               }}
               onSignIn={() => setSettings("account")}
-              onExport={() => {
-                if (account.account && familyCache.family)
-                  void download(familyKey(account.account.id, familyCache.family.id));
+              onExport={(groupId) => {
+                if (account.account) void download(familyKey(account.account.id, groupId));
               }}
             />
           }
@@ -891,7 +926,6 @@ export function App() {
           account={account}
           onAccount={async () => {
             await refreshAccount();
-            if (inviteToken) setSettings(null);
           }}
           onSignOut={signOut}
           onSync={sync}
@@ -1063,7 +1097,7 @@ export function App() {
           }}
         />
       )}
-      {reconciling && account.account && !inviteToken && (
+      {reconciling && account.account && (
         <ReconcileDialog
           key={account.account.id}
           accountId={account.account.id}
@@ -1102,11 +1136,18 @@ export function App() {
               <Share2 size={18} />
               {t("share")}
             </button>
-            {account.account && !selectedFamily && familyCache.active && (
-              <button className="button outline" onClick={() => void copyToFamily(menu.id)}>
-                {t("copyToFamily")}
-              </button>
-            )}
+            {account.account &&
+              !selectedFamily &&
+              familyCache.families.map((group) => (
+                <button
+                  key={group.id}
+                  className="button outline"
+                  onClick={() => void copyToFamily(menu.id, group.id)}
+                >
+                  {t("copyToFamily")}
+                  {familyCache.families.length > 1 && ` · ${group.name}`}
+                </button>
+              ))}
             <button
               className="button danger"
               disabled={!canWrite}
@@ -1122,25 +1163,6 @@ export function App() {
         <Sheet title={current.value.name} onClose={() => setSelected(null)} closeLabel={t("close")}>
           {renderDetails(current)}
         </Sheet>
-      )}
-      {inviteToken && !settings && (
-        <FamilyInvitation
-          token={inviteToken}
-          account={account.account}
-          t={t}
-          onClose={() => {
-            rememberInvitation(null);
-            setInviteToken(null);
-          }}
-          onSignIn={() => setSettings("account")}
-          onJoined={(family) => {
-            if (authRef.current !== account.account?.id) return;
-            familyChanged(family);
-            rememberInvitation(null);
-            setInviteToken(null);
-            switchLibrary(familyKey(account.account!.id, family.id));
-          }}
-        />
       )}
       {gpsReview && (
         <LocationReview

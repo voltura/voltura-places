@@ -1,28 +1,52 @@
 export const en = {
+  signIn: "Sign in",
+  signInOrCreate: "Sign in or create account",
+  continueGuest: "Continue without an account",
+  accountChoiceTitle: "Use Places",
+  accountChoiceBody:
+    "An account lets you sync across devices and share with groups. You can also save places on this device without one.",
+  groupChoice: "Group",
+  familyAnotherGroup: "Join or create another group",
+  familyGroupLimit:
+    "You can belong to up to 20 groups. Leave one before joining or creating another.",
+  familyCreateCode: "Create invitation code",
+  familyInvitationCode: "Invitation code",
+  familyCopyCode: "Copy code",
+  familyCodeExpires: "Valid until",
+  familyCodeExpired: "This code has expired. Create a new one.",
+  familyCodeNotice:
+    "Give the four-digit code to the person you want to invite. It lasts 10 minutes. They enter it in their own Places app, then you approve their request here.",
+  familyEnterCode: "Have an invitation code?",
+  familyEnterCodeHint:
+    "Open Places from your Home Screen, sign in and enter the four-digit code here. The family owner must approve your request before any shared places become visible.",
+  familyRequestJoin: "Request to join",
+  familyRequestSent:
+    "Request sent. Ask the family owner to approve you in Family sharing. Keep this screen open; it updates automatically.",
+  familyRequests: "Join requests",
+  familyApproveNotice:
+    "Approve only the person you invited. Approval gives them access to all shared places and photos.",
+  familyApprove: "Approve",
+  familyReject: "Decline request",
+  invalidFamilyCode: "The code is invalid, expired or no longer available. Ask for a new code.",
+  familyCodeLimited: "Too many attempts. Wait 15 minutes before trying again.",
+  familyCodeChanged:
+    "The request expired, changed or cannot be approved. Refresh and ask for a new request.",
   familySharing: "Family sharing",
   familyLibrary: "Family places",
   familyLibraryHint: "Shared with your family",
   privateLibrary: "My private places",
   libraryChoice: "Library",
   familyIntro:
-    "Keep a shared library with your family. Each person signs in with their own account. Your private places stay private.",
+    "Share places with different groups. Each group has its own members and places. Your private places stay private.",
   familySignIn: "Sign in to share with family",
   familySharedNotice:
-    "All members can add, edit and delete these places and photos. Changes sync when online. Up to 10 people can join one family.",
+    "All members can add, edit and delete this group's places and photos. Changes sync when online. Each group can have up to 10 people.",
   familyOwner: "Owner",
-  familyName: "Family name",
-  familyCreate: "Create family library",
+  familyName: "Group name",
+  familyCreate: "Create group",
   openFamilyLibrary: "Open shared library",
-  familyCreateInvite: "Create invitation link",
-  familyInviteLink: "Invitation link",
-  familyCopyInvite: "Copy invitation",
-  familyCopyFailed: "Could not copy. Select and copy the invitation link above.",
-  familyInviteNotice:
-    "Send the invitation to someone you trust. It expires after 7 days and can be used by one person. Creating another link replaces the previous one. Downloaded copies cannot be recalled.",
-  familyRevokeInvite: "Cancel invitation link",
-  familyJoin: "Join family library",
-  familyJoinNotice:
-    "Joining gives every family member access to the places and photos saved in this shared library. You can all edit them. Your private library stays separate. Members may keep downloaded copies after leaving.",
+  familyCopyFailed: "Could not copy. Select and copy the invitation above.",
+  familyRevokeInvite: "Cancel invitations",
   familyMakeOwner: "Make owner",
   familyTransferConfirm:
     "Transfer control of this family library to this member? They will manage invitations, membership and deletion.",
@@ -37,10 +61,7 @@ export const en = {
     "Delete this entire shared library and its photos for all members? This cannot be undone. Private libraries and downloaded copies are not deleted.",
   familyTransferFirst:
     "Transfer family ownership to another member, or delete the family library, before leaving or deleting your account.",
-  familyAlreadyJoined:
-    "You already belong to a family. Leave it before joining or creating another.",
-  invalidFamilyInvite:
-    "This invitation is invalid, expired, cancelled or already used. Ask for a new link.",
+  familyAlreadyJoined: "You already belong to this group.",
   familyFull: "This family is full (10 members).",
   familyOwnerOnly: "Only the family owner can manage membership and invitations.",
   familyAccessEnded:
@@ -277,30 +298,54 @@ export const en = {
 export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
+  signIn: "Logga in",
+  signInOrCreate: "Logga in eller skapa konto",
+  continueGuest: "Fortsätt utan konto",
+  accountChoiceTitle: "Använd Places",
+  accountChoiceBody:
+    "Med ett konto kan du synka mellan enheter och dela med grupper. Du kan också spara platser på den här enheten utan konto.",
+  groupChoice: "Grupp",
+  familyAnotherGroup: "Gå med i eller skapa en annan grupp",
+  familyGroupLimit:
+    "Du kan tillhöra upp till 20 grupper. Lämna en innan du går med i eller skapar en till.",
+  familyCreateCode: "Skapa inbjudningskod",
+  familyInvitationCode: "Inbjudningskod",
+  familyCopyCode: "Kopiera kod",
+  familyCodeExpires: "Giltig till",
+  familyCodeExpired: "Koden har gått ut. Skapa en ny.",
+  familyCodeNotice:
+    "Ge den fyrsiffriga koden till personen du vill bjuda in. Den gäller i 10 minuter. Personen skriver in den i sin egen Places-app, sedan godkänner du förfrågan här.",
+  familyEnterCode: "Har du en inbjudningskod?",
+  familyEnterCodeHint:
+    "Öppna Places från hemskärmen, logga in och skriv in den fyrsiffriga koden här. Familjens ägare måste godkänna din förfrågan innan några gemensamma platser visas.",
+  familyRequestJoin: "Be om att få gå med",
+  familyRequestSent:
+    "Förfrågan skickad. Be familjens ägare att godkänna dig under Familjedelning. Låt sidan vara öppen så uppdateras den automatiskt.",
+  familyRequests: "Förfrågningar om att gå med",
+  familyApproveNotice:
+    "Godkänn bara personen du bjöd in. Godkännandet ger tillgång till alla gemensamma platser och foton.",
+  familyApprove: "Godkänn",
+  familyReject: "Avböj förfrågan",
+  invalidFamilyCode: "Koden är ogiltig, utgången eller inte längre tillgänglig. Be om en ny kod.",
+  familyCodeLimited: "För många försök. Vänta 15 minuter innan du försöker igen.",
+  familyCodeChanged:
+    "Förfrågan har gått ut, ändrats eller kan inte godkännas. Uppdatera och be om en ny förfrågan.",
   familySharing: "Familjedelning",
   familyLibrary: "Familjens platser",
   familyLibraryHint: "Delas med din familj",
   privateLibrary: "Mina privata platser",
   libraryChoice: "Bibliotek",
   familyIntro:
-    "Ha ett gemensamt bibliotek med familjen. Var och en loggar in med sitt eget konto. Dina privata platser förblir privata.",
+    "Dela platser i olika grupper. Varje grupp har sina egna medlemmar och platser. Dina privata platser förblir privata.",
   familySignIn: "Logga in för att dela med familjen",
   familySharedNotice:
-    "Alla medlemmar kan lägga till, ändra och ta bort dessa platser och foton. Ändringar synkas när ni är online. En familj kan ha upp till 10 personer.",
+    "Alla medlemmar kan lägga till, ändra och ta bort gruppens platser och foton. Ändringar synkas när ni är online. Varje grupp kan ha upp till 10 personer.",
   familyOwner: "Ägare",
-  familyName: "Familjens namn",
-  familyCreate: "Skapa familjebibliotek",
+  familyName: "Gruppens namn",
+  familyCreate: "Skapa grupp",
   openFamilyLibrary: "Öppna gemensamt bibliotek",
-  familyCreateInvite: "Skapa inbjudningslänk",
-  familyInviteLink: "Inbjudningslänk",
-  familyCopyInvite: "Kopiera inbjudan",
-  familyCopyFailed: "Kunde inte kopiera. Markera och kopiera länken ovan.",
-  familyInviteNotice:
-    "Skicka inbjudan till någon du litar på. Den gäller i 7 dagar och kan användas av en person. En ny länk ersätter den förra. Nedladdade kopior kan inte återkallas.",
-  familyRevokeInvite: "Återkalla inbjudningslänk",
-  familyJoin: "Gå med i familjebibliotek",
-  familyJoinNotice:
-    "När du går med får alla i familjen tillgång till platser och foton i det gemensamma biblioteket. Alla kan ändra dem. Ditt privata bibliotek hålls separat. Medlemmar kan behålla nedladdade kopior efter att de lämnat.",
+  familyCopyFailed: "Kunde inte kopiera. Markera och kopiera inbjudan ovan.",
+  familyRevokeInvite: "Återkalla inbjudningar",
   familyMakeOwner: "Gör till ägare",
   familyTransferConfirm:
     "Överlåta kontrollen av familjebiblioteket till denna medlem? Personen får hantera inbjudningar, medlemmar och borttagning.",
@@ -315,10 +360,7 @@ export const sv: Record<Message, string> = {
     "Ta bort hela det gemensamma biblioteket och dess foton för alla medlemmar? Det går inte att ångra. Privata bibliotek och nedladdade kopior tas inte bort.",
   familyTransferFirst:
     "Överlåt ägarskapet till en annan medlem eller ta bort familjebiblioteket innan du lämnar eller tar bort ditt konto.",
-  familyAlreadyJoined:
-    "Du tillhör redan en familj. Lämna den innan du går med i eller skapar en annan.",
-  invalidFamilyInvite:
-    "Inbjudan är ogiltig, utgången, återkallad eller redan använd. Be om en ny länk.",
+  familyAlreadyJoined: "Du tillhör redan den här gruppen.",
   familyFull: "Familjen är full (10 medlemmar).",
   familyOwnerOnly: "Endast familjens ägare kan hantera medlemmar och inbjudningar.",
   familyAccessEnded:

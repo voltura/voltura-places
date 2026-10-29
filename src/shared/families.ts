@@ -4,8 +4,16 @@ export const familySchema = z.object({
   name: z.string().min(1).max(80),
   ownerId: z.string(),
   members: z.array(z.object({ id: z.string(), label: z.string().max(320) })).max(10),
+  requests: z
+    .array(z.object({ id: z.string(), label: z.string().max(320) }))
+    .max(5)
+    .default([]),
 });
-export const familyStateSchema = z.object({ family: familySchema.nullable() });
+export const familyStateSchema = z.object({
+  families: z.array(familySchema).max(20),
+  familyId: z.string().uuid().optional(),
+  pendingRequest: z.object({ expiresAt: z.number() }).nullable().optional(),
+});
 export type Family = z.infer<typeof familySchema>;
 export const familyKey = (account: string, family: string) => `family:${account}:${family}`;
 export function workspaceIdentity(key: string) {

@@ -41,6 +41,46 @@ const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity
   },
 });
 describe("durable library boundaries", () => {
+  test("an edit arriving during snapshot download schedules another sync immediately", async () => {
+    const key = crypto.randomUUID(),
+      first = makePlace(),
+      second = makePlace();
+    await reconcileAccount(key, [], false);
+    await saveEntity(key, first);
+    vi.stubGlobal("navigator", { onLine: true });
+    const remote: {
+      id: string;
+      kind: string;
+      value: unknown;
+      revision: number;
+      deleted: boolean;
+    }[] = [];
+    let added = false;
+    const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body)),
+          record = { ...body.entity, revision: 1, deleted: false };
+        remote.push(record);
+        return Response.json({ accountId: key, record });
+      }
+      if (!added) {
+        added = true;
+        await saveEntity(key, second);
+        await synchronize(key, () => {});
+      }
+      return Response.json({ version: 1, accountId: key, records: remote });
+    });
+    const statuses: string[] = [];
+    try {
+      await synchronize(key, (status) => statuses.push(status));
+      expect(remote.map((r) => r.id).sort()).toEqual([first.id, second.id].sort());
+      expect((await readWorkspace(key)).records.some((r) => r.dirty)).toBe(false);
+      expect(statuses.at(-1)).toBe("synced");
+    } finally {
+      network.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
   test("a late sync response cannot recreate a removed workspace", async () => {
     const key = crypto.randomUUID();
     await reconcileAccount(key, [], false);

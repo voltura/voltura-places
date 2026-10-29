@@ -70,14 +70,18 @@ export const fetchSnapshot = async (account: string) => {
   throw new Error("libraryLimit");
 };
 const running = new Set<string>();
+const requestedAgain = new Set<string>();
 export async function synchronize(
   account: string,
   onStatus: (s: string) => void,
   isCurrent: () => boolean = () => true,
 ) {
-  if (running.has(account)) return;
+  if (running.has(account)) {
+    requestedAgain.add(account);
+    return;
+  }
+  running.add(account);
   const run = async () => {
-    running.add(account);
     try {
       if (!(await readWorkspace(account)).reconciled) return;
       if (!navigator.onLine) {
@@ -144,13 +148,14 @@ export async function synchronize(
       );
     } catch {
       onStatus(navigator.onLine ? "actionRequired" : "offline");
-    } finally {
-      running.delete(account);
     }
   };
-  if (navigator.locks)
-    await navigator.locks.request(`places-sync:${account}`, { ifAvailable: true }, async (lock) => {
-      if (lock) await run();
-    });
-  else await run();
+  try {
+    if (navigator.locks) await navigator.locks.request(`places-sync:${account}`, run);
+    else await run();
+  } finally {
+    running.delete(account);
+  }
+  if (requestedAgain.delete(account) && isCurrent())
+    await synchronize(account, onStatus, isCurrent);
 }

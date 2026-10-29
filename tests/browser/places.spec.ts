@@ -1,5 +1,68 @@
 import { test, expect } from "@playwright/test";
 
+test("first use offers optional sign-in and remembers continuing without an account", async ({
+  browser,
+}, testInfo) => {
+  const context = await browser.newContext({
+    baseURL: "http://127.0.0.1:5174",
+    locale: "en-US",
+    viewport: { width: 390, height: 844 },
+    storageState: { cookies: [], origins: [] },
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto("/");
+    await expect(page.getByRole("dialog", { name: "Use Places", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Sign in or create account", exact: true }),
+    ).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("first-use.png") });
+    await page.getByRole("button", { name: "Continue without an account", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+    await page.reload();
+    await expect(page.getByRole("dialog", { name: "Use Places", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText("Not signed in", { exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test("first location permission grant recovers in the current app without a restart", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const permission = Object.assign(new EventTarget(), { state: "prompt" });
+    const fixes: PositionCallback[] = [];
+    Object.defineProperty(navigator, "permissions", { value: { query: async () => permission } });
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (success: PositionCallback) => {
+          fixes.push(success);
+          return fixes.length;
+        },
+        clearWatch: () => {},
+      },
+    });
+    (window as unknown as { grantLocation: () => void }).grantLocation = () => {
+      permission.state = "granted";
+      permission.dispatchEvent(new Event("change"));
+      fixes.at(-1)!({
+        timestamp: Date.now(),
+        coords: { latitude: 0, longitude: 0, accuracy: 7 },
+      } as GeolocationPosition);
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.evaluate(() => (window as unknown as { grantLocation: () => void }).grantLocation());
+  await expect(
+    page.getByRole("dialog", { name: "Saved on this device", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).not.toHaveValue("");
+});
+
 for (const failure of ["invalid", "throw"] as const) {
   test(`quick GPS save recovers from ${failure} results without saving`, async ({ page }) => {
     await page.addInitScript(
@@ -112,6 +175,7 @@ for (const [width, height, textScale] of [
       "Kategorier",
       "Säkerhetskopiering",
       "Konto och synkronisering",
+      "Familjedelning",
       "Utseende och språk",
     ]) {
       await page

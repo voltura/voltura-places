@@ -2,7 +2,19 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/browser",
   fullyParallel: false,
-  use: { baseURL: "http://127.0.0.1:5174", locale: "en-US" },
+  use: {
+    baseURL: "http://127.0.0.1:5174",
+    locale: "en-US",
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: "http://127.0.0.1:5174",
+          localStorage: [{ name: "places-account-choice", value: "done" }],
+        },
+      ],
+    },
+  },
   projects: [{ name: "mobile-chromium", use: { ...devices["Pixel 7"] } }],
   webServer: {
     env: { X_LOCAL_EXPLORER: "false" },

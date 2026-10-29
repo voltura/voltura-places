@@ -4,7 +4,7 @@
 
 Quick-save GPS positions, organize/search offline, open external map apps, share copies, import/export JSON, and optionally synchronize your phone/PC library. No paid map API, app store or runtime AI service.
 
-Create a shared family library in Settings → Family sharing and invite another person using a private link. Each person uses their own account. Choose the family library before saving to share places and photos; personal places remain private. Existing places can be copied into the family library.
+Create named groups in Settings → Family sharing and generate a four-digit code for the selected group. The other person enters it in their own Places app and you approve their request. Each person can belong to several groups using one account. Choose a group before saving to share places and photos; personal places and other groups stay separate. Existing private places can be copied into a chosen group.
 
 App: https://places.voltura.se/ · About: https://voltura.se/places/
 

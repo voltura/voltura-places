@@ -10,10 +10,114 @@ import {
   watchLocation,
   freshPosition,
   accuracyLevel,
+  captureLocation,
   type LocationReviewState,
 } from "../src/client/foundation/location-review";
+
+test("first permission grant restarts a stalled watch and saves once without reloading", async () => {
+  vi.useFakeTimers();
+  const status = Object.assign(new EventTarget(), { state: "prompt" });
+  const win = new EventTarget(),
+    doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  vi.stubGlobal("window", win);
+  vi.stubGlobal("document", doc);
+  vi.stubGlobal("navigator", { permissions: { query: async () => status } });
+  const callbacks: PositionCallback[] = [],
+    clearWatch = vi.fn();
+  const geo = {
+    watchPosition: vi.fn((success: PositionCallback) => {
+      callbacks.push(success);
+      return callbacks.length;
+    }),
+    clearWatch,
+  } as unknown as Geolocation;
+  const saved = vi.fn(),
+    failed = vi.fn();
+  const stop = captureLocation(saved, failed, geo);
+  try {
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1000);
+    status.state = "granted";
+    status.dispatchEvent(new Event("change"));
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+    callbacks[0](fix(5)); // A late pre-grant callback must not duplicate a save.
+    expect(saved).not.toHaveBeenCalled();
+    callbacks[1](fix(5));
+    callbacks[1](fix(4));
+    expect(saved).toHaveBeenCalledTimes(1);
+    expect(failed).not.toHaveBeenCalled();
+    win.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+    expect(clearWatch).toHaveBeenCalledWith(1);
+    expect(clearWatch).toHaveBeenCalledWith(2);
+  } finally {
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("returning from a system prompt resumes GPS and unavailable-first-fix retries stay bounded", async () => {
+  vi.useFakeTimers();
+  const win = new EventTarget(),
+    doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  vi.stubGlobal("window", win);
+  vi.stubGlobal("document", doc);
+  vi.stubGlobal("navigator", {});
+  const callbacks: PositionCallback[] = [],
+    errors: PositionErrorCallback[] = [];
+  const geo = {
+    watchPosition: vi.fn((s: PositionCallback, e: PositionErrorCallback) => {
+      callbacks.push(s);
+      errors.push(e);
+      return callbacks.length;
+    }),
+    clearWatch: vi.fn(),
+  } as unknown as Geolocation;
+  const saved = vi.fn(),
+    failed = vi.fn(),
+    stop = captureLocation(saved, failed, geo);
+  try {
+    await vi.advanceTimersByTimeAsync(1000);
+    win.dispatchEvent(new Event("focus"));
+    expect(callbacks).toHaveLength(2);
+    errors[1]({ code: 2 } as GeolocationPositionError);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(callbacks).toHaveLength(3);
+    callbacks[2](fix(8, Date.now() - 20000));
+    expect(saved).not.toHaveBeenCalled();
+    callbacks[2](fix(8));
+    expect(saved).toHaveBeenCalledTimes(1);
+    expect(failed).not.toHaveBeenCalled();
+  } finally {
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
 const fix = (accuracy: number, timestamp = Date.now()) =>
   ({ timestamp, coords: { latitude: 0, longitude: 0, accuracy } }) as GeolocationPosition;
+
+test("a granted but silent acquisition retries automatically and stops on cancel", async () => {
+  vi.useFakeTimers();
+  const status = Object.assign(new EventTarget(), { state: "granted" });
+  vi.stubGlobal("navigator", { permissions: { query: async () => status } });
+  const geo = { watchPosition: vi.fn(() => 9), clearWatch: vi.fn() } as unknown as Geolocation;
+  const stopped = captureLocation(vi.fn(), vi.fn(), geo);
+  try {
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+    stopped();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+  } finally {
+    stopped();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
 function fixture() {
   let success!: PositionCallback, failure!: PositionErrorCallback;
   const geo = {

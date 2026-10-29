@@ -29,11 +29,36 @@ try {
     "0001_library.sql",
     "0002_photos.sql",
     "0003_families.sql",
-  ])
+    "0004_family_codes.sql",
+    "0005_multiple_groups.sql",
+    "0006_code_invitations_only.sql",
+  ]) {
+    if (file === "0005_multiple_groups.sql") {
+      await db.batch([
+        db.prepare(
+          "INSERT INTO places_accounts(id,created_at) VALUES('migration-owner',1),('migration-family',1)",
+        ),
+        db.prepare(
+          "INSERT INTO places_families(id,name,owner_id,created_at) VALUES('migration-family','Existing group','migration-owner',1)",
+        ),
+        db.prepare(
+          "INSERT INTO places_family_members(family_id,account_id,joined_at) VALUES('migration-family','migration-owner',1)",
+        ),
+      ]);
+    }
     for (const statement of (await readFile(`drizzle/${file}`, "utf8"))
       .split("--> statement-breakpoint")
       .filter((s) => s.trim()))
       await db.prepare(statement).run();
+  }
+  check(
+    !!(await db
+      .prepare(
+        "SELECT 1 FROM places_family_members WHERE family_id='migration-family' AND account_id='migration-owner'",
+      )
+      .first()),
+    "Multiple-group migration preserves existing memberships",
+  );
   const request = async (path, { body, cookie, account, headers = {}, method } = {}) =>
     mf.dispatchFetch(origin + path, {
       method: method ?? (body === undefined ? "GET" : "POST"),
@@ -226,43 +251,57 @@ try {
   check(response.status === 422, "Coordinate validation is enforced server-side");
   // Independent family identities exercise the same real authorization/CAS/photo path.
   const c = await login("fixture-c");
-  const familyCall = (who, body) => request("/api/family", { ...who, body });
+  let defaultGroup;
+  const groupTargets = new Map();
+  const familyCall = async (who, body) => {
+    const targeted = body && !["create", "code-request"].includes(body.action);
+    const scoped = targeted
+      ? { ...body, familyId: body.familyId ?? groupTargets.get(who.account) ?? defaultGroup }
+      : body;
+    const response = await request("/api/family", { ...who, body: scoped });
+    if (response.ok && body?.action === "create")
+      groupTargets.set(who.account, (await response.clone().json()).familyId);
+    if (response.ok && body?.action === "code-approve")
+      groupTargets.set(body.member, scoped.familyId);
+    return response;
+  };
   check((await request("/api/family")).status === 401, "Family membership requires sign-in");
   check(
     (await familyCall(a, { action: "create", name: "Mushroom family" })).status === 200,
     "Create family",
   );
-  const family = (await (await familyCall(a)).json()).family;
+  const family = (await (await familyCall(a)).json()).families[0];
+  defaultGroup = family.id;
   const familyAuth = (who) => ({
     ...who,
     headers: { "X-Places-Family": family.id, "X-Places-Photos": "1" },
   });
-  const invite = async () => (await (await familyCall(a, { action: "invite" })).json()).token;
-  const oldInvite = await invite(),
-    link = await invite();
-  check(
-    (await familyCall(b, { action: "preview", token: oldInvite })).status === 410,
-    "New invitation invalidates previous link",
-  );
+  const joinGroup = async (who, owner = a, id = family.id) => {
+    await db
+      .prepare("DELETE FROM places_family_code_limits WHERE key IN (?,?)")
+      .bind(`create:account:${owner.account}`, `join:account:${who.account}`)
+      .run();
+    const generated = await familyCall(owner, { action: "code-create", familyId: id });
+    assert.equal(generated.status, 200, await generated.clone().text());
+    const code = (await generated.json()).code;
+    const requested = await familyCall(who, { action: "code-request", code });
+    assert.equal(requested.status, 200, await requested.clone().text());
+    const approved = await familyCall(owner, {
+      action: "code-approve",
+      familyId: id,
+      member: who.account,
+    });
+    assert.equal(approved.status, 200, await approved.clone().text());
+    return approved;
+  };
   check(
     (await request("/api/v1/sync", familyAuth(b))).status === 403,
-    "Knowing family ID grants no access",
+    "Knowing group ID grants no access",
   );
+  await joinGroup(b);
   check(
-    (await familyCall(b, { action: "preview", token: link })).status === 200,
-    "Invitation can be reviewed before joining",
-  );
-  check(
-    (await familyCall(b, { action: "join", token: link })).status === 200,
-    "Explicit acceptance adds member",
-  );
-  check(
-    (await familyCall(b, { action: "join", token: link })).status === 200,
-    "Lost-response join retries are safe",
-  );
-  check(
-    (await familyCall(c, { action: "join", token: link })).status === 410,
-    "Invitations are single-use",
+    (await (await familyCall(b)).json()).families[0].id === family.id,
+    "Code request and owner approval add membership",
   );
   const familyPhoto = await photoRequest(a, jpeg, { "X-Places-Family": family.id });
   check(familyPhoto.status === 200, "Family photos use shared storage");
@@ -313,7 +352,7 @@ try {
     "Concurrent family edits preserve conflicts",
   );
   check(
-    (await familyCall(b, { action: "invite" })).status === 403,
+    (await familyCall(b, { action: "code-create" })).status === 403,
     "Members cannot create owner invitations",
   );
   check(
@@ -344,28 +383,14 @@ try {
     ).status === 403,
     "Leaving revokes cloud writes",
   );
-  await familyCall(b, { action: "join", token: await invite() });
+  await joinGroup(b);
   await familyCall(a, { action: "remove", member: b.account });
   check(
     (await request("/api/v1/sync", familyAuth(b))).status === 403,
     "Owner removal revokes member access",
   );
-  const cancelled = await invite();
-  await familyCall(a, { action: "revoke" });
-  check(
-    (await familyCall(c, { action: "join", token: cancelled })).status === 410,
-    "Owner can cancel invitation",
-  );
-  const expired = await invite();
-  await db
-    .prepare("UPDATE places_family_invites SET expires_at=0 WHERE family_id=?")
-    .bind(family.id)
-    .run();
-  check(
-    (await familyCall(c, { action: "join", token: expired })).status === 410,
-    "Expired invitations cannot join",
-  );
-  const capped = await invite();
+  const capped = (await (await familyCall(a, { action: "code-create" })).json()).code;
+  await familyCall(c, { action: "code-request", code: capped });
   const filler = [];
   for (let i = 0; i < 9; i++) {
     const id = crypto.randomUUID();
@@ -378,18 +403,18 @@ try {
     ]);
   }
   check(
-    (await familyCall(c, { action: "join", token: capped })).status === 409,
+    (await familyCall(a, { action: "code-approve", member: c.account })).status === 409,
     "Family member limit is enforced",
   );
   for (const id of filler)
     await db.prepare("DELETE FROM places_accounts WHERE id=?").bind(id).run();
   check(
-    (await familyCall(c, { action: "join", token: capped })).status === 200,
+    (await familyCall(a, { action: "code-approve", member: c.account })).status === 200,
     "Full-family refusal does not consume invitation",
   );
   await familyCall(a, { action: "transfer", member: c.account });
   check(
-    (await familyCall(a, { action: "invite" })).status === 403,
+    (await familyCall(a, { action: "code-create" })).status === 403,
     "Transferred owner privileges are revoked",
   );
   check(
@@ -521,6 +546,203 @@ try {
   check(
     finalPage.records.length === 1 && finalPage.nextCursor === null,
     "Paged reads preserve the final record",
+  );
+  const codeOwner = await login("code-owner"),
+    codeGuest = await login("code-guest"),
+    codeOther = await login("code-other");
+  await familyCall(codeOwner, { action: "create", name: "Code family" });
+  const codeFamily = (await (await familyCall(codeOwner)).json()).families[0];
+  const generateCode = async () => {
+    const result = await familyCall(codeOwner, { action: "code-create" });
+    check(result.status === 200, "Owner can generate a short code");
+    const data = await result.json();
+    check(
+      /^\d{4}$/.test(data.code) &&
+        data.expiresAt > Date.now() &&
+        data.expiresAt <= Date.now() + 600000,
+      "Four-digit codes expire within ten minutes",
+    );
+    return data.code;
+  };
+  const code = await generateCode();
+  check(
+    (await familyCall(codeGuest, { action: "code-create" })).status === 403,
+    "Only the owner generates codes",
+  );
+  check(
+    (await familyCall(codeGuest, { action: "code-request", code })).status === 200,
+    "Entering a code creates a request",
+  );
+  const pendingState = await (await familyCall(codeGuest)).json();
+  check(
+    pendingState.families.length === 0 && pendingState.pendingRequest.expiresAt > Date.now(),
+    "A request does not grant membership or reveal family details",
+  );
+  check(
+    (await request("/api/v1/sync", { ...codeGuest, headers: { "X-Places-Family": codeFamily.id } }))
+      .status === 403,
+    "Pending requests cannot read locations",
+  );
+  check(
+    (await (await familyCall(codeOwner)).json()).families[0].requests[0].id === codeGuest.account,
+    "Owner can verify the requesting identity",
+  );
+  check(
+    (await familyCall(codeOther, { action: "code-approve", member: codeGuest.account })).status ===
+      403,
+    "A different account cannot approve requests",
+  );
+  check(
+    (await familyCall(codeOwner, { action: "code-approve", member: codeGuest.account })).status ===
+      200,
+    "Explicit owner approval grants access",
+  );
+  check(
+    (await (await familyCall(codeGuest)).json()).families[0].id === codeFamily.id,
+    "Approved recipient sees shared library in their existing app session",
+  );
+  check(
+    (await familyCall(codeOther, { action: "code-request", code })).status === 410,
+    "Approved code is consumed",
+  );
+  const oldCode = await generateCode(),
+    newCode = await generateCode();
+  check(
+    (await familyCall(codeOther, { action: "code-request", code: oldCode })).status === 410,
+    "Rotation invalidates old codes",
+  );
+  check(
+    (await familyCall(codeOther, { action: "code-request", code: newCode })).status === 200,
+    "Fresh code supports a new request",
+  );
+  await familyCall(codeOwner, { action: "code-reject", member: codeOther.account });
+  check(
+    (await (await familyCall(codeOther)).json()).pendingRequest === null,
+    "Declining clears the request without granting access",
+  );
+  await familyCall(codeOther, { action: "code-request", code: newCode });
+  await familyCall(codeOwner, { action: "revoke" });
+  check(
+    (await familyCall(codeOwner, { action: "code-approve", member: codeOther.account })).status ===
+      409,
+    "Cancellation prevents later approval",
+  );
+  const expiringCode = await generateCode();
+  const expiryGuest = await login("expiry-code-guest");
+  await familyCall(expiryGuest, { action: "code-request", code: expiringCode });
+  await db
+    .prepare("UPDATE places_family_codes SET expires_at=0 WHERE family_id=?")
+    .bind(codeFamily.id)
+    .run();
+  check(
+    (await familyCall(codeOwner, { action: "code-approve", member: expiryGuest.account }))
+      .status === 409,
+    "Expired requests cannot be approved",
+  );
+  const limitedGuest = await login("limited-code-guest");
+  for (let attempt = 0; attempt < 5; attempt++)
+    check(
+      (await familyCall(limitedGuest, { action: "code-request", code: expiringCode })).status ===
+        410,
+      "Invalid attempts are bounded",
+    );
+  check(
+    (await familyCall(limitedGuest, { action: "code-request", code: expiringCode })).status === 429,
+    "Sixth code attempt is blocked",
+  );
+  // Reset only the disposable test owner's creation counter for contention tests.
+  await db
+    .prepare("DELETE FROM places_family_code_limits WHERE key=?")
+    .bind(`create:account:${codeOwner.account}`)
+    .run();
+  const raceCode = await generateCode(),
+    racers = [await login("code-racer-a"), await login("code-racer-b")];
+  for (const who of racers) await familyCall(who, { action: "code-request", code: raceCode });
+  const approvals = await Promise.all(
+    racers.map((who) => familyCall(codeOwner, { action: "code-approve", member: who.account })),
+  );
+  check(
+    approvals
+      .map((r) => r.status)
+      .sort()
+      .join(",") === "200,409",
+    "Concurrent approvals consume a code once",
+  );
+  check(
+    (await (await familyCall(codeOwner)).json()).families[0].members.length === 3,
+    "Only one racing request gets access",
+  );
+  const anotherGroupState = await (
+    await familyCall(codeOwner, { action: "create", name: "Mother's group" })
+  ).json();
+  const anotherGroup = anotherGroupState.families.find((f) => f.id === anotherGroupState.familyId);
+  check(
+    anotherGroup.id !== codeFamily.id && anotherGroupState.families.length === 2,
+    "An account can own multiple independent groups",
+  );
+  await joinGroup(codeGuest, codeOwner, anotherGroup.id);
+  check(
+    (await (await familyCall(codeGuest)).json()).families.length === 2,
+    "All memberships are listed independently",
+  );
+  check(
+    (await familyCall(codeGuest, { action: "delete", familyId: anotherGroup.id })).status === 403,
+    "Administration is authorized for the selected group",
+  );
+  const groupEntity = {
+    ...entity,
+    id: crypto.randomUUID(),
+    value: { ...entity.value, name: "Only in first group", photoId: null },
+  };
+  await request("/api/v1/sync", {
+    ...codeOwner,
+    headers: { "X-Places-Family": codeFamily.id },
+    body: {
+      version: 1,
+      mutationId: crypto.randomUUID(),
+      baseRevision: 0,
+      deleted: false,
+      entity: groupEntity,
+    },
+  });
+  const otherRecords = await (
+    await request("/api/v1/sync", { ...codeGuest, headers: { "X-Places-Family": anotherGroup.id } })
+  ).json();
+  check(
+    !otherRecords.records.some((r) => r.id === groupEntity.id),
+    "Places never leak between groups with overlapping members",
+  );
+  await familyCall(codeGuest, { action: "leave", familyId: codeFamily.id });
+  check(
+    (await request("/api/v1/sync", { ...codeGuest, headers: { "X-Places-Family": codeFamily.id } }))
+      .status === 403,
+    "Leaving one group revokes only its access",
+  );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...codeGuest,
+        headers: { "X-Places-Family": anotherGroup.id },
+      })
+    ).status === 200,
+    "Other group membership survives leaving a group",
+  );
+  const maximumMember = await login("twenty-group-member");
+  for (let i = 0; i < 20; i++) {
+    const id = crypto.randomUUID();
+    await db.batch([
+      db.prepare("INSERT INTO places_accounts(id,created_at) VALUES(?,?)").bind(id, Date.now()),
+      db
+        .prepare("INSERT INTO places_families(id,name,owner_id,created_at) VALUES(?,?,?,?)")
+        .bind(id, `Fixture ${i}`, maximumMember.account, Date.now()),
+      db
+        .prepare("INSERT INTO places_family_members(family_id,account_id,joined_at) VALUES(?,?,?)")
+        .bind(id, maximumMember.account, Date.now()),
+    ]);
+  }
+  check(
+    (await familyCall(maximumMember, { action: "create", name: "One too many" })).status === 409,
+    "The twenty-group limit is enforced",
   );
   console.log(
     `Passed ${checks} real workerd/D1 authorization, CAS, retry and recovery checks. No production data or emails used.`,

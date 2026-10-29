@@ -90,7 +90,15 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
   );
   try {
     const db = await mf.getD1Database("DB");
-    for (const migration of ["0000_accounts", "0001_library", "0002_photos", "0003_families"]) {
+    for (const migration of [
+      "0000_accounts",
+      "0001_library",
+      "0002_photos",
+      "0003_families",
+      "0004_family_codes",
+      "0005_multiple_groups",
+      "0006_code_invitations_only",
+    ]) {
       const sql = await readFile(new URL(`../drizzle/${migration}.sql`, import.meta.url), "utf8");
       for (const statement of sql
         .split("--> statement-breakpoint")

@@ -1652,3 +1652,11 @@ details p {
 .family-panel input[readonly] {
   font-size: 1rem;
 }
+.sheet .sheet-content input.family-invite-code[readonly] {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+  min-height: 80px;
+  font-variant-numeric: tabular-nums;
+}
