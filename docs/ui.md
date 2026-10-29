@@ -2,6 +2,10 @@
 
 Dark is the default for a new installation; existing saved theme choices are preserved. Light/System and English/Swedish are device preferences. Semantic CSS tokens, readable typography and restrained surfaces distinguish Places from Music's styling. Primary targets are at least 56px; regular targets at least 48px.
 
+Phone typography prioritizes reading outdoors: normal text and action labels are 18px, Save here and place names 20px, supporting information 16px, and field/tab labels 17px at the default browser size. Use rem units so these sizes can scale. Search and form fields are at least 18px. Paired actions stack on phones; settings tabs use a wrapping grid that becomes one column when space or enlarged text requires it. Preserve browser zoom, scrolling and complete labels rather than shrinking text to fit.
+
+Visual depth stays restrained: a static ambient background, softly graded surfaces and primary actions, consistent highlights/shadows and distinct category tints in both themes. Cards separate identity from map actions with a quiet divider. Keep readable text on solid surfaces; no decorative animation, marketing panels or artificial startup delays.
+
 Share `https://places.voltura.se/?lang=sv` to open directly in Swedish, overriding browser language and previous preferences. `?lang=en` opens English. The choice is persisted normally, and the language parameter is consumed after launch so a later Settings change remains effective. Other query parameters and shared-place fragments are preserved; unknown language values are ignored.
 
 All promotional-site app links carry the displayed page language: Swedish `/places/sv/` links use `?lang=sv`, while English `/places/` links use `?lang=en`. This includes navigation, the hero button and the installation button.

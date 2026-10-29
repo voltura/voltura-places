@@ -1,4 +1,78 @@
 import { test, expect } from "@playwright/test";
+
+for (const [width, height, textScale] of [
+  [320, 568, 1],
+  [375, 812, 1],
+  [430, 932, 1],
+  [375, 812, 2],
+]) {
+  test(`phone readability and Swedish labels fit at ${width}px with ${textScale * 100}% text`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/?lang=sv");
+    if (textScale !== 1)
+      await page.evaluate((scale) => {
+        document.documentElement.style.fontSize = `${scale * 100}%`;
+      }, textScale);
+    const font = (selector: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    const fits = async () => {
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+      const content = page.locator("dialog[open] .sheet-content").last();
+      if (await content.count())
+        expect(await content.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    };
+    expect(await font(".save-here")).toBeGreaterThanOrEqual(20 * textScale);
+    expect(await font(".search-field input")).toBeGreaterThanOrEqual(18 * textScale);
+    await page.getByRole("button", { name: "Spara här", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "Namn", exact: true })
+      .fill("Svampstället vid den gamla tallstigen");
+    await page.getByRole("combobox", { name: "Kategori", exact: true }).selectOption("mushrooms");
+    expect(await font(".photo-picker .button")).toBeGreaterThanOrEqual(18 * textScale);
+    expect(
+      await page
+        .locator(".photo-picker .action-pair")
+        .evaluate((el) => getComputedStyle(el).flexDirection),
+    ).toBe("column");
+    await fits();
+    await page.getByRole("button", { name: "Spara ändringar", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Stäng", exact: true }).click();
+    expect(await font(".card-maps")).toBeGreaterThanOrEqual(18 * textScale);
+    expect(await font(".card-text strong")).toBeGreaterThanOrEqual(20 * textScale);
+    expect(await font(".card-text > span")).toBeGreaterThanOrEqual(16 * textScale);
+    await fits();
+    await page.getByRole("button", { name: "Inställningar", exact: true }).click();
+    for (const tab of [
+      "Kategorier",
+      "Säkerhetskopiering",
+      "Konto och synkronisering",
+      "Utseende och språk",
+    ]) {
+      await page
+        .getByRole("navigation", { name: "Inställningar", exact: true })
+        .getByRole("button", { name: tab, exact: true })
+        .click();
+      await fits();
+      expect(
+        await page
+          .locator(".settings-tabs button")
+          .evaluateAll((els) =>
+            els.every(
+              (el) =>
+                el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1,
+            ),
+          ),
+      ).toBe(true);
+    }
+  });
+}
 test("installed-app metadata references real icons and matched Apple startup images", async ({
   page,
 }) => {
@@ -191,6 +265,7 @@ test("camera and library inputs support a durable offline photo and removable dr
   await expect(page.locator(".photo-picker img")).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Edit place: Photo fixture", exact: true }),
@@ -288,6 +363,7 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
