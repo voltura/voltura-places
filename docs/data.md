@@ -16,7 +16,7 @@ Reads use 250-record pages with `nextCursor`; pass it as `?after=` for the next 
 
 Persist exact in-flight bodies before network access. D1 atomically commits CAS record changes and body-hashed receipts. Same-ID/same-body retries return receipts; changed bodies are rejected. Tombstones/receipts persist until account deletion. Device clocks never select winners.
 
-Independent record edits merge. Same-record conflicts retain both versions. Keep device rebases on the cloud revision; Keep cloud accepts it; Keep both accepts cloud and creates a fresh device identity. Guest/account workspaces and pending writes remain partitioned. First sign-in explicitly reconciles guest merge or cloud-only.
+Independent record edits merge. Identical concurrent writes converge on the cloud revision, preserving any newer device edits. Different same-record conflicts retain both versions. Keep device rebases on the cloud revision; Keep cloud accepts it; Keep both accepts cloud and creates a fresh device identity. Guest/account workspaces and pending writes remain partitioned. First sign-in explicitly reconciles guest merge or cloud-only.
 
 ## Backup and sharing v1
 

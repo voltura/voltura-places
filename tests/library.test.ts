@@ -39,6 +39,31 @@ const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity
   },
 });
 describe("durable library boundaries", () => {
+  test("identical concurrent preset writes converge while preserving newer device edits", async () => {
+    for (const edited of [false, true]) {
+      const key = crypto.randomUUID();
+      await reconcileAccount(key, [], false);
+      const preset = structuredClone(starters.find((e) => e.id === "mushrooms")!);
+      await saveEntity(key, preset);
+      const flight = (await prepareMutation(key))!;
+      if (edited)
+        await saveEntity(key, {
+          ...preset,
+          value: { ...preset.value, name: "Chanterelles" },
+        } as Entity);
+      await acknowledge(
+        key,
+        flight.mutation.mutationId,
+        { ...preset, revision: 1, deleted: false },
+        true,
+      );
+      const record = (await readWorkspace(key)).records.find((r) => r.id === "mushrooms")!;
+      expect(record.conflict).toBeUndefined();
+      expect(record.revision).toBe(1);
+      expect(record.dirty).toBe(edited);
+      expect(record.value.name).toBe(edited ? "Chanterelles" : "Mushrooms");
+    }
+  });
   test("adds the mushroom preset once without losing a queued edit or restoring a deletion", async () => {
     const key = crypto.randomUUID();
     await changeWorkspace(key, (w) => {

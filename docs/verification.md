@@ -4,7 +4,7 @@
 
 - TypeScript with unused-code checks, documentation checks and production Worker/PWA build passed.
 - Fresh `npm run dev` startup and its local health endpoint passed with the optional Wrangler explorer disabled; browser flows also passed against a fresh server.
-- Fifteen model/IndexedDB/publisher tests passed, including quota rollback, invalid imports, backup round trips, in-flight edits, account partitioning, stopping uploads on account changes, conflict/deletion recovery and existing-library mushroom preset migration.
+- Sixteen model/IndexedDB/publisher tests passed, including quota rollback, invalid imports, backup round trips, in-flight edits, account partitioning, stopping uploads on account changes, conflict/deletion recovery, existing-library mushroom preset migration and identical concurrent preset writes.
 - Local workerd/D1 integration passed authorization, CAS races, identical retries, changed retry rejection, deletion/session invalidation and coordinate validation.
 - Real Better Auth handlers passed signed fixture email delivery, hashed/single-use codes, expiry, attempt limits, simultaneous code reuse, Google token/state fixtures and explicit identity linking.
 - Six mobile Chromium flows passed GPS quick-save-before-naming, offline reload/manual saving, invalid manual input/search, clear signed-in account controls/sign-out with a delayed response, dark default, mushroom selection, and copy feedback above an open map dialog. These use synthetic identity/GPS/clipboard fixtures.

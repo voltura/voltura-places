@@ -260,7 +260,12 @@ export const acknowledge = (
     if (!flight || flight.mutation.mutationId !== mutationId) return;
     const r = w.records.find((r) => r.id === remote.id);
     if (r) {
-      if (conflict) r.conflict = remote;
+      const identical =
+        remote.kind === flight.mutation.entity.kind &&
+        remote.deleted === flight.mutation.deleted &&
+        JSON.stringify(remote.value) === JSON.stringify(flight.mutation.entity.value);
+      // Two devices may add the same new preset before either sees the other's write.
+      if (conflict && !identical) r.conflict = remote;
       else if (r.generation === flight.generation) {
         Object.assign(r, remote, { dirty: false });
         delete r.conflict;
