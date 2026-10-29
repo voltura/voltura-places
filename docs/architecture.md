@@ -13,3 +13,5 @@ The fixed-template email endpoint lives under places/mail/relay.php. Configurati
 One npm package, lockfile and Node 24 toolchain keep setup reproducible. Scripts own build/release operations. Account failure does not prevent guest saving/export.
 
 Compressed place photos use separate IndexedDB blobs and the existing private D1 database. No additional storage service, account or paid API is introduced. Shared image validation is independent of browser processing and server authorization.
+
+Family membership is a server authorization boundary, independent of login identity. The shared workspace resolver verifies the actual account and optional family header before mapping requests to family storage. Management stays in a focused family module; existing record/photo synchronization is reused. Per-workspace synchronization locks and member-specific local keys prevent private/family and account-switch writes from crossing partitions.

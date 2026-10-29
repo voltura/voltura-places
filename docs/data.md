@@ -26,6 +26,18 @@ Validate completely before one transaction. Merge retains conflicting existing v
 
 Shared links: `/#place=<base64url UTF-8 JSON>` containing `{version:1,name,category,latitude,longitude}`. Validate and remove the fragment from the address bar after reading. Anyone holding the original link can read it; no expiry/revocation. Saving creates a new identity.
 
+## Family libraries
+
+Migration 0003 adds one family membership per account, with at most ten members. A family has its own non-login storage account, records, photos and mutation receipts. The owner manages membership; every member can read/add/edit/delete shared content. Personal records remain separate. Copy to family creates independent records and photos, matching categories by name; it does not move or subsequently mirror the private original.
+
+`GET /api/family` returns the current family and member identity labels. Canonical-origin POST actions create, invite, revoke, preview, join, remove, leave, transfer or delete. Authentication and `X-Places-Account` always identify the actual person. Family sync/photo requests additionally supply `X-Places-Family`; the server resolves membership to storage ownership. SQL reads and CAS/photo writes include membership predicates. Existing revisions, tombstones, conflicts and idempotency apply independently in each library.
+
+Invitations use 32 random bytes in `/#family=<base64url token>`. Only a SHA-256 hash is stored. Links expire after seven days, admit one account, and are replaced/revoked by the owner. Acceptance requires sign-in and explicit confirmation; a retry by the accepted member is idempotent. The fragment is removed after reading and retained only in session storage while completing sign-in. Anyone holding an unused link can join, so users share it privately. No messages are sent by the app.
+
+Local workspace/draft/photo keys are `family:<signed-in-account-id>:<family-id>`, separating each person's cached data and pending writes. Normal launch, foreground, reconnection and visible-page polling synchronize the selected library. Offline writes queue normally. After membership ends, the last downloaded copy remains readable/exportable locally and cloud operations are denied. Removal cannot recall downloaded copies or exports. Export an old family copy before joining another family; the settings shortcut tracks only the latest family.
+
+The owner must transfer ownership to an existing member or delete the family before leaving/deleting their account. Family deletion cascades shared cloud data and memberships, preserving personal libraries. Existing photo limits apply separately to shared storage. Account/device removal clears that person's local private and family partitions without clearing another person's copies.
+
 ## Privacy/recovery
 
 GPS is explicit, never background-tracked. No end-to-end encryption claim. The app does not encrypt local copies/exports. Cleared browser storage loses unsynced data; cloud sync and exports provide recovery. Account deletion cascades records, identities, sessions and receipts.

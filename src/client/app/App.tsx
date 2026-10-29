@@ -23,6 +23,17 @@ import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
+import { FamilyPanel, FamilyInvitation } from "../features/Family";
+import {
+  cachedFamily,
+  fetchFamily,
+  storeFamily,
+  initialWorkspace,
+  familyInvitation,
+  rememberInvitation,
+  type FamilyCache,
+} from "../foundation/family";
+import { familyKey, workspaceIdentity, type Family } from "../../shared/families";
 import { LocationReview } from "../features/LocationReview";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
@@ -35,7 +46,8 @@ import {
   getDraft,
   flushDrafts,
   readWorkspace,
-  removeWorkspace,
+  removeAccountWorkspaces,
+  copyPlaceToWorkspace,
   resolveConflict,
   saveEntity,
   type Workspace,
@@ -95,8 +107,27 @@ export function App() {
     }
   }, []);
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
-    [scope, setScope] = useState(() => cachedAccount().account?.id ?? "guest"),
+    [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
+  const authRef = useRef(account.account?.id);
+  const familyRequest = useRef(0);
+  authRef.current = account.account?.id;
+  const [familyCache, setFamilyCache] = useState<FamilyCache>(() =>
+    cachedFamily(cachedAccount().account?.id),
+  );
+  const [inviteToken, setInviteToken] = useState(familyInvitation);
+  const selectedFamily = workspaceIdentity(scope).family;
+  const canWrite =
+    !selectedFamily || (familyCache.active && familyCache.family?.id === selectedFamily);
+  const writeAllowed = useRef(canWrite);
+  writeAllowed.current = canWrite;
+  useEffect(() => {
+    if (inviteToken) {
+      rememberInvitation(inviteToken);
+      if (location.hash.startsWith("#family="))
+        history.replaceState(history.state, "", location.pathname + location.search);
+    }
+  }, [inviteToken]);
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest"),
@@ -204,11 +235,13 @@ export function App() {
     const request = ++accountRequest.current;
     const next = await currentAccount();
     if (request !== accountRequest.current) return;
+    authRef.current = next.account?.id;
     setAccount(next);
     const key = next.account?.id ?? "guest";
-    if (scopeRef.current !== key) {
+    if (workspaceIdentity(scopeRef.current).account !== key) {
       scopeRef.current = key;
       setScope(key);
+      setFamilyCache(cachedFamily(next.account?.id));
       setStatus(key === "guest" ? "localOnly" : "pending");
       setSelected(null);
       setEditor(null);
@@ -216,10 +249,23 @@ export function App() {
       capture.current++;
       setLocating(false);
     }
-    const w = await readWorkspace(key);
-    if (request !== accountRequest.current || scopeRef.current !== key) return;
+    const selectedKey = scopeRef.current;
+    const w = await readWorkspace(selectedKey);
+    if (request !== accountRequest.current || scopeRef.current !== selectedKey) return;
     setWorkspace(w);
-    setReconciling(key !== "guest" && !w.reconciled);
+    setReconciling(selectedKey !== "guest" && !w.reconciled);
+    const familyCheck = ++familyRequest.current;
+    if (next.account)
+      void fetchFamily(next.account.id)
+        .then((value) => {
+          if (
+            familyCheck === familyRequest.current &&
+            request === accountRequest.current &&
+            workspaceIdentity(scopeRef.current).account === next.account!.id
+          )
+            setFamilyCache(storeFamily(next.account!.id, value.active ? value.family : null));
+        })
+        .catch(() => {});
   }, []);
   useEffect(() => {
     void refresh();
@@ -320,7 +366,7 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (location.hash && !shared) notify("invalidShare", true);
+    if (location.hash && !shared && !inviteToken) notify("invalidShare", true);
     if (shared) history.replaceState(null, "", location.pathname + location.search);
     let disposed = false;
     if (import.meta.env.PROD)
@@ -342,6 +388,7 @@ export function App() {
     };
   }, []);
   async function save(entity: Entity) {
+    if (!writeAllowed.current) throw new Error("familyAccessEnded");
     await saveEntity(scopeRef.current, entity);
     if (entity.kind === "place") setPrefs((p) => ({ ...p, lastCategory: entity.value.categoryId }));
     await refresh();
@@ -349,7 +396,7 @@ export function App() {
     sync();
   }
   async function persistPosition(position: GeolocationPosition, operation: number, key: string) {
-    if (operation !== capture.current || key !== scopeRef.current) return;
+    if (operation !== capture.current || key !== scopeRef.current || !writeAllowed.current) return;
     const now = new Date().toISOString(),
       categoryId = categories.some((c) => c.id === prefs.lastCategory)
         ? prefs.lastCategory
@@ -382,6 +429,10 @@ export function App() {
     }
   }
   function saveHere() {
+    if (!writeAllowed.current) {
+      notify("familyAccessEnded", true);
+      return;
+    }
     if (!navigator.geolocation) {
       notify("gpsUnsupported", true);
       return;
@@ -412,6 +463,10 @@ export function App() {
     else setMaps(p);
   };
   const remove = async (p: PlaceRecord) => {
+    if (!writeAllowed.current) {
+      notify("familyAccessEnded", true);
+      return;
+    }
     if (!confirm(`${t("deletePlace")}\n\n${t("deletePlaceBody")}`)) return;
     try {
       await deleteEntity(scope, p.id);
@@ -445,10 +500,10 @@ export function App() {
       if (!(error instanceof DOMException && error.name === "AbortError")) await copy(url);
     }
   };
-  async function download() {
+  async function download(key = scopeRef.current) {
     try {
-      if (!workspace) return;
-      const blob = new Blob([JSON.stringify(await exportWithPhotos(workspace), null, 2)], {
+      const exporting = await readWorkspace(key);
+      const blob = new Blob([JSON.stringify(await exportWithPhotos(exporting), null, 2)], {
           type: "application/json",
         }),
         url = URL.createObjectURL(blob),
@@ -477,8 +532,10 @@ export function App() {
   }
   async function signOut() {
     const signingOutId = account.account?.id;
+    authRef.current = undefined;
     accountRequest.current++;
     setAccount((previous) => ({ ...previous, account: null }));
+    setFamilyCache({ family: null, active: false });
     setWorkspace(null);
     scopeRef.current = "guest";
     setScope("guest");
@@ -497,8 +554,53 @@ export function App() {
   async function deleteAccount() {
     const id = account.account!.id;
     await api("/api/account", { confirm: "delete-places-account" }, id, "DELETE");
-    await removeWorkspace(id);
+    await removeAccountWorkspaces(id);
     await refreshAccount();
+  }
+  function switchLibrary(key: string) {
+    if (!authRef.current || workspaceIdentity(key).account !== authRef.current) return;
+    scopeRef.current = key;
+    setScope(key);
+    setReconciling(false);
+    setWorkspace(null);
+    setSelected(null);
+    setEditor(null);
+    setMaps(null);
+    setSharePlace(null);
+    setBackup(null);
+    setCategoryEdit(null);
+    setGpsReview(false);
+    setMenu(null);
+    setSettings(null);
+    setSearch("");
+    setFilter("all");
+    capture.current++;
+    setLocating(false);
+    try {
+      localStorage.setItem(`places-workspace:${authRef.current}`, key);
+    } catch {}
+    void refresh();
+  }
+  function familyChanged(family: Family | null) {
+    familyRequest.current++;
+    if (account.account && authRef.current === account.account.id)
+      setFamilyCache(storeFamily(account.account.id, family));
+  }
+  async function copyToFamily(id: string) {
+    if (!account.account || !familyCache.active || !familyCache.family) return;
+    const key = familyKey(account.account.id, familyCache.family.id);
+    try {
+      await copyPlaceToWorkspace(scopeRef.current, key, id);
+      await synchronize(
+        key,
+        () => {},
+        () => workspaceIdentity(scopeRef.current).account === account.account!.id,
+      );
+      setMenu(null);
+      notify("copiedToFamily");
+    } catch {
+      notify("storageFailure", true);
+    }
   }
   const formatDate = (value: string) =>
     new Intl.DateTimeFormat(prefs.language, { dateStyle: "medium", timeStyle: "short" }).format(
@@ -521,7 +623,10 @@ export function App() {
       openMaps={openMaps}
       chooseMaps={setMaps}
       setSharePlace={setSharePlace}
-      setEditor={setEditor}
+      setEditor={(value) => {
+        if (writeAllowed.current) setEditor(value);
+        else notify("familyAccessEnded", true);
+      }}
       copy={copy}
     />
   );
@@ -555,7 +660,32 @@ export function App() {
           </div>
         </div>
       </header>
+      {account.account && familyCache.family && (
+        <section className="library-switcher" aria-label={t("libraryChoice")}>
+          <button
+            className={`button ${!selectedFamily ? "primary" : "outline"}`}
+            onClick={() => switchLibrary(account.account!.id)}
+            aria-pressed={!selectedFamily}
+          >
+            {t("privateLibrary")}
+          </button>
+          <button
+            className={`button ${selectedFamily ? "primary" : "outline"}`}
+            onClick={() => switchLibrary(familyKey(account.account!.id, familyCache.family!.id))}
+            aria-pressed={!!selectedFamily}
+          >
+            {familyCache.family.name}
+            {!familyCache.active && ` · ${t("familyLocalCopy")}`}
+          </button>
+        </section>
+      )}
+      {selectedFamily && (
+        <p className="shared-library-notice">
+          {t(canWrite ? "familyLibraryHint" : "familyReadonly")}
+        </p>
+      )}
       <LibraryView
+        title={selectedFamily ? (familyCache.family?.name ?? t("familyLibrary")) : undefined}
         {...{
           t,
           places,
@@ -596,7 +726,7 @@ export function App() {
           </div>
           <button
             className="button primary save-here"
-            disabled={locating || !workspace || reconciling}
+            disabled={locating || !workspace || reconciling || !canWrite}
             onClick={saveHere}
           >
             {locating ? <LoaderCircle className="spin" size={22} /> : <LocateFixed size={24} />}{" "}
@@ -652,6 +782,24 @@ export function App() {
       {settings && (
         <Settings
           initial={settings}
+          familyPanel={
+            <FamilyPanel
+              key={account.account?.id ?? "guest"}
+              account={account.account}
+              cache={familyCache}
+              t={t}
+              onChanged={familyChanged}
+              onOpen={() => {
+                if (account.account && familyCache.family)
+                  switchLibrary(familyKey(account.account.id, familyCache.family.id));
+              }}
+              onSignIn={() => setSettings("account")}
+              onExport={() => {
+                if (account.account && familyCache.family)
+                  void download(familyKey(account.account.id, familyCache.family.id));
+              }}
+            />
+          }
           t={t}
           preferences={prefs}
           onPreferences={setPrefs}
@@ -672,11 +820,15 @@ export function App() {
               )
               .catch(() => notify("serviceUnavailable", true));
           }}
-          onExport={download}
-          onImport={() => fileRef.current?.click()}
+          onExport={() => void download()}
+          onImport={() => {
+            if (canWrite) fileRef.current?.click();
+            else notify("familyAccessEnded", true);
+          }}
           categories={categories}
           categoryLabel={categoryLabel}
           onCategory={(entity) =>
+            canWrite &&
             setCategoryEdit({
               entity,
               name: entity ? categoryLabel(entity) : "",
@@ -684,7 +836,7 @@ export function App() {
             })
           }
           onDeleteCategory={(r) => {
-            if (confirm(`${t("deleteCategory")}\n${t("deleteCategoryBody")}`))
+            if (canWrite && confirm(`${t("deleteCategory")}\n${t("deleteCategoryBody")}`))
               void deleteEntity(scope, r.id)
                 .then(() => {
                   void refresh();
@@ -693,14 +845,17 @@ export function App() {
                 .catch(() => notify("storageFailure", true));
           }}
           account={account}
-          onAccount={refreshAccount}
+          onAccount={async () => {
+            await refreshAccount();
+            if (inviteToken) setSettings(null);
+          }}
           onSignOut={signOut}
           onSync={sync}
           onDeleteAccount={deleteAccount}
           onRemoveDevice={async () => {
             const id = account.account!.id;
             await api("/api/account/sign-out", {}, id);
-            await removeWorkspace(id);
+            await removeAccountWorkspaces(id);
             await refreshAccount();
           }}
         />
@@ -864,7 +1019,7 @@ export function App() {
           }}
         />
       )}
-      {reconciling && account.account && (
+      {reconciling && account.account && !inviteToken && (
         <ReconcileDialog
           accountId={account.account.id}
           t={t}
@@ -883,6 +1038,7 @@ export function App() {
           <div className="stack">
             <button
               className="button outline"
+              disabled={!canWrite}
               onClick={() => {
                 setEditor({ entity: menu });
                 setMenu(null);
@@ -901,7 +1057,16 @@ export function App() {
               <Share2 size={18} />
               {t("share")}
             </button>
-            <button className="button danger" onClick={() => void remove(menu)}>
+            {account.account && !selectedFamily && familyCache.active && (
+              <button className="button outline" onClick={() => void copyToFamily(menu.id)}>
+                {t("copyToFamily")}
+              </button>
+            )}
+            <button
+              className="button danger"
+              disabled={!canWrite}
+              onClick={() => void remove(menu)}
+            >
               <Trash2 size={18} />
               {t("delete")}
             </button>
@@ -912,6 +1077,25 @@ export function App() {
         <Sheet title={current.value.name} onClose={() => setSelected(null)} closeLabel={t("close")}>
           {renderDetails(current)}
         </Sheet>
+      )}
+      {inviteToken && !settings && (
+        <FamilyInvitation
+          token={inviteToken}
+          account={account.account}
+          t={t}
+          onClose={() => {
+            rememberInvitation(null);
+            setInviteToken(null);
+          }}
+          onSignIn={() => setSettings("account")}
+          onJoined={(family) => {
+            if (authRef.current !== account.account?.id) return;
+            familyChanged(family);
+            rememberInvitation(null);
+            setInviteToken(null);
+            switchLibrary(familyKey(account.account!.id, family.id));
+          }}
+        />
       )}
       {gpsReview && (
         <LocationReview

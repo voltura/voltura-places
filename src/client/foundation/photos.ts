@@ -1,3 +1,4 @@
+import { workspaceHeaders } from "../../shared/families";
 import { PHOTO_BYTES, jpegDimensions } from "../../shared/photos";
 import { getPhoto, makeStoredPhoto, markPhotoUploaded, putPhotos } from "./photo-store";
 export async function preparePhoto(file: File, workspace: string) {
@@ -43,7 +44,7 @@ export async function loadPhoto(workspace: string, id: string) {
   const response = await fetch(`/api/v1/photos/${id}`, {
     credentials: "same-origin",
     cache: "no-store",
-    headers: { "X-Places-Account": workspace },
+    headers: workspaceHeaders(workspace),
     signal: AbortSignal.timeout(20000),
   });
   if (!response.ok) throw new Error("photoUnavailable");
@@ -61,7 +62,7 @@ export async function uploadPhoto(workspace: string, id: string) {
     method: "PUT",
     credentials: "same-origin",
     cache: "no-store",
-    headers: { "Content-Type": "image/jpeg", "X-Places-Account": workspace },
+    headers: { "Content-Type": "image/jpeg", ...workspaceHeaders(workspace) },
     body: photo.blob,
     signal: AbortSignal.timeout(20000),
   });

@@ -1,3 +1,4 @@
+import { workspaceHeaders } from "../../shared/families";
 import { recordSchema, snapshotSchema } from "../../shared/model";
 import { acknowledge, mergeSnapshot, prepareMutation, readWorkspace } from "./library";
 import { z } from "zod";
@@ -29,7 +30,7 @@ export async function api<T>(
     headers: {
       "X-Places-Photos": "1",
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...(account ? { "X-Places-Account": account } : {}),
+      ...(account ? workspaceHeaders(account) : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -57,15 +58,15 @@ export const fetchSnapshot = async (account: string) => {
   }
   throw new Error("libraryLimit");
 };
-let running = false;
+const running = new Set<string>();
 export async function synchronize(
   account: string,
   onStatus: (s: string) => void,
   isCurrent: () => boolean = () => true,
 ) {
-  if (running) return;
+  if (running.has(account)) return;
   const run = async () => {
-    running = true;
+    running.add(account);
     try {
       if (!(await readWorkspace(account)).reconciled) return;
       if (!navigator.onLine) {
@@ -92,7 +93,7 @@ export async function synchronize(
           signal: AbortSignal.timeout(20000),
           headers: {
             "Content-Type": "application/json",
-            "X-Places-Account": account,
+            ...workspaceHeaders(account),
             "X-Places-Photos": "1",
           },
           body: JSON.stringify(flight.mutation),
@@ -131,11 +132,11 @@ export async function synchronize(
     } catch {
       onStatus(navigator.onLine ? "actionRequired" : "offline");
     } finally {
-      running = false;
+      running.delete(account);
     }
   };
   if (navigator.locks)
-    await navigator.locks.request("places-sync", { ifAvailable: true }, async (lock) => {
+    await navigator.locks.request(`places-sync:${account}`, { ifAvailable: true }, async (lock) => {
       if (lock) await run();
     });
   else await run();

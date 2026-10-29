@@ -1,4 +1,5 @@
 import { openDB, type DBSchema } from "idb";
+import { workspaceIdentity } from "../../shared/families";
 import { PHOTO_BYTES, PHOTO_QUOTA, jpegDimensions, photoHash } from "../../shared/photos";
 export type StoredPhoto = {
   workspace: string;
@@ -81,5 +82,12 @@ export async function clearPhotos(workspace: string) {
     tx = db.transaction("photos", "readwrite");
   for (const key of await tx.store.index("workspace").getAllKeys(workspace))
     await tx.store.delete(key);
+  await tx.done;
+}
+export async function clearAccountPhotos(account: string) {
+  const db = await database(),
+    tx = db.transaction("photos", "readwrite");
+  for (const key of await tx.store.getAllKeys())
+    if (workspaceIdentity(key[0]).account === account) await tx.store.delete(key);
   await tx.done;
 }

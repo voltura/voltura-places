@@ -1,5 +1,6 @@
 import { mutationSchema, recordSchema, type RecordState } from "../shared/model";
-import { sessionFor, readJSON } from "./accounts.js";
+import { readJSON } from "./accounts.js";
+import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
 import { digest } from "./auth.js";
 import type { Environment } from "./types";
 
@@ -28,9 +29,16 @@ const decode = (r: Row): RecordState =>
     deleted: !!r.deleted,
   });
 export async function handleSync(request: Request, env: Environment) {
-  const session = (await sessionFor(request, env, env.DB)) as { account_id: string } | null;
-  if (!session) return json({ error: "signInAgain" }, 401);
-  const account = session.account_id;
+  let identity;
+  try {
+    identity = await authorizedWorkspace(request, env);
+  } catch (error) {
+    return json(
+      { error: error instanceof WorkspaceError ? error.message : "serviceUnavailable" },
+      error instanceof WorkspaceError ? error.status : 503,
+    );
+  }
+  const account = identity.storage;
   const present = (record: RecordState) => {
     if (request.headers.get("X-Places-Photos") !== "1" && record.kind === "place") {
       const value = { ...record.value };
@@ -39,20 +47,18 @@ export async function handleSync(request: Request, env: Environment) {
     }
     return record;
   };
-  if (request.headers.get("X-Places-Account") !== account)
-    return json({ error: "accountChanged" }, 409);
   if (request.method === "GET") {
     const after = new URL(request.url).searchParams.get("after") ?? "";
-    if (after.length > 80) return json({ error: "invalidCursor", accountId: account }, 400);
+    if (after.length > 80) return json({ error: "invalidCursor", accountId: identity.key }, 400);
     const rows = await env.DB.prepare(
-      "SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? ORDER BY id LIMIT 251",
+      `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT 251`,
     )
-      .bind(account, after)
+      .bind(account, after, ...membershipArgs(identity))
       .all<Row>();
     const records = rows.results.slice(0, 250);
     return json({
       version: 1,
-      accountId: account,
+      accountId: identity.key,
       records: records.map((r) => present(decode(r))),
       nextCursor: rows.results.length > 250 ? records.at(-1)!.id : null,
     });
@@ -65,21 +71,22 @@ export async function handleSync(request: Request, env: Environment) {
   )
     return json({ error: "invalidOrigin" }, 403);
   const parsed = mutationSchema.safeParse(await readJSON(request, 8192));
-  if (!parsed.success) return json({ error: "invalidMutation", accountId: account }, 422);
+  if (!parsed.success) return json({ error: "invalidMutation", accountId: identity.key }, 422);
   const body = parsed.data,
     hash = await digest(JSON.stringify(body)),
     e = body.entity;
   if (e.id === "other" && (e.kind !== "category" || body.deleted))
-    return json({ error: "invalidMutation", accountId: account }, 422);
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
   const receipt = await env.DB.prepare(
     "SELECT body_hash,record FROM places_receipts WHERE account_id = ? AND mutation_id = ?",
   )
     .bind(account, body.mutationId)
     .first<{ body_hash: string; record: string }>();
   if (receipt) {
-    if (receipt.body_hash !== hash) return json({ error: "invalidRetry", accountId: account }, 422);
+    if (receipt.body_hash !== hash)
+      return json({ error: "invalidRetry", accountId: identity.key }, 422);
     return json({
-      accountId: account,
+      accountId: identity.key,
       record: present(recordSchema.parse(JSON.parse(receipt.record))),
     });
   }
@@ -100,7 +107,7 @@ export async function handleSync(request: Request, env: Environment) {
       .bind(account, e.value.photoId)
       .first())
   )
-    return json({ error: "photoUnavailable", accountId: account }, 422);
+    return json({ error: "photoUnavailable", accountId: identity.key }, 422);
   const value = JSON.stringify(e.value),
     revision = body.baseRevision + 1;
   const resultRecord = { ...e, revision, deleted: body.deleted };
@@ -109,7 +116,7 @@ export async function handleSync(request: Request, env: Environment) {
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation)
       SELECT ?,?,?,?,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?
+      AND (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ? AND ${membershipSQL}
       ON CONFLICT(account_id,id) DO NOTHING`).bind(
       account,
       e.id,
@@ -124,10 +131,11 @@ export async function handleSync(request: Request, env: Environment) {
       account,
       e.kind,
       capacity,
+      ...membershipArgs(identity),
     ),
     env.DB.prepare(`UPDATE places_records SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
       AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR deleted=0 OR (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?)`).bind(
+      AND (?=1 OR deleted=0 OR (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}`).bind(
       value,
       revision,
       Number(body.deleted),
@@ -142,6 +150,7 @@ export async function handleSync(request: Request, env: Environment) {
       account,
       e.kind,
       capacity,
+      ...membershipArgs(identity),
     ),
     env.DB.prepare(`INSERT OR IGNORE INTO places_receipts(account_id,mutation_id,body_hash,record) SELECT ?,?,?,?
       WHERE EXISTS(SELECT 1 FROM places_records WHERE account_id=? AND id=? AND last_mutation=?)`).bind(
@@ -154,6 +163,14 @@ export async function handleSync(request: Request, env: Environment) {
       body.mutationId,
     ),
   ]);
+  try {
+    await authorizedWorkspace(request, env);
+  } catch (error) {
+    return json(
+      { error: error instanceof WorkspaceError ? error.message : "serviceUnavailable" },
+      error instanceof WorkspaceError ? error.status : 503,
+    );
+  }
   const accepted = await env.DB.prepare(
     "SELECT body_hash,record FROM places_receipts WHERE account_id=? AND mutation_id=?",
   )
@@ -161,9 +178,9 @@ export async function handleSync(request: Request, env: Environment) {
     .first<{ body_hash: string; record: string }>();
   if (accepted) {
     if (accepted.body_hash !== hash)
-      return json({ error: "invalidRetry", accountId: account }, 422);
+      return json({ error: "invalidRetry", accountId: identity.key }, 422);
     return json({
-      accountId: account,
+      accountId: identity.key,
       record: present(recordSchema.parse(JSON.parse(accepted.record))),
     });
   }
@@ -172,6 +189,6 @@ export async function handleSync(request: Request, env: Environment) {
   )
     .bind(account, e.id)
     .first<Row>();
-  if (!current) return json({ error: "libraryLimit", accountId: account }, 413);
-  return json({ accountId: account, record: present(decode(current)) }, 409);
+  if (!current) return json({ error: "libraryLimit", accountId: identity.key }, 413);
+  return json({ accountId: identity.key, record: present(decode(current)) }, 409);
 }

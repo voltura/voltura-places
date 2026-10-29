@@ -1,5 +1,6 @@
 import { handleAccounts } from "./accounts.js";
 import { handleSync } from "./sync";
+import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
 import type { Environment } from "./types";
 export type AssetMap = Record<string, [string, string]>;
@@ -22,7 +23,9 @@ export function createWorker(assets: AssetMap, version: string) {
           );
         if (url.pathname.startsWith("/api/")) {
           let response: Response;
-          if (url.pathname.startsWith("/api/v1/photos/")) {
+          if (url.pathname === "/api/family") {
+            response = await handleFamilies(request, env);
+          } else if (url.pathname.startsWith("/api/v1/photos/")) {
             response = await handlePhoto(request, env);
           } else if (url.pathname === "/api/v1/sync") {
             if (env.ACCOUNTS_ENABLED !== "true" || !env.DB)

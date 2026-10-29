@@ -7,7 +7,7 @@ export default defineConfig({
   webServer: {
     env: { X_LOCAL_EXPLORER: "false" },
     command:
-      "node node_modules/wrangler/bin/wrangler.js dev --ip 127.0.0.1 --port 5174 --inspector-port 0",
+      "node node_modules/wrangler/bin/wrangler.js dev --ip 127.0.0.1 --port 5174 --inspector-port 0 --var SITES_NATIVE_AUTH:true",
     url: "http://127.0.0.1:5174/api/health",
     reuseExistingServer: true,
     timeout: 60000,

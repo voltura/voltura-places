@@ -30,8 +30,14 @@ export function AccountPanel({
     setError("");
     try {
       await action();
-    } catch {
-      setError(t("serviceUnavailable"));
+    } catch (error) {
+      setError(
+        t(
+          error instanceof Error && error.message === "familyTransferFirst"
+            ? "familyTransferFirst"
+            : "serviceUnavailable",
+        ),
+      );
     } finally {
       setBusy(false);
     }

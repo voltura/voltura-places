@@ -13,6 +13,7 @@ import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
 type Props = {
+  title?: string;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -38,6 +39,7 @@ type Props = {
   prefs: { language: Language };
 };
 export function LibraryView({
+  title,
   t,
   places,
   filtered,
@@ -68,7 +70,7 @@ export function LibraryView({
         <div className="library-title">
           <div>
             <h1>
-              {t("library")}
+              {title ?? t("library")}
               <span className="count">{places.length}</span>
             </h1>
           </div>

@@ -375,6 +375,13 @@ export async function handleAccounts(request, env) {
     if (path === "/api/account" && request.method === "DELETE") {
       const body = await readJSON(request, 1024);
       if (body.confirm !== "delete-places-account") fail(400, "Confirm account deletion.");
+      if (
+        await db
+          .prepare("SELECT 1 FROM places_families WHERE owner_id=?")
+          .bind(current.account_id)
+          .first()
+      )
+        fail(409, "familyTransferFirst");
       await db.batch([
         db
           .prepare(

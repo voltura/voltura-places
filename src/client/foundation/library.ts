@@ -1,5 +1,13 @@
+import { workspaceIdentity } from "../../shared/families";
 import { openDB, type DBSchema } from "idb";
-import { copyPhotos, clearPhotos, makeStoredPhoto, putPhotos, getPhoto } from "./photo-store";
+import {
+  copyPhotos,
+  clearPhotos,
+  clearAccountPhotos,
+  makeStoredPhoto,
+  putPhotos,
+  getPhoto,
+} from "./photo-store";
 import { decodePhoto } from "../../shared/photos";
 import {
   starters,
@@ -31,7 +39,7 @@ const database = () =>
   });
 const seed = (key: string): Workspace => ({
   key,
-  reconciled: key === "guest",
+  reconciled: key === "guest" || !!workspaceIdentity(key).family,
   presetRevision: 2,
   records: starters.map((e) => ({
     ...structuredClone(e),
@@ -112,6 +120,36 @@ function write(w: Workspace, e: Entity, deleted = false) {
   w.records = w.records.filter((r) => r.id !== e.id).concat(next);
 }
 export const saveEntity = (key: string, e: Entity) => changeWorkspace(key, (w) => write(w, e));
+export async function copyPlaceToWorkspace(from: string, to: string, id: string) {
+  const source = await readWorkspace(from),
+    place = source.records.find((r) => r.id === id && r.kind === "place" && !r.deleted);
+  if (!place || place.kind !== "place") throw new Error("invalidImport");
+  if (place.value.photoId) await copyPhotos(from, to, [place.value.photoId]);
+  const category = source.records.find(
+    (r) => r.id === place.value.categoryId && r.kind === "category" && !r.deleted,
+  );
+  const newId = crypto.randomUUID();
+  return changeWorkspace(to, (w) => {
+    let categoryId = "other";
+    if (category?.kind === "category") {
+      const same = w.records.find(
+        (r) =>
+          r.kind === "category" &&
+          !r.deleted &&
+          (category.value.builtIn
+            ? r.value.builtIn === category.value.builtIn
+            : r.value.name === category.value.name),
+      );
+      categoryId = same?.id ?? crypto.randomUUID();
+      if (!same) write(w, { ...category, id: categoryId });
+    }
+    write(w, {
+      id: newId,
+      kind: "place",
+      value: { ...place.value, categoryId, updatedAt: new Date().toISOString() },
+    });
+  });
+}
 export const deleteEntity = (key: string, id: string) =>
   changeWorkspace(key, (w) => {
     const r = w.records.find((r) => r.id === id);
@@ -337,4 +375,18 @@ export async function removeWorkspace(key: string) {
   await setDraft(key, null);
   await clearPhotos(key);
   changed();
+}
+export async function removeAccountWorkspaces(account: string) {
+  const db = await database();
+  const keys = new Set([
+    ...(await db.getAllKeys("workspaces")),
+    ...(await db.getAllKeys("drafts")),
+  ]);
+  for (const key of keys)
+    if (workspaceIdentity(key).account === account) await removeWorkspace(key);
+  await clearAccountPhotos(account);
+  try {
+    localStorage.removeItem(`places-family:${account}`);
+    localStorage.removeItem(`places-workspace:${account}`);
+  } catch {}
 }

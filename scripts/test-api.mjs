@@ -24,7 +24,12 @@ const check = (condition, message) => {
 };
 try {
   const db = await mf.getD1Database("DB");
-  for (const file of ["0000_accounts.sql", "0001_library.sql", "0002_photos.sql"])
+  for (const file of [
+    "0000_accounts.sql",
+    "0001_library.sql",
+    "0002_photos.sql",
+    "0003_families.sql",
+  ])
     for (const statement of (await readFile(`drizzle/${file}`, "utf8"))
       .split("--> statement-breakpoint")
       .filter((s) => s.trim()))
@@ -203,6 +208,201 @@ try {
     },
   });
   check(response.status === 422, "Coordinate validation is enforced server-side");
+  // Independent family identities exercise the same real authorization/CAS/photo path.
+  const c = await login("fixture-c");
+  const familyCall = (who, body) => request("/api/family", { ...who, body });
+  check((await request("/api/family")).status === 401, "Family membership requires sign-in");
+  check(
+    (await familyCall(a, { action: "create", name: "Mushroom family" })).status === 200,
+    "Create family",
+  );
+  const family = (await (await familyCall(a)).json()).family;
+  const familyAuth = (who) => ({
+    ...who,
+    headers: { "X-Places-Family": family.id, "X-Places-Photos": "1" },
+  });
+  const invite = async () => (await (await familyCall(a, { action: "invite" })).json()).token;
+  const oldInvite = await invite(),
+    link = await invite();
+  check(
+    (await familyCall(b, { action: "preview", token: oldInvite })).status === 410,
+    "New invitation invalidates previous link",
+  );
+  check(
+    (await request("/api/v1/sync", familyAuth(b))).status === 403,
+    "Knowing family ID grants no access",
+  );
+  check(
+    (await familyCall(b, { action: "preview", token: link })).status === 200,
+    "Invitation can be reviewed before joining",
+  );
+  check(
+    (await familyCall(b, { action: "join", token: link })).status === 200,
+    "Explicit acceptance adds member",
+  );
+  check(
+    (await familyCall(b, { action: "join", token: link })).status === 200,
+    "Lost-response join retries are safe",
+  );
+  check(
+    (await familyCall(c, { action: "join", token: link })).status === 410,
+    "Invitations are single-use",
+  );
+  const familyPhoto = await photoRequest(a, jpeg, { "X-Places-Family": family.id });
+  check(familyPhoto.status === 200, "Family photos use shared storage");
+  const sharedEntity = {
+    ...entity,
+    id: crypto.randomUUID(),
+    value: { ...entity.value, name: "Shared mushroom spot", photoId },
+  };
+  const sharedMutation = { ...mutation, mutationId: crypto.randomUUID(), entity: sharedEntity };
+  response = await request("/api/v1/sync", { ...familyAuth(a), body: sharedMutation });
+  check(response.status === 200, "Family place commits with its photo");
+  const sharedSnapshot = await (await request("/api/v1/sync", familyAuth(b))).json();
+  check(
+    sharedSnapshot.accountId === `family:${b.account}:${family.id}` &&
+      sharedSnapshot.records.some((r) => r.id === sharedEntity.id),
+    "Other member receives account-partitioned shared snapshot",
+  );
+  check(
+    !sharedSnapshot.records.some((r) => r.id === entity.id),
+    "Private records are not exposed to family",
+  );
+  const sharedImage = await request(`/api/v1/photos/${photoId}`, familyAuth(b));
+  check(
+    sharedImage.status === 200 && Buffer.from(await sharedImage.arrayBuffer()).equals(jpeg),
+    "Other member can retrieve shared photo",
+  );
+  check(
+    (await request(`/api/v1/photos/${photoId}`, familyAuth(c))).status === 403,
+    "Non-member cannot retrieve shared photos",
+  );
+  const editsShared = [a, b].map((who, i) =>
+    request("/api/v1/sync", {
+      ...familyAuth(who),
+      body: {
+        ...sharedMutation,
+        mutationId: crypto.randomUUID(),
+        baseRevision: 1,
+        entity: { ...sharedEntity, value: { ...sharedEntity.value, name: `Shared edit ${i}` } },
+      },
+    }),
+  );
+  const sharedRace = await Promise.all(editsShared);
+  check(
+    sharedRace
+      .map((r) => r.status)
+      .sort()
+      .join(",") === "200,409",
+    "Concurrent family edits preserve conflicts",
+  );
+  check(
+    (await familyCall(b, { action: "invite" })).status === 403,
+    "Members cannot create owner invitations",
+  );
+  check(
+    (
+      await request("/api/account", {
+        ...a,
+        method: "DELETE",
+        body: { confirm: "delete-places-account" },
+      })
+    ).status === 409,
+    "Owner account deletion requires ownership resolution",
+  );
+  check((await familyCall(b, { action: "leave" })).status === 200, "Member can leave");
+  check(
+    (await request("/api/v1/sync", familyAuth(b))).status === 403,
+    "Leaving revokes cloud reads",
+  );
+  check(
+    (await request(`/api/v1/photos/${photoId}`, familyAuth(b))).status === 403,
+    "Leaving revokes photo reads",
+  );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...familyAuth(b),
+        body: { ...sharedMutation, mutationId: crypto.randomUUID(), baseRevision: 2 },
+      })
+    ).status === 403,
+    "Leaving revokes cloud writes",
+  );
+  await familyCall(b, { action: "join", token: await invite() });
+  await familyCall(a, { action: "remove", member: b.account });
+  check(
+    (await request("/api/v1/sync", familyAuth(b))).status === 403,
+    "Owner removal revokes member access",
+  );
+  const cancelled = await invite();
+  await familyCall(a, { action: "revoke" });
+  check(
+    (await familyCall(c, { action: "join", token: cancelled })).status === 410,
+    "Owner can cancel invitation",
+  );
+  const expired = await invite();
+  await db
+    .prepare("UPDATE places_family_invites SET expires_at=0 WHERE family_id=?")
+    .bind(family.id)
+    .run();
+  check(
+    (await familyCall(c, { action: "join", token: expired })).status === 410,
+    "Expired invitations cannot join",
+  );
+  const capped = await invite();
+  const filler = [];
+  for (let i = 0; i < 9; i++) {
+    const id = crypto.randomUUID();
+    filler.push(id);
+    await db.batch([
+      db.prepare("INSERT INTO places_accounts(id,created_at) VALUES(?,?)").bind(id, Date.now()),
+      db
+        .prepare("INSERT INTO places_family_members(family_id,account_id,joined_at) VALUES(?,?,?)")
+        .bind(family.id, id, Date.now()),
+    ]);
+  }
+  check(
+    (await familyCall(c, { action: "join", token: capped })).status === 409,
+    "Family member limit is enforced",
+  );
+  for (const id of filler)
+    await db.prepare("DELETE FROM places_accounts WHERE id=?").bind(id).run();
+  check(
+    (await familyCall(c, { action: "join", token: capped })).status === 200,
+    "Full-family refusal does not consume invitation",
+  );
+  await familyCall(a, { action: "transfer", member: c.account });
+  check(
+    (await familyCall(a, { action: "invite" })).status === 403,
+    "Transferred owner privileges are revoked",
+  );
+  check(
+    (await familyCall(a, { action: "leave" })).status === 200,
+    "Previous owner can leave after transfer",
+  );
+  check(
+    (await familyCall(c, { action: "delete" })).status === 200,
+    "Current owner can delete family",
+  );
+  check(
+    (
+      await db
+        .prepare("SELECT count(*) AS n FROM places_records WHERE account_id=?")
+        .bind(family.id)
+        .first()
+    ).n === 0 &&
+      (
+        await db
+          .prepare("SELECT count(*) AS n FROM places_photos WHERE account_id=?")
+          .bind(family.id)
+          .first()
+      ).n === 0,
+    "Family deletion cascades only shared records/photos",
+  );
+  check(
+    (await request(`/api/v1/photos/${photoId}`, a)).status === 200,
+    "Family deletion preserves private photos",
+  );
   response = await request("/api/account", { ...a, method: "DELETE", body: { confirm: "wrong" } });
   check(response.status === 400, "Account deletion requires its confirmation token");
   const photoEntity = { ...entity, id: crypto.randomUUID(), value: { ...entity.value, photoId } };

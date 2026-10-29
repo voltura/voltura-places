@@ -125,8 +125,14 @@ export function Editor({
       await onSave({ id: id.current, kind: "place", value: parsed.data as Place });
       await setDraft(workspace, null);
       onClose();
-    } catch {
-      setError(t("storageFailure"));
+    } catch (error) {
+      setError(
+        t(
+          error instanceof Error && error.message === "familyAccessEnded"
+            ? "familyAccessEnded"
+            : "storageFailure",
+        ),
+      );
     } finally {
       setBusy(false);
     }

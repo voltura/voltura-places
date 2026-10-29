@@ -1,4 +1,56 @@
 export const en = {
+  familySharing: "Family sharing",
+  familyLibrary: "Family places",
+  familyLibraryHint: "Shared with your family",
+  privateLibrary: "My private places",
+  libraryChoice: "Library",
+  familyIntro:
+    "Keep a shared library with your family. Each person signs in with their own account. Your private places stay private.",
+  familySignIn: "Sign in to share with family",
+  familySharedNotice:
+    "All members can add, edit and delete these places and photos. Changes sync when online. Up to 10 people can join one family.",
+  familyOwner: "Owner",
+  familyName: "Family name",
+  familyCreate: "Create family library",
+  openFamilyLibrary: "Open shared library",
+  familyCreateInvite: "Create invitation link",
+  familyInviteLink: "Invitation link",
+  familyCopyInvite: "Copy invitation",
+  familyCopyFailed: "Could not copy. Select and copy the invitation link above.",
+  familyInviteNotice:
+    "Send the invitation to someone you trust. It expires after 7 days and can be used by one person. Creating another link replaces the previous one. Downloaded copies cannot be recalled.",
+  familyRevokeInvite: "Cancel invitation link",
+  familyJoin: "Join family library",
+  familyJoinNotice:
+    "Joining gives every family member access to the places and photos saved in this shared library. You can all edit them. Your private library stays separate. Members may keep downloaded copies after leaving.",
+  familyMakeOwner: "Make owner",
+  familyTransferConfirm:
+    "Transfer control of this family library to this member? They will manage invitations, membership and deletion.",
+  familyRemoveMember: "Remove member",
+  familyRemoveConfirm:
+    "Remove this person's access to future shared updates? Copies already on their devices cannot be recalled.",
+  familyLeave: "Leave family",
+  familyLeaveConfirm:
+    "Leave this shared library? Your private places are unchanged. Export a backup first if you need a separate copy of the shared places.",
+  familyDelete: "Delete family library",
+  familyDeleteConfirm:
+    "Delete this entire shared library and its photos for all members? This cannot be undone. Private libraries and downloaded copies are not deleted.",
+  familyTransferFirst:
+    "Transfer family ownership to another member, or delete the family library, before leaving or deleting your account.",
+  familyAlreadyJoined:
+    "You already belong to a family. Leave it before joining or creating another.",
+  invalidFamilyInvite:
+    "This invitation is invalid, expired, cancelled or already used. Ask for a new link.",
+  familyFull: "This family is full (10 members).",
+  familyOwnerOnly: "Only the family owner can manage membership and invitations.",
+  familyAccessEnded:
+    "Shared access has ended. Previously downloaded places stay on this device; new changes cannot sync.",
+  invalidFamilyAction: "Could not complete this family action. Refresh and try again.",
+  familyLocalCopy: "Open local shared copy",
+  familyExportLocal: "Export local shared backup",
+  copyToFamily: "Copy to family",
+  copiedToFamily: "Copied to your family library",
+  familyReadonly: "This is a local copy. Shared access has ended; you can view and export it.",
   checkUpdates: "Check for updates",
   placePhoto: "Place photo",
   takePhoto: "Take photo",
@@ -225,6 +277,59 @@ export const en = {
 export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
+  familySharing: "Familjedelning",
+  familyLibrary: "Familjens platser",
+  familyLibraryHint: "Delas med din familj",
+  privateLibrary: "Mina privata platser",
+  libraryChoice: "Bibliotek",
+  familyIntro:
+    "Ha ett gemensamt bibliotek med familjen. Var och en loggar in med sitt eget konto. Dina privata platser förblir privata.",
+  familySignIn: "Logga in för att dela med familjen",
+  familySharedNotice:
+    "Alla medlemmar kan lägga till, ändra och ta bort dessa platser och foton. Ändringar synkas när ni är online. En familj kan ha upp till 10 personer.",
+  familyOwner: "Ägare",
+  familyName: "Familjens namn",
+  familyCreate: "Skapa familjebibliotek",
+  openFamilyLibrary: "Öppna gemensamt bibliotek",
+  familyCreateInvite: "Skapa inbjudningslänk",
+  familyInviteLink: "Inbjudningslänk",
+  familyCopyInvite: "Kopiera inbjudan",
+  familyCopyFailed: "Kunde inte kopiera. Markera och kopiera länken ovan.",
+  familyInviteNotice:
+    "Skicka inbjudan till någon du litar på. Den gäller i 7 dagar och kan användas av en person. En ny länk ersätter den förra. Nedladdade kopior kan inte återkallas.",
+  familyRevokeInvite: "Återkalla inbjudningslänk",
+  familyJoin: "Gå med i familjebibliotek",
+  familyJoinNotice:
+    "När du går med får alla i familjen tillgång till platser och foton i det gemensamma biblioteket. Alla kan ändra dem. Ditt privata bibliotek hålls separat. Medlemmar kan behålla nedladdade kopior efter att de lämnat.",
+  familyMakeOwner: "Gör till ägare",
+  familyTransferConfirm:
+    "Överlåta kontrollen av familjebiblioteket till denna medlem? Personen får hantera inbjudningar, medlemmar och borttagning.",
+  familyRemoveMember: "Ta bort medlem",
+  familyRemoveConfirm:
+    "Ta bort personens tillgång till framtida gemensamma uppdateringar? Kopior som redan finns på personens enheter kan inte återkallas.",
+  familyLeave: "Lämna familjen",
+  familyLeaveConfirm:
+    "Lämna det gemensamma biblioteket? Dina privata platser påverkas inte. Exportera först en säkerhetskopia om du behöver en egen kopia av de gemensamma platserna.",
+  familyDelete: "Ta bort familjebibliotek",
+  familyDeleteConfirm:
+    "Ta bort hela det gemensamma biblioteket och dess foton för alla medlemmar? Det går inte att ångra. Privata bibliotek och nedladdade kopior tas inte bort.",
+  familyTransferFirst:
+    "Överlåt ägarskapet till en annan medlem eller ta bort familjebiblioteket innan du lämnar eller tar bort ditt konto.",
+  familyAlreadyJoined:
+    "Du tillhör redan en familj. Lämna den innan du går med i eller skapar en annan.",
+  invalidFamilyInvite:
+    "Inbjudan är ogiltig, utgången, återkallad eller redan använd. Be om en ny länk.",
+  familyFull: "Familjen är full (10 medlemmar).",
+  familyOwnerOnly: "Endast familjens ägare kan hantera medlemmar och inbjudningar.",
+  familyAccessEnded:
+    "Delad åtkomst har upphört. Tidigare nedladdade platser finns kvar på enheten, men nya ändringar kan inte synkas.",
+  invalidFamilyAction: "Kunde inte slutföra åtgärden. Uppdatera och försök igen.",
+  familyLocalCopy: "Öppna lokal gemensam kopia",
+  familyExportLocal: "Exportera lokal gemensam säkerhetskopia",
+  copyToFamily: "Kopiera till familjen",
+  copiedToFamily: "Kopierad till familjens bibliotek",
+  familyReadonly:
+    "Detta är en lokal kopia. Delad åtkomst har upphört; du kan visa och exportera den.",
   checkUpdates: "Sök efter uppdateringar",
   placePhoto: "Platsens foto",
   takePhoto: "Ta foto",

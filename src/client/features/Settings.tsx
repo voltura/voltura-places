@@ -6,6 +6,7 @@ import type { AccountState } from "../foundation/sync";
 import type { Language, Message } from "../foundation/i18n";
 import type { LocalRecord } from "../../shared/model";
 import type { DistanceUnits } from "../foundation/distance";
+import type { ReactNode } from "react";
 export type Preferences = {
   language: Language;
   theme: "light" | "dark" | "system";
@@ -33,6 +34,7 @@ export function Settings({
   onDeleteAccount,
   onRemoveDevice,
   initial = "preferences",
+  familyPanel,
 }: {
   t: (k: Message) => string;
   preferences: Preferences;
@@ -52,17 +54,19 @@ export function Settings({
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
   initial?: string;
+  familyPanel: ReactNode;
 }) {
   const [tab, setTab] = useState(initial);
   return (
     <Sheet title={t("settings")} onClose={onClose} closeLabel={t("close")} wide>
       <nav className="settings-tabs" aria-label={t("settings")}>
-        {(["preferences", "categories", "backup", "account"] as const).map((k) => (
+        {(["preferences", "categories", "backup", "account", "familySharing"] as const).map((k) => (
           <button key={k} aria-current={tab === k ? "page" : undefined} onClick={() => setTab(k)}>
             {t(k)}
           </button>
         ))}
       </nav>
+      {tab === "familySharing" && familyPanel}
       {tab === "preferences" && (
         <div className="stack">
           <h3>{t("preferences")}</h3>
