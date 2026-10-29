@@ -13,7 +13,7 @@
 - Promo publication at https://voltura.se/places/ passed exact HTTPS payload checks and unchanged Air/root file hashes and route responses. Initial backup: `2026-10-29T12-33-18Z`. This does not establish an authenticated Air session.
 - Dedicated relay GET returns 405 and unsigned POST returns 403. Live sign-in codes arrived in Outlook and authenticated two independent browser sessions successfully.
 - The dedicated `voltura-places` Google project is in production with a Places-only origin/callback and basic email/profile/OpenID scopes. Credentials are Sites secrets; no billing was enabled. Real Google OAuth consent/callback and explicit linking to the verified email account succeeded.
-- A synthetic place at 0, 0 synchronized from Chrome to the independent in-app browser. An edit from that browser synchronized back. The browser app update retained the account library. One clearly labelled example remains in the owner's account.
+- A synthetic place at 0, 0 synchronized from Chrome to the independent in-app browser. An edit from that browser synchronized back. A live service-worker update retained the account library and reopened an unfinished editor with its draft text intact; saving afterward succeeded. One clearly labelled example remains in the owner's account.
 
 Physical iPhone/Android GPS, map handoff, installation, daylight readability and installed updates with unfinished work still require physical-device checks. Local fixtures and desktop browser checks are not substitutes.
 

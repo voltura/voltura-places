@@ -95,7 +95,7 @@ export function App() {
     [backup, setBackup] = useState<Backup | null>(null);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [locating, setLocating] = useState(false),
-    [status, setStatus] = useState("localOnly"),
+    [status, setStatus] = useState(() => (cachedAccount().account ? "pending" : "localOnly")),
     [update, setUpdate] = useState(false);
   const [shared, setShared] = useState(() => parseShare(location.hash)),
     [sharePlace, setSharePlace] = useState<PlaceRecord | null>(null);
@@ -185,6 +185,7 @@ export function App() {
     if (scopeRef.current !== key) {
       scopeRef.current = key;
       setScope(key);
+      setStatus(key === "guest" ? "localOnly" : "pending");
       setSelected(null);
       setEditor(null);
       capture.current++;
