@@ -9,3 +9,5 @@ The app uses system fonts and Lucide icons (ISC license). React, Better Auth, Zo
 # Photo test fixture
 
 `tests/fixtures/photo.jpg` is a generated solid teal rectangle, with no personal imagery or location metadata.
+
+`photo-gps.jpg` adds synthetic EXIF GPS (59.5, 18.25) to that rectangle to verify metadata parsing. It is not a real photograph or captured user position.

@@ -16,6 +16,8 @@ Account settings explicitly say Signed in or Not signed in. A signed-in account 
 
 Installed launches open the library. Service-worker updates wait for acceptance and preserve drafts/pending data. Private APIs are never HTTP-cached. Promo has no service worker. Physical-device/daylight checks remain distinct from emulation.
 
+Users never type latitude/longitude. Save here requests the phone/browser location API and immediately persists the returned fix. Add place and the editor offer Use current location; a selected photo with valid embedded GPS offers Use photo location as an explicit choice. Photos without readable GPS explain the fallback. Existing positions are not silently moved by attaching a photo. Accuracy is reported from the device, not promised; a new GPS selection updates accuracy/capture time and photo positions have unknown accuracy.
+
 Each editor offers Take photo (rear-camera capture hint), Choose photo (normal image picker), preview and Remove photo. One compressed image belongs to each place and follows saved drafts, offline use, cloud sync and JSON backups. Unsupported image formats show recovery feedback without replacing the previous photo. Native capture behavior depends on the device/browser.
 
 Visible tabs check for updates every minute and on foreground/reconnection, with a manual Check for updates action in Preferences. Prompts appear above Settings or inside the editor. Accepting an update flushes drafts before all controlled tabs reload. Older clients need one refresh to receive this update-checking behavior.
