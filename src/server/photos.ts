@@ -1,6 +1,7 @@
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
 import { jpegDimensions, photoHash, PHOTO_BYTES, PHOTO_QUOTA } from "../shared/photos";
 import type { Environment } from "./types";
+import { z } from "zod";
 const json = (error: string, status: number) => Response.json({ error }, { status });
 export async function handlePhoto(request: Request, env: Environment) {
   let identity;
@@ -13,8 +14,7 @@ export async function handlePhoto(request: Request, env: Environment) {
     );
   }
   const id = new URL(request.url).pathname.split("/").at(-1)!;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
-    return json("invalidPhoto", 400);
+  if (!z.string().uuid().safeParse(id).success) return json("invalidPhoto", 400);
   if (request.method === "GET") {
     const photo = await env.DB.prepare(
       `SELECT data FROM places_photos WHERE account_id=? AND id=? AND ${membershipSQL}`,

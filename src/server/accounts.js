@@ -241,6 +241,9 @@ export async function handleAccounts(request, env) {
       const expected = request.headers.get("X-Places-Account");
       if (current && expected && expected !== current.account_id)
         fail(409, "The signed-in account changed.");
+      const providerLogout = await (
+        await getAuth()
+      ).api.signOut({ headers: request.headers, asResponse: true });
       await db
         .prepare("DELETE FROM places_sessions WHERE token_hash = ?")
         .bind(await digest(readCookie(request, env, "session")))
@@ -248,6 +251,8 @@ export async function handleAccounts(request, env) {
       const response = json({ ok: true });
       response.headers.append("Set-Cookie", cookie(env, "session", "", 0));
       response.headers.append("Set-Cookie", cookie(env, "link", "", 0));
+      for (const value of providerLogout.headers.getSetCookie())
+        response.headers.append("Set-Cookie", value);
       return response;
     }
     if (path === "/api/account/connect" && request.method === "POST") {

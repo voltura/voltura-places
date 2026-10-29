@@ -190,7 +190,12 @@ export function exportBackup(w: Workspace, photos?: { id: string; data: string }
       ),
   });
 }
-export async function importBackup(key: string, input: unknown, replace = false) {
+export async function importBackup(
+  key: string,
+  input: unknown,
+  replace = false,
+  isCurrent = () => true,
+) {
   const b = validateBackup(input);
   if ((await readWorkspace(key)).flight) throw new Error("syncBusy");
   const photos = b.photos ?? [],
@@ -208,10 +213,12 @@ export async function importBackup(key: string, input: unknown, replace = false)
       return photo;
     }),
   );
+  if (!isCurrent()) throw new Error("accountChanged");
   await putPhotos(stored);
   for (const place of b.places)
     if (place.value.photoId) place.value.photoId = ids.get(place.value.photoId)!;
   return changeWorkspace(key, (w) => {
+    if (!isCurrent()) throw new Error("accountChanged");
     if (w.flight) throw new Error("syncBusy");
     const incoming = new Set([...b.places, ...b.categories].map((e) => e.id));
     if (replace)
@@ -237,7 +244,12 @@ export async function importBackup(key: string, input: unknown, replace = false)
     }
   });
 }
-export async function reconcileAccount(key: string, cloud: RecordState[], merge: boolean) {
+export async function reconcileAccount(
+  key: string,
+  cloud: RecordState[],
+  merge: boolean,
+  isCurrent = () => true,
+) {
   const guest = await readWorkspace("guest");
   if (merge)
     await copyPhotos(
@@ -246,8 +258,10 @@ export async function reconcileAccount(key: string, cloud: RecordState[], merge:
       guest.records.flatMap((r) =>
         r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
       ),
+      isCurrent,
     );
   return changeWorkspace(key, (w) => {
+    if (!isCurrent()) throw new Error("accountChanged");
     if (w.reconciled) return;
     w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
     for (const e of starters)

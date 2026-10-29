@@ -36,11 +36,15 @@ Invitations use 32 random bytes in `/#family=<base64url token>`. Only a SHA-256 
 
 Local workspace/draft/photo keys are `family:<signed-in-account-id>:<family-id>`, separating each person's cached data and pending writes. Normal launch, foreground, reconnection and visible-page polling synchronize the selected library. Offline writes queue normally. After membership ends, the last downloaded copy remains readable/exportable locally and cloud operations are denied. Removal cannot recall downloaded copies or exports. Export an old family copy before joining another family; the settings shortcut tracks only the latest family.
 
+Visible-page polling refreshes membership as well as records. A different family discovered on another device returns this device to its private library, so old cached places cannot be presented under the new family's name. Account transitions discard transient dialogs and cancel pending import/reconciliation/photo work. Sync responses received after a workspace is deselected cannot acknowledge or restore its data; the persisted flight remains available for an idempotent retry if that account returns.
+
 The owner must transfer ownership to an existing member or delete the family before leaving/deleting their account. Family deletion cascades shared cloud data and memberships, preserving personal libraries. Existing photo limits apply separately to shared storage. Account/device removal clears that person's local private and family partitions without clearing another person's copies.
 
 ## Privacy/recovery
 
 GPS is explicit, never background-tracked. No end-to-end encryption claim. The app does not encrypt local copies/exports. Cleared browser storage loses unsynced data; cloud sync and exports provide recovery. Account deletion cascades records, identities, sessions and receipts.
+
+Sign-out invalidates both the Places session and the short-lived Better Auth proof session. A pending offline logout is account-specific; a server account-change response clears the stale marker instead of trapping the next account in a retry loop. Disabled account configuration denies family/photo capabilities as well as personal synchronization.
 
 ## Photos
 

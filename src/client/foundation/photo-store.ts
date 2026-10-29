@@ -72,9 +72,10 @@ export async function markPhotoUploaded(workspace: string, id: string, hash: str
   if (photo?.hash === hash) await tx.store.put({ ...photo, uploaded: true });
   await tx.done;
 }
-export async function copyPhotos(from: string, to: string, ids: string[]) {
+export async function copyPhotos(from: string, to: string, ids: string[], isCurrent = () => true) {
   const photos = await Promise.all([...new Set(ids)].map((id) => getPhoto(from, id)));
   if (photos.some((p) => !p)) throw new Error("photoUnavailable");
+  if (!isCurrent()) throw new Error("accountChanged");
   await putPhotos(photos.map((p) => ({ ...p!, workspace: to, uploaded: false })));
 }
 export async function clearPhotos(workspace: string) {

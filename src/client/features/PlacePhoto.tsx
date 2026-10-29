@@ -18,7 +18,7 @@ export function PlacePhoto({
       objectUrl = "";
     setUrl("");
     if (id)
-      void loadPhoto(workspace, id)
+      void loadPhoto(workspace, id, () => active)
         .then((blob) => {
           if (active) {
             objectUrl = URL.createObjectURL(blob);
@@ -72,7 +72,7 @@ export function PhotoPicker({
     onBusy(true);
     setError("");
     try {
-      const photoId = await preparePhoto(file, workspace);
+      const photoId = await preparePhoto(file, workspace, () => active.current);
       const location = await photoPosition(file);
       if (active.current) {
         onChange(photoId);

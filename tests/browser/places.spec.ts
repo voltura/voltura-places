@@ -1,5 +1,64 @@
 import { test, expect } from "@playwright/test";
 
+for (const failure of ["invalid", "throw"] as const) {
+  test(`quick GPS save recovers from ${failure} results without saving`, async ({ page }) => {
+    await page.addInitScript(
+      (mode) =>
+        Object.defineProperty(navigator, "geolocation", {
+          value: {
+            getCurrentPosition: (success: PositionCallback) => {
+              if (mode === "throw") throw new Error("unavailable");
+              success({
+                timestamp: NaN,
+                coords: { latitude: NaN, longitude: 0, accuracy: 5 },
+              } as GeolocationPosition);
+            },
+          },
+        }),
+      failure,
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "Save here", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your places 0", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+  });
+}
+
+test("an account change clears an open private map dialog", async ({ page }) => {
+  const identity = {
+    id: "review-account",
+    methods: [{ provider: "email", label: "review@example.invalid" }],
+  };
+  let account: typeof identity | null = null;
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        providers: { email: true },
+        account,
+      },
+    }),
+  );
+  await page.route("**/api/v1/sync", (route) =>
+    route.fulfill({ json: { version: 1, accountId: identity.id, records: [] } }),
+  );
+  await page.route("**/api/family", (route) => route.fulfill({ json: { family: null } }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Private review fixture");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Open maps", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Open with…", exact: true })).toBeVisible();
+  account = identity;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("dialog", { name: "Open with…", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Use the account library", exact: true }),
+  ).toBeVisible();
+});
+
 for (const [width, height, textScale] of [
   [320, 568, 1],
   [375, 812, 1],

@@ -32,6 +32,8 @@ Bookmarks/installed launches use the dedicated platform icons. iPhone/iPad launc
 
 Users never type latitude/longitude. Save here requests the phone/browser location API and immediately persists the returned fix. Add place and the editor offer Use current location; a selected photo with valid embedded GPS offers Use photo location as an explicit choice. Photos without readable GPS explain the fallback. Existing positions are not silently moved by attaching a photo. Accuracy is reported from the device, not promised; a new GPS selection updates accuracy/capture time and photo positions have unknown accuracy.
 
+Quick save and editor GPS reject invalid/stale positions and recover from synchronous browser errors without saving or leaving a busy control stuck. Read-only family copies disable add/edit/conflict actions while retaining viewing, map handoff and export.
+
 Preferences includes Review GPS accuracy before saving (off by default, persisted per device). When on, Save here and the editor's Use current location open a live review instead of accepting the first fix. Request high-accuracy watchPosition with no cached fixes. Display the latest valid estimate in metres, its age and four qualitative bars: ≤10 m, ≤20 m, ≤50 m, >50 m. These are UI thresholds, not guarantees or GPS signal strength. Estimates may improve or worsen as fresh fixes arrive.
 
 Distance units is a separate persisted preference: Metres (m, default) or Feet (ft). It applies to the live review, editor and saved-place details. Round displayed radii upward; unit selection never changes stored metre accuracy, coordinates, quality thresholds or backup/sync data.

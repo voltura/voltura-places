@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { importBackup, reconcileAccount } from "../foundation/library";
 import { fetchSnapshot } from "../foundation/sync";
@@ -15,13 +15,20 @@ export function ImportDialog({
   const [replace, setReplace] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, [workspace]);
   async function apply() {
     if (replace && !confirm(t("confirmReplace"))) return;
     setBusy(true);
     setError("");
     try {
-      await importBackup(workspace, backup, replace);
-      onComplete();
+      await importBackup(workspace, backup, replace, () => active.current);
+      if (active.current) onComplete();
     } catch (e) {
       setError(t(e instanceof Error && e.message === "syncBusy" ? "syncBusy" : "storageFailure"));
     } finally {
@@ -70,13 +77,21 @@ export function ReconcileDialog({
 }: Common & { accountId: string }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, [accountId]);
   async function choose(merge: boolean) {
     setBusy(true);
     setError("");
     try {
       const snapshot = await fetchSnapshot(accountId);
-      await reconcileAccount(accountId, snapshot.records, merge);
-      onComplete();
+      if (!active.current) return;
+      await reconcileAccount(accountId, snapshot.records, merge, () => active.current);
+      if (active.current) onComplete();
     } catch {
       setError(t("serviceUnavailable"));
     } finally {

@@ -35,6 +35,7 @@ import {
 } from "../foundation/family";
 import { familyKey, workspaceIdentity, type Family } from "../../shared/families";
 import { LocationReview } from "../features/LocationReview";
+import { validPosition } from "../foundation/location-review";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
 import { messages, type Message } from "../foundation/i18n";
@@ -245,6 +246,14 @@ export function App() {
       setStatus(key === "guest" ? "localOnly" : "pending");
       setSelected(null);
       setEditor(null);
+      setMaps(null);
+      setSharePlace(null);
+      setMenu(null);
+      setBackup(null);
+      setCategoryEdit(null);
+      setNotice(null);
+      setSearch("");
+      setFilter("all");
       setGpsReview(false);
       capture.current++;
       setLocating(false);
@@ -262,8 +271,12 @@ export function App() {
             familyCheck === familyRequest.current &&
             request === accountRequest.current &&
             workspaceIdentity(scopeRef.current).account === next.account!.id
-          )
+          ) {
             setFamilyCache(storeFamily(next.account!.id, value.active ? value.family : null));
+            const selected = workspaceIdentity(scopeRef.current).family;
+            if (selected && value.active && selected !== value.family?.id)
+              switchLibrary(next.account!.id);
+          }
         })
         .catch(() => {});
   }, []);
@@ -338,7 +351,7 @@ export function App() {
     window.addEventListener("focus", foreground);
     document.addEventListener("visibilitychange", foreground);
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") sync();
+      foreground();
     }, 30000);
     return () => {
       clearInterval(timer);
@@ -397,6 +410,11 @@ export function App() {
   }
   async function persistPosition(position: GeolocationPosition, operation: number, key: string) {
     if (operation !== capture.current || key !== scopeRef.current || !writeAllowed.current) return;
+    if (!validPosition(position)) {
+      setLocating(false);
+      notify("gpsUnavailable", true);
+      return;
+    }
     const now = new Date().toISOString(),
       categoryId = categories.some((c) => c.id === prefs.lastCategory)
         ? prefs.lastCategory
@@ -445,18 +463,23 @@ export function App() {
     const operation = ++capture.current,
       key = scopeRef.current;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => void persistPosition(position, operation, key),
-      (error) => {
-        if (operation !== capture.current) return;
-        setLocating(false);
-        notify(
-          error.code === 1 ? "gpsDenied" : error.code === 3 ? "gpsTimeout" : "gpsUnavailable",
-          true,
-        );
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
-    );
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => void persistPosition(position, operation, key),
+        (error) => {
+          if (operation !== capture.current) return;
+          setLocating(false);
+          notify(
+            error.code === 1 ? "gpsDenied" : error.code === 3 ? "gpsTimeout" : "gpsUnavailable",
+            true,
+          );
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
+      );
+    } catch {
+      setLocating(false);
+      notify("gpsUnavailable", true);
+    }
   }
   const openMaps = (p: Place) => {
     if (prefs.provider) location.assign(mapURL(prefs.provider, p));
@@ -519,12 +542,15 @@ export function App() {
   }
   async function loadFile(file?: File) {
     if (!file) return;
+    const key = scopeRef.current;
     try {
       if (file.size > BACKUP_BYTES) {
         notify("importLimit", true);
         return;
       }
-      setBackup(validateBackup(JSON.parse(await file.text())));
+      const parsed = validateBackup(JSON.parse(await file.text()));
+      if (key !== scopeRef.current || !writeAllowed.current) return;
+      setBackup(parsed);
       setSettings(null);
     } catch {
       notify("invalidImport", true);
@@ -541,6 +567,14 @@ export function App() {
     setScope("guest");
     setSelected(null);
     setEditor(null);
+    setMaps(null);
+    setSharePlace(null);
+    setMenu(null);
+    setBackup(null);
+    setCategoryEdit(null);
+    setNotice(null);
+    setSearch("");
+    setFilter("all");
     setReconciling(false);
     setGpsReview(false);
     capture.current++;
@@ -554,8 +588,8 @@ export function App() {
   async function deleteAccount() {
     const id = account.account!.id;
     await api("/api/account", { confirm: "delete-places-account" }, id, "DELETE");
+    await signOut();
     await removeAccountWorkspaces(id);
-    await refreshAccount();
   }
   function switchLibrary(key: string) {
     if (!authRef.current || workspaceIdentity(key).account !== authRef.current) return;
@@ -612,6 +646,7 @@ export function App() {
   };
   const renderDetails = (record: PlaceRecord) => (
     <PlaceDetails
+      canWrite={canWrite}
       record={record}
       workspace={scope}
       units={prefs.units}
@@ -685,6 +720,7 @@ export function App() {
         </p>
       )}
       <LibraryView
+        canWrite={canWrite}
         title={selectedFamily ? (familyCache.family?.name ?? t("familyLibrary")) : undefined}
         {...{
           t,
@@ -699,7 +735,6 @@ export function App() {
           setSort,
           selected,
           setSelected,
-          setEditor,
           categoryLabel,
           categoryFor,
           categoryColor,
@@ -710,11 +745,20 @@ export function App() {
           renderDetails,
           prefs,
         }}
+        setEditor={(value) => {
+          if (canWrite) setEditor(value);
+        }}
         onResolve={(id, choice) =>
-          void resolveConflict(scope, id, choice).then(() => {
-            void refresh();
-            sync();
-          })
+          void (
+            canWrite
+              ? resolveConflict(scope, id, choice)
+              : Promise.reject(new Error("familyAccessEnded"))
+          )
+            .then(() => {
+              void refresh();
+              sync();
+            })
+            .catch(() => notify(canWrite ? "storageFailure" : "familyAccessEnded", true))
         }
       />
 
@@ -854,9 +898,8 @@ export function App() {
           onDeleteAccount={deleteAccount}
           onRemoveDevice={async () => {
             const id = account.account!.id;
-            await api("/api/account/sign-out", {}, id);
+            await signOut();
             await removeAccountWorkspaces(id);
-            await refreshAccount();
           }}
         />
       )}
@@ -1007,6 +1050,7 @@ export function App() {
       )}
       {backup && (
         <ImportDialog
+          key={scope}
           backup={backup}
           workspace={scope}
           t={t}
@@ -1021,6 +1065,7 @@ export function App() {
       )}
       {reconciling && account.account && !inviteToken && (
         <ReconcileDialog
+          key={account.account.id}
           accountId={account.account.id}
           t={t}
           onClose={() => {

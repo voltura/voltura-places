@@ -297,6 +297,11 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     );
     assert.equal((await call("/api/account/sign-out", {})).status, 200);
     assert.equal((await (await call("/api/account")).json()).account, null);
+    assert.equal(
+      (await call("/api/account/connect", { provider: "email" })).status,
+      401,
+      "logout also invalidates the temporary provider proof; no silent reconnect",
+    );
   } finally {
     await mf.dispose();
   }

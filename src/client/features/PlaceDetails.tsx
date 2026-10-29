@@ -5,6 +5,7 @@ import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 export function PlaceDetails({
+  canWrite,
   record,
   workspace,
   units,
@@ -19,6 +20,7 @@ export function PlaceDetails({
   setEditor,
   copy,
 }: {
+  canWrite: boolean;
   record: PlaceRecord;
   workspace: string;
   units: DistanceUnits;
@@ -73,7 +75,11 @@ export function PlaceDetails({
           <Share2 size={18} />
           {t("share")}
         </button>
-        <button className="button outline" onClick={() => setEditor({ entity: record })}>
+        <button
+          className="button outline"
+          disabled={!canWrite}
+          onClick={() => setEditor({ entity: record })}
+        >
           <Pencil size={18} />
           {t("edit")}
         </button>

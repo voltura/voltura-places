@@ -7,7 +7,7 @@ const run = (file, args) => {
     stdio: "inherit",
     shell: process.platform === "win32" && file.endsWith(".cmd"),
   });
-  if (r.status) process.exit(r.status ?? 1);
+  if (r.error || r.status !== 0) process.exit(r.status ?? 1);
 };
 run(process.execPath, ["node_modules/wrangler/bin/wrangler.js", "types"]);
 run(process.execPath, [

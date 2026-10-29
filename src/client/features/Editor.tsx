@@ -7,6 +7,7 @@ import type { Message } from "../foundation/i18n";
 import { z } from "zod";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { LocationReview } from "./LocationReview";
+import { validPosition } from "../foundation/location-review";
 import { PhotoPicker } from "./PlacePhoto";
 const draftSchema = z.object({
   id: z.string(),
@@ -200,22 +201,34 @@ export function Editor({
               }
               setLocating(true);
               setError("");
-              navigator.geolocation.getCurrentPosition(
-                (p) => {
-                  setLat(String(p.coords.latitude));
-                  setLng(String(p.coords.longitude));
-                  setAccuracy(p.coords.accuracy);
-                  setCapturedAt(new Date().toISOString());
-                  setLocating(false);
-                },
-                (e) => {
-                  setError(
-                    t(e.code === 1 ? "gpsDenied" : e.code === 3 ? "gpsTimeout" : "gpsUnavailable"),
-                  );
-                  setLocating(false);
-                },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
-              );
+              try {
+                navigator.geolocation.getCurrentPosition(
+                  (p) => {
+                    if (!validPosition(p)) {
+                      setError(t("gpsUnavailable"));
+                      setLocating(false);
+                      return;
+                    }
+                    setLat(String(p.coords.latitude));
+                    setLng(String(p.coords.longitude));
+                    setAccuracy(p.coords.accuracy);
+                    setCapturedAt(new Date(p.timestamp).toISOString());
+                    setLocating(false);
+                  },
+                  (e) => {
+                    setError(
+                      t(
+                        e.code === 1 ? "gpsDenied" : e.code === 3 ? "gpsTimeout" : "gpsUnavailable",
+                      ),
+                    );
+                    setLocating(false);
+                  },
+                  { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+                );
+              } catch {
+                setLocating(false);
+                setError(t("gpsUnavailable"));
+              }
             }}
           >
             {t(locating ? "working" : "useCurrentLocation")}

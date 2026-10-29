@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { api, type AccountState } from "./sync";
+import { api, ApiError, type AccountState } from "./sync";
 const stateSchema = z.object({
   enabled: z.boolean(),
   providers: z.object({
@@ -16,6 +16,10 @@ const stateSchema = z.object({
 });
 const empty: AccountState = { enabled: false, providers: {}, account: null };
 let identityRevision = 0;
+function clearPending(expected: string) {
+  if (localStorage.getItem("places-pending-logout") === expected)
+    localStorage.removeItem("places-pending-logout");
+}
 export function cachedAccount(): AccountState {
   try {
     if (localStorage.getItem("places-pending-logout")) return empty;
@@ -30,9 +34,10 @@ export async function currentAccount(): Promise<AccountState> {
   if (pending) {
     try {
       await api("/api/account/sign-out", {}, pending);
-      localStorage.removeItem("places-pending-logout");
-    } catch {
-      return { ...empty, providers: cachedAccount().providers };
+      clearPending(pending);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) clearPending(pending);
+      else return { ...empty, providers: cachedAccount().providers };
     }
   }
   const result = stateSchema.parse(await api("/api/account"));
@@ -51,6 +56,8 @@ export async function signOutLocally(accountId?: string) {
   } catch {}
   try {
     await api("/api/account/sign-out", {}, accountId);
-    localStorage.removeItem("places-pending-logout");
-  } catch {}
+    if (accountId) clearPending(accountId);
+  } catch (error) {
+    if (accountId && error instanceof ApiError && error.status === 409) clearPending(accountId);
+  }
 }

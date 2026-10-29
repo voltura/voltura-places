@@ -94,6 +94,22 @@ try {
   );
   check((await photoRequest(a, new Uint8Array(20))).status === 422, "Invalid JPEG is rejected");
   check((await photoRequest(a)).status === 200, "Photo upload persists in D1");
+  const portablePhotoId = "019a0000-0000-7000-8000-000000000001";
+  check(
+    (
+      await mf.dispatchFetch(origin + `/api/v1/photos/${portablePhotoId}`, {
+        method: "PUT",
+        body: jpeg,
+        headers: {
+          Origin: origin,
+          Cookie: a.cookie,
+          "X-Places-Account": a.account,
+          "Content-Type": "image/jpeg",
+        },
+      })
+    ).status === 200,
+    "All UUID versions accepted by backups can synchronize photos",
+  );
   check((await photoRequest(a)).status === 200, "Photo upload retries are idempotent");
   const changed = Buffer.from(jpeg);
   changed[10] ^= 1;

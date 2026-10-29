@@ -9,6 +9,14 @@ const mutationResultSchema = z.object({
   record: recordSchema.optional(),
   error: z.string().optional(),
 });
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 export type Account = { id: string; methods: { provider: string; label: string }[] };
 export type AccountState = {
@@ -36,7 +44,10 @@ export async function api<T>(
   });
   const data = await response.json();
   if (!response.ok)
-    throw new Error(errorSchema.safeParse(data).data?.error ?? "serviceUnavailable");
+    throw new ApiError(
+      response.status,
+      errorSchema.safeParse(data).data?.error ?? "serviceUnavailable",
+    );
   return data as T;
 }
 export const fetchSnapshot = async (account: string) => {
@@ -99,6 +110,7 @@ export async function synchronize(
           body: JSON.stringify(flight.mutation),
         });
         const data = mutationResultSchema.parse(await response.json());
+        if (!isCurrent()) return;
         if (data.accountId !== account) throw new Error("accountChanged");
         if (!response.ok && response.status !== 409)
           throw new Error(data.error ?? "serviceUnavailable");
@@ -108,6 +120,7 @@ export async function synchronize(
       }
       if (!isCurrent()) return;
       const snapshot = await fetchSnapshot(account);
+      if (!isCurrent()) return;
       if (snapshot.accountId !== account) throw new Error("accountChanged");
       await mergeSnapshot(account, snapshot.records);
       const w = await readWorkspace(account);
@@ -120,7 +133,7 @@ export async function synchronize(
       );
       for (const id of photoIds) {
         if (!isCurrent()) return;
-        await loadPhoto(account, id);
+        await loadPhoto(account, id, isCurrent);
       }
       onStatus(
         w.records.some((r) => r.conflict)

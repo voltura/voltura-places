@@ -1,4 +1,4 @@
-import { sessionFor } from "./accounts.js";
+import { sessionFor, accountConfiguration } from "./accounts.js";
 import { familyKey } from "../shared/families";
 import type { Environment } from "./types";
 export const membershipSQL =
@@ -17,6 +17,8 @@ export class WorkspaceError extends Error {
   }
 }
 export async function authorizedWorkspace(request: Request, env: Environment) {
+  if (!accountConfiguration(env, request).enabled)
+    throw new WorkspaceError(503, "serviceUnavailable");
   const session = (await sessionFor(request, env, env.DB)) as { account_id: string } | null;
   if (!session) throw new WorkspaceError(401, "signInAgain");
   if (request.headers.get("X-Places-Account") !== session.account_id)

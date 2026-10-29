@@ -5,6 +5,19 @@ export type LocationReviewState = {
 };
 export const freshPosition = (position: GeolocationPosition | null, now = Date.now()) =>
   !!position && now - position.timestamp <= 15000 && position.timestamp <= now + 5000;
+export const validPosition = (position: GeolocationPosition) => {
+  const c = position.coords;
+  return (
+    freshPosition(position) &&
+    Number.isFinite(c.latitude) &&
+    Math.abs(c.latitude) <= 90 &&
+    Number.isFinite(c.longitude) &&
+    Math.abs(c.longitude) <= 180 &&
+    Number.isFinite(c.accuracy) &&
+    c.accuracy >= 0 &&
+    c.accuracy <= 10000000
+  );
+};
 export const accuracyLevel = (metres: number) =>
   metres <= 10 ? 4 : metres <= 20 ? 3 : metres <= 50 ? 2 : 1;
 
@@ -42,17 +55,7 @@ export function watchLocation(
     id = geo.watchPosition(
       (position) => {
         if (!active) return;
-        const c = position.coords;
-        if (
-          !freshPosition(position) ||
-          !Number.isFinite(c.latitude) ||
-          Math.abs(c.latitude) > 90 ||
-          !Number.isFinite(c.longitude) ||
-          Math.abs(c.longitude) > 180 ||
-          !Number.isFinite(c.accuracy) ||
-          c.accuracy < 0
-        )
-          return;
+        if (!validPosition(position)) return;
         state = { position, running: true, error: null };
         onState(state);
       },

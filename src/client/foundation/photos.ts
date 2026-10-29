@@ -1,7 +1,7 @@
 import { workspaceHeaders } from "../../shared/families";
 import { PHOTO_BYTES, jpegDimensions } from "../../shared/photos";
 import { getPhoto, makeStoredPhoto, markPhotoUploaded, putPhotos } from "./photo-store";
-export async function preparePhoto(file: File, workspace: string) {
+export async function preparePhoto(file: File, workspace: string, isCurrent = () => true) {
   if (!file.type.startsWith("image/") || file.size > 32 * 1024 * 1024)
     throw new Error("invalidPhoto");
   const url = URL.createObjectURL(file),
@@ -27,6 +27,7 @@ export async function preparePhoto(file: File, workspace: string) {
         );
         if (blob && blob.size <= PHOTO_BYTES) {
           const photo = await makeStoredPhoto(workspace, crypto.randomUUID(), blob);
+          if (!isCurrent()) throw new Error("accountChanged");
           await putPhotos([photo]);
           return photo.id;
         }
@@ -37,7 +38,7 @@ export async function preparePhoto(file: File, workspace: string) {
     URL.revokeObjectURL(url);
   }
 }
-export async function loadPhoto(workspace: string, id: string) {
+export async function loadPhoto(workspace: string, id: string, isCurrent = () => true) {
   const cached = await getPhoto(workspace, id);
   if (cached) return cached.blob;
   if (workspace === "guest" || !navigator.onLine) throw new Error("photoUnavailable");
@@ -51,6 +52,7 @@ export async function loadPhoto(workspace: string, id: string) {
   const buffer = await response.arrayBuffer();
   jpegDimensions(new Uint8Array(buffer));
   const photo = await makeStoredPhoto(workspace, id, new Blob([buffer], { type: "image/jpeg" }));
+  if (!isCurrent()) throw new Error("accountChanged");
   await putPhotos([{ ...photo, uploaded: true }]);
   return photo.blob;
 }

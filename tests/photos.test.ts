@@ -11,6 +11,23 @@ import { exportWithPhotos } from "../src/client/foundation/photo-backup";
 import { importBackup, readWorkspace, saveEntity } from "../src/client/foundation/library";
 import { validateBackup, type Entity } from "../src/shared/model";
 import { photoPosition } from "../src/client/foundation/photo-location";
+import { loadPhoto } from "../src/client/foundation/photos";
+
+test("a late photo download cannot restore data after its view/account is discarded", async () => {
+  const key = crypto.randomUUID(),
+    id = crypto.randomUUID();
+  vi.stubGlobal("navigator", { onLine: true });
+  const network = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response(await readFile("tests/fixtures/photo.jpg")));
+  try {
+    await expect(loadPhoto(key, id, () => false)).rejects.toThrow("accountChanged");
+    expect(await getPhoto(key, id)).toBeUndefined();
+  } finally {
+    network.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
 test("photo GPS is read before compression and absent or malformed metadata is harmless", async () => {
   expect(await photoPosition(new Blob([await readFile("tests/fixtures/photo-gps.jpg")]))).toEqual({
     latitude: 59.5,

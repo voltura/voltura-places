@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
-import { beforeAll, describe, expect, test, vi } from "vitest";
+import { openDB } from "idb";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { synchronize } from "../src/client/foundation/sync";
 import {
   acknowledge,
@@ -10,6 +11,7 @@ import {
   mergeSnapshot,
   prepareMutation,
   readWorkspace,
+  removeWorkspace,
   reconcileAccount,
   resolveConflict,
   saveEntity,
@@ -22,7 +24,7 @@ import {
   validateBackup,
   type Entity,
 } from "../src/shared/model";
-beforeAll(() => {
+beforeEach(() => {
   vi.stubGlobal("window", new EventTarget());
 });
 const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity => ({
@@ -39,6 +41,35 @@ const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity
   },
 });
 describe("durable library boundaries", () => {
+  test("a late sync response cannot recreate a removed workspace", async () => {
+    const key = crypto.randomUUID();
+    await reconcileAccount(key, [], false);
+    await saveEntity(key, makePlace());
+    let active = true;
+    vi.stubGlobal("navigator", { onLine: true });
+    const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      active = false;
+      await removeWorkspace(key);
+      return Response.json({
+        accountId: key,
+        record: { ...body.entity, revision: 1, deleted: false },
+      });
+    });
+    try {
+      await synchronize(
+        key,
+        () => {},
+        () => active,
+      );
+      const db = await openDB("voltura-places", 1);
+      expect(await db.get("workspaces", key)).toBeUndefined();
+      db.close();
+    } finally {
+      network.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
   test("identical concurrent preset writes converge while preserving newer device edits", async () => {
     for (const edited of [false, true]) {
       const key = crypto.randomUUID();
@@ -131,7 +162,8 @@ describe("durable library boundaries", () => {
       );
       expect(network).toHaveBeenCalledTimes(1);
       const w = await readWorkspace(key);
-      expect(w.records.find((r) => r.id === first.id)?.dirty).toBe(false);
+      expect(w.records.find((r) => r.id === first.id)?.dirty).toBe(true);
+      expect(w.flight).toBeDefined(); // Retry the persisted receipt after returning to this account.
       expect(w.records.find((r) => r.id === second.id)?.dirty).toBe(true);
     } finally {
       network.mockRestore();
@@ -152,6 +184,17 @@ describe("durable library boundaries", () => {
       put.mockRestore();
     }
     expect(await readWorkspace(key)).toEqual(before);
+  });
+  test("cancelled imports and reconciliation preserve the destination", async () => {
+    const source = crypto.randomUUID(),
+      target = crypto.randomUUID();
+    await saveEntity(source, makePlace());
+    const before = await readWorkspace(target);
+    await expect(
+      importBackup(target, exportBackup(await readWorkspace(source)), false, () => false),
+    ).rejects.toThrow("accountChanged");
+    await expect(reconcileAccount(target, [], true, () => false)).rejects.toThrow("accountChanged");
+    expect(await readWorkspace(target)).toEqual(before);
   });
   test("save survives reload, and a flight survives response loss without changing its ID/body", async () => {
     const key = crypto.randomUUID();

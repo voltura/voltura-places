@@ -34,6 +34,7 @@ test("two signed-in family members share photos and offline saves while private 
     actors.at(-1)!.page.setDefaultTimeout(10000);
   }
   const [a, b] = actors;
+  await b.page.clock.install();
   const familyAction = (actor: typeof a, data: unknown) =>
     actor.context.request.post("/api/family", {
       headers: { Origin: origin, "X-Places-Account": actor.account },
@@ -123,7 +124,7 @@ test("two signed-in family members share photos and offline saves while private 
       b.page.getByRole("button", { name: "Edit place: Offline mushroom clearing", exact: true }),
     ).toBeVisible();
     expect((await familyAction(a, { action: "remove", member: b.account })).ok()).toBe(true);
-    await b.page.reload();
+    await b.page.clock.fastForward(30000);
     await expect(
       b.page.getByText(
         "This is a local copy. Shared access has ended; you can view and export it.",
@@ -131,9 +132,23 @@ test("two signed-in family members share photos and offline saves while private 
       ),
     ).toBeVisible();
     await expect(b.page.getByRole("button", { name: "Save here", exact: true })).toBeDisabled();
+    await expect(b.page.getByRole("button", { name: "Add place", exact: true })).toBeDisabled();
+    expect((await familyAction(b, { action: "create", name: "A different family" })).ok()).toBe(
+      true,
+    );
+    await b.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await b.page.getByRole("button", { name: "Use the account library", exact: true }).click();
+    await expect(b.page.getByRole("heading", { name: "Your places 0", exact: true })).toBeVisible();
+    await expect(
+      b.page.getByRole("button", { name: "A different family", exact: true }),
+    ).toBeVisible();
+    await expect(
+      b.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
+    ).toHaveCount(0);
   } finally {
     for (const actor of actors) await actor.context.setOffline(false);
     await familyAction(a, { action: "delete" });
+    await familyAction(b, { action: "delete" });
     for (const actor of actors) {
       await actor.context.request.delete("/api/account", {
         headers: { Origin: origin, "X-Places-Account": actor.account },

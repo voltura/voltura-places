@@ -13,6 +13,7 @@ import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
 type Props = {
+  canWrite: boolean;
   title?: string;
   t: (key: Message) => string;
   places: PlaceRecord[];
@@ -39,6 +40,7 @@ type Props = {
   prefs: { language: Language };
 };
 export function LibraryView({
+  canWrite,
   title,
   t,
   places,
@@ -76,6 +78,7 @@ export function LibraryView({
           </div>
           <button
             className="icon-button add-manual"
+            disabled={!canWrite}
             onClick={() => setEditor({})}
             aria-label={t("manual")}
             title={t("manual")}
@@ -131,7 +134,7 @@ export function LibraryView({
           <div className="empty-state">
             <h2>{t("emptyTitle")}</h2>
             <p>{t("emptyBody")}</p>
-            <button className="button quiet" onClick={() => setEditor({})}>
+            <button className="button quiet" disabled={!canWrite} onClick={() => setEditor({})}>
               {t("manual")}
               <ChevronRight size={17} />
             </button>
@@ -206,6 +209,7 @@ export function LibraryView({
                     <button
                       key={choice}
                       className="button outline"
+                      disabled={!canWrite}
                       onClick={() => onResolve(r.id, choice)}
                     >
                       {t(
