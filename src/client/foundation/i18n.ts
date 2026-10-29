@@ -27,7 +27,7 @@ export const en = {
   emptyTitle: "Good places are worth keeping.",
   emptyBody:
     "A quiet spot. The trailhead. Where you parked. Save where you are, and find it again.",
-  emptyTip: "Works offline after your first visit.",
+  emptyTip: "Save and find places offline.",
   noResults: "No matching places",
   clearSearch: "Clear search",
   openMaps: "Open maps",
@@ -258,7 +258,7 @@ export const sv: Record<Message, string> = {
   sort: "Sortera platser",
   emptyTitle: "Bra platser är värda att spara.",
   emptyBody: "En lugn glänta. Ledens början. Där du parkerade. Spara var du är och hitta tillbaka.",
-  emptyTip: "Fungerar offline efter ditt första besök.",
+  emptyTip: "Spara och hitta platser offline.",
   noResults: "Inga matchande platser",
   clearSearch: "Rensa sökning",
   openMaps: "Öppna karta",
