@@ -11,8 +11,14 @@ const json = (body, status = 200, headers = {}) =>
       ...headers,
     },
   });
+export class RequestError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
 const fail = (status, message) => {
-  throw Object.assign(new Error(message), { status });
+  throw new RequestError(status, message);
 };
 const token = () => crypto.randomUUID() + crypto.randomUUID();
 const cookieName = (env, name) =>
@@ -55,29 +61,35 @@ export function accountConfiguration(env, request) {
   };
 }
 export async function readJSON(request, limit) {
-  if (!request.headers.get("content-type")?.startsWith("application/json"))
+  if (
+    request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !==
+    "application/json"
+  )
     fail(415, "JSON required.");
   const reader = request.body?.getReader();
   if (!reader) fail(400, "Request required.");
   let size = 0,
     text = "";
-  const decoder = new TextDecoder();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      fail(
-        413,
-        "The synced library is too large. Nothing was changed. Export a backup and reduce the collection before trying again.",
-      );
-    }
-    text += decoder.decode(value, { stream: true });
-  }
+  const decoder = new TextDecoder("utf-8", { fatal: true });
   try {
-    return JSON.parse(text + decoder.decode());
-  } catch {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) {
+        await reader.cancel();
+        fail(
+          413,
+          "The synced library is too large. Nothing was changed. Export a backup and reduce the collection before trying again.",
+        );
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    const value = JSON.parse(text + decoder.decode());
+    if (!value || typeof value !== "object" || Array.isArray(value)) fail(400, "Invalid request.");
+    return value;
+  } catch (error) {
+    if (error instanceof RequestError) throw error;
     fail(400, "Invalid request.");
   }
 }

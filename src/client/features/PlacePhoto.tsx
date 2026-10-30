@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Camera, ImagePlus, Trash2 } from "lucide-react";
 import { loadPhoto, preparePhoto } from "../foundation/photos";
+import { watchPhoto } from "../foundation/photo-store";
 import type { Message } from "../foundation/i18n";
 import { photoPosition, type PhotoPosition } from "../foundation/photo-location";
 export function PlacePhoto({
@@ -13,10 +14,16 @@ export function PlacePhoto({
   t: (key: Message) => string;
 }) {
   const [url, setUrl] = useState("");
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true,
       objectUrl = "";
     setUrl("");
+    const changed = () => {
+      if (active) setAttempt((value) => value + 1);
+    };
+    const stopWatching = id ? watchPhoto(workspace, id, changed) : () => {};
+    window.addEventListener("online", changed);
     if (id)
       void loadPhoto(workspace, id, () => active)
         .then((blob) => {
@@ -28,9 +35,11 @@ export function PlacePhoto({
         .catch(() => {});
     return () => {
       active = false;
+      stopWatching();
+      window.removeEventListener("online", changed);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [workspace, id]);
+  }, [workspace, id, attempt]);
   if (!id) return null;
   return url ? (
     <img className="place-photo" src={url} alt={t("placePhoto")} />

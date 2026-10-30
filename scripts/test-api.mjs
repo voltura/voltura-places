@@ -769,6 +769,118 @@ try {
     (await familyCall(maximumMember, { action: "create", name: "One too many" })).status === 409,
     "The twenty-group limit is enforced",
   );
+  const recovery = await login("recovery-regressions");
+  for (const path of ["/api/v1/sync", "/api/family"]) {
+    for (const [body, type, expected] of [
+      ["{", "application/json", 400],
+      ["null", "application/json", 400],
+      ["{}", "text/plain", 415],
+      [JSON.stringify({ padding: "x".repeat(9000) }), "application/json", 413],
+    ]) {
+      const invalid = await mf.dispatchFetch(origin + path, {
+        method: "POST",
+        body,
+        headers: {
+          Origin: origin,
+          Cookie: recovery.cookie,
+          "X-Places-Account": recovery.account,
+          "Content-Type": type,
+        },
+      });
+      check(invalid.status === expected, `${path} returns ${expected} for invalid request input`);
+    }
+  }
+  // A deletion must still be sendable when the live category library is full.
+  await db.batch(
+    Array.from({ length: 200 }, (_, i) =>
+      db
+        .prepare(
+          "INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation) VALUES(?,?,'category',?,1,0,?)",
+        )
+        .bind(
+          recovery.account,
+          `capacity-${i}`,
+          JSON.stringify({ name: `Category ${i}`, color: "green" }),
+          crypto.randomUUID(),
+        ),
+    ),
+  );
+  const unseenDeletion = {
+    ...mutation,
+    mutationId: crypto.randomUUID(),
+    deleted: true,
+    entity: {
+      id: "never-uploaded",
+      kind: "category",
+      value: { name: "Removed offline", color: "green" },
+    },
+  };
+  const deletionResponse = await request("/api/v1/sync", { ...recovery, body: unseenDeletion });
+  check(
+    deletionResponse.status === 200 && (await deletionResponse.json()).record.deleted,
+    "Full libraries accept new deletion markers without consuming live capacity",
+  );
+  check(
+    (await request("/api/v1/sync", { ...recovery, body: unseenDeletion })).status === 200,
+    "Deletion markers at capacity retain idempotent receipts",
+  );
+  const overCapacity = { ...unseenDeletion, mutationId: crypto.randomUUID(), deleted: false };
+  check(
+    (await request("/api/v1/sync", { ...recovery, body: overCapacity })).status === 409,
+    "Deletion support does not allow resurrection over live capacity",
+  );
+  await db.prepare("DELETE FROM places_family_code_limits").run();
+  const retryGroupResponse = await familyCall(recovery, {
+    action: "create",
+    name: "Invitation retry fixture",
+  });
+  const retryGroup = (await retryGroupResponse.json()).familyId;
+  const retryCodeResponse = await familyCall(recovery, {
+    action: "code-create",
+    familyId: retryGroup,
+  });
+  check(retryCodeResponse.status === 200, "Retry fixture invitation is created");
+  const retryCode = (await retryCodeResponse.json()).code;
+  const applicants = [];
+  for (let i = 0; i < 5; i++) {
+    const applicant = await login(`pending-slot-${i}`);
+    applicants.push(applicant);
+    check(
+      (await familyCall(applicant, { action: "code-request", code: retryCode })).status === 200,
+      "Each available pending invitation slot accepts one account",
+    );
+  }
+  check(
+    (await familyCall(applicants[0], { action: "code-request", code: retryCode })).status === 200,
+    "An existing applicant can retry when all pending slots are occupied",
+  );
+  const sixthApplicant = await login("pending-slot-extra");
+  check(
+    (await familyCall(sixthApplicant, { action: "code-request", code: retryCode })).status === 410,
+    "Retry support does not exceed the five-applicant capacity",
+  );
+  const emptyFamilySnapshot = await (
+    await request("/api/v1/sync", { ...recovery, headers: { "X-Places-Family": "" } })
+  ).json();
+  check(
+    emptyFamilySnapshot.accountId === recovery.account && emptyFamilySnapshot.records.length > 0,
+    "An empty optional group header reads the signed-in private library",
+  );
+  const emptyFamilyDeletion = {
+    ...unseenDeletion,
+    mutationId: crypto.randomUUID(),
+    entity: { ...unseenDeletion.entity, id: "empty-family-deletion" },
+  };
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...recovery,
+        headers: { "X-Places-Family": "" },
+        body: emptyFamilyDeletion,
+      })
+    ).status === 200,
+    "An empty optional group header cannot redirect private writes to an empty storage account",
+  );
   console.log(
     `Passed ${checks} real workerd/D1 authorization, CAS, retry and recovery checks. No production data or emails used.`,
   );

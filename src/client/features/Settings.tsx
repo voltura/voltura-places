@@ -41,6 +41,7 @@ export type Preferences = {
   units: DistanceUnits;
 };
 export function Settings({
+  canWrite,
   t,
   preferences,
   onPreferences,
@@ -61,6 +62,7 @@ export function Settings({
   initial = "preferences",
   familyPanel,
 }: {
+  canWrite: boolean;
   t: (k: Message) => string;
   preferences: Preferences;
   onPreferences: (p: Preferences) => void;
@@ -300,7 +302,7 @@ export function Settings({
       {tab === "categories" && (
         <div className="stack">
           <h3>{t("categories")}</h3>
-          <button className="button outline" onClick={() => onCategory()}>
+          <button className="button outline" disabled={!canWrite} onClick={() => onCategory()}>
             <Plus size={19} />
             {t("newCategory")}
           </button>
@@ -312,6 +314,7 @@ export function Settings({
                 <button
                   className="icon-button"
                   aria-label={`${t("rename")} ${categoryLabel(c)}`}
+                  disabled={!canWrite}
                   onClick={() => onCategory(c)}
                 >
                   <Pencil size={18} />
@@ -320,6 +323,7 @@ export function Settings({
                   <button
                     className="icon-button"
                     aria-label={`${t("delete")} ${categoryLabel(c)}`}
+                    disabled={!canWrite}
                     onClick={() => onDeleteCategory(c)}
                   >
                     <Trash2 size={18} />
@@ -343,7 +347,7 @@ export function Settings({
                 <Download size={19} />
                 {t("export")}
               </button>
-              <button className="button outline" onClick={onImport}>
+              <button className="button outline" disabled={!canWrite} onClick={onImport}>
                 <Upload size={19} />
                 {t("import")}
               </button>

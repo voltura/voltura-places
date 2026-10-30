@@ -1,5 +1,5 @@
 import { mutationSchema, recordSchema, type RecordState } from "../shared/model";
-import { readJSON } from "./accounts.js";
+import { readJSON, RequestError } from "./accounts.js";
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
 import { digest } from "./auth.js";
 import type { Environment } from "./types";
@@ -70,7 +70,14 @@ export async function handleSync(request: Request, env: Environment) {
     request.headers.get("Sec-Fetch-Site") === "cross-site"
   )
     return json({ error: "invalidOrigin" }, 403);
-  const parsed = mutationSchema.safeParse(await readJSON(request, 8192));
+  let input;
+  try {
+    input = await readJSON(request, 8192);
+  } catch (error) {
+    if (!(error instanceof RequestError)) throw error;
+    return json({ error: "invalidMutation", accountId: identity.key }, error.status);
+  }
+  const parsed = mutationSchema.safeParse(input);
   if (!parsed.success) return json({ error: "invalidMutation", accountId: identity.key }, 422);
   const body = parsed.data,
     hash = await digest(JSON.stringify(body)),
@@ -116,7 +123,7 @@ export async function handleSync(request: Request, env: Environment) {
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation)
       SELECT ?,?,?,?,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ? AND ${membershipSQL}
+      AND (?=1 OR (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}
       ON CONFLICT(account_id,id) DO NOTHING`).bind(
       account,
       e.id,
@@ -128,6 +135,7 @@ export async function handleSync(request: Request, env: Environment) {
       body.baseRevision,
       account,
       body.mutationId,
+      Number(body.deleted),
       account,
       e.kind,
       capacity,

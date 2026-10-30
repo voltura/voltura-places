@@ -190,6 +190,8 @@ export const en = {
   shareReady: "Link copied. Send it to someone you trust.",
   sharedTitle: "A place shared with you",
   saveCopy: "Save a copy",
+  placeChanged:
+    "This place changed in another tab. Copy any edits you want to keep, then close this editor and reopen the place to review the saved version.",
   invalidShare: "This shared place link is invalid or incomplete.",
   settings: "Settings",
   preferences: "Preferences",
@@ -255,6 +257,8 @@ export const en = {
   confirmReplace: "Replace this library?",
   imported: "Backup imported",
   exported: "Backup downloaded",
+  exportFailed:
+    "Could not create the backup. Connect to download any missing photos, then try again. Your places were not changed.",
   invalidImport: "This is not a valid Voltura Places backup. Nothing was changed.",
   importLimit: "Choose a backup smaller than 80 MB.",
   storageFailure: "Could not save to this device. Free some browser storage and try again.",
@@ -301,6 +305,8 @@ export const en = {
   libraryLimit:
     "The library has reached its supported capacity. Export a backup before removing entries.",
   reconcileTitle: "Add device places to this account?",
+  copyRecoveryBody:
+    "Some device places could not be copied. Keep them on this device to open the account without copying, or try adding them again after addressing the error below.",
   reconcileBody:
     "You’re signing into a different account on this device. Copy the places saved while signed out?",
   mergeGuest: "Add places and continue",
@@ -549,6 +555,8 @@ export const sv: Record<Message, string> = {
   shareReady: "Länken är kopierad. Skicka den till någon du litar på.",
   sharedTitle: "En plats delad med dig",
   saveCopy: "Spara en kopia",
+  placeChanged:
+    "Platsen ändrades i en annan flik. Kopiera ändringar du vill behålla, stäng sedan redigeraren och öppna platsen igen för att granska den sparade versionen.",
   invalidShare: "Länken till den delade platsen är ogiltig eller ofullständig.",
   settings: "Inställningar",
   preferences: "Utseende och språk",
@@ -615,6 +623,8 @@ export const sv: Record<Message, string> = {
   confirmReplace: "Ersätt detta bibliotek?",
   imported: "Säkerhetskopian är importerad",
   exported: "Säkerhetskopian är nedladdad",
+  exportFailed:
+    "Kunde inte skapa säkerhetskopian. Anslut för att hämta foton som saknas och försök igen. Dina platser ändrades inte.",
   invalidImport:
     "Detta är inte en giltig säkerhetskopia från Voltura Places. Ingenting har ändrats.",
   importLimit: "Välj en säkerhetskopia mindre än 80 MB.",
@@ -664,6 +674,8 @@ export const sv: Record<Message, string> = {
   libraryLimit:
     "Biblioteket har nått sin gräns. Exportera en säkerhetskopia innan du tar bort poster.",
   reconcileTitle: "Lägg till enhetens platser i det här kontot?",
+  copyRecoveryBody:
+    "Vissa platser på enheten kunde inte kopieras. Behåll dem på enheten för att öppna kontot utan kopiering, eller försök lägga till dem igen när felet nedan är löst.",
   reconcileBody:
     "Du loggar in på ett annat konto på enheten. Kopiera platserna som sparats utan inloggning?",
   mergeGuest: "Lägg till och fortsätt",
@@ -719,3 +731,17 @@ export const sv: Record<Message, string> = {
   today: "Idag",
 };
 export const messages = (lang: Language) => (key: Message) => (lang === "sv" ? sv : en)[key];
+export function libraryErrorMessage(error: unknown, fallback: Message = "storageFailure"): Message {
+  return error instanceof Error &&
+    [
+      "libraryLimit",
+      "photoQuota",
+      "photoUnavailable",
+      "familyAccessEnded",
+      "accountChanged",
+      "placeChanged",
+      "syncBusy",
+    ].includes(error.message)
+    ? (error.message as Message)
+    : fallback;
+}

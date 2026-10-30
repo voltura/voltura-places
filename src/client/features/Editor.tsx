@@ -4,7 +4,7 @@ import { ChevronDown, LocateFixed, LoaderCircle, MapPin } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { getDraft, setDraft } from "../foundation/library";
 import { placeSchema, type Entity, type LocalRecord, type Place } from "../../shared/model";
-import type { Message } from "../foundation/i18n";
+import { libraryErrorMessage, type Message } from "../foundation/i18n";
 import { z } from "zod";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { LocationReview } from "./LocationReview";
@@ -168,16 +168,9 @@ export function Editor({
     stopRefinement.current();
     try {
       await onSave({ id: id.current, kind: "place", value: parsed.data as Place });
-      await setDraft(workspace, null);
       onClose();
     } catch (error) {
-      setError(
-        t(
-          error instanceof Error && error.message === "familyAccessEnded"
-            ? "familyAccessEnded"
-            : "storageFailure",
-        ),
-      );
+      setError(t(libraryErrorMessage(error)));
     } finally {
       setBusy(false);
     }
@@ -199,7 +192,6 @@ export function Editor({
     setLocating(false);
     try {
       await onDiscardPlace(id.current);
-      await setDraft(workspace, null);
       onClose();
     } catch (error) {
       setDiscardingPlace(false);
@@ -250,12 +242,13 @@ export function Editor({
             void save();
           }}
           className="stack editor-form"
-          inert={busy}
+          inert={busy || !ready}
         >
           <label>
             {t("name")}
             <input
               autoComplete="off"
+              disabled={busy || !ready}
               maxLength={160}
               value={name}
               onChange={(e) => setName(e.target.value)}

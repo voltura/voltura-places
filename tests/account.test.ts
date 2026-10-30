@@ -1,6 +1,44 @@
 import { test, expect, vi } from "vitest";
 import { currentAccount, signOutLocally } from "../src/client/foundation/account";
 
+test("unavailable browser settings storage does not prevent online account discovery or logout retry", async () => {
+  vi.stubGlobal("localStorage", {
+    getItem: () => {
+      throw new DOMException("blocked", "SecurityError");
+    },
+    setItem: () => {
+      throw new DOMException("blocked", "SecurityError");
+    },
+    removeItem: () => {
+      throw new DOMException("blocked", "SecurityError");
+    },
+  });
+  const state = {
+    enabled: true,
+    providers: {},
+    account: { id: "storage-blocked-account", methods: [] },
+  };
+  let failLogout = false;
+  const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    if (String(url).endsWith("sign-out")) {
+      if (failLogout) throw new Error("offline");
+      return Response.json({ ok: true });
+    }
+    return Response.json(state);
+  });
+  try {
+    expect(await currentAccount()).toEqual(state);
+    failLogout = true;
+    await signOutLocally(state.account.id);
+    expect((await currentAccount()).account).toBeNull();
+    failLogout = false;
+    expect(await currentAccount()).toEqual(state);
+  } finally {
+    network.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("a stale logout does not trap a different signed-in account in pending logout", async () => {
   const values = new Map<string, string>();
   const storage = {

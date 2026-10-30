@@ -15,6 +15,16 @@ try {
   if (git(["remote", "get-url", "origin"]) !== "https://github.com/voltura/voltura-places.git")
     throw new Error("Unexpected public origin.");
   const sha = git(["rev-parse", "HEAD"]);
+  const assertValidatedSource = () => {
+    if (
+      git(["branch", "--show-current"]) !== "main" ||
+      git(["rev-parse", "HEAD"]) !== sha ||
+      git(["status", "--porcelain"])
+    )
+      throw new Error(
+        "Source changed during validation. Preserve the changes and validate again before publishing.",
+      );
+  };
   client = await connect();
   const session = await client.rpc("thread/start", { ephemeral: true, cwd: root });
   const call = async (tool, args) => {
@@ -48,12 +58,14 @@ try {
       ["--test", "tests/auth-runtime.test.mjs"],
     ])
       await run(process.execPath, args);
-    git(["push", "origin", "main"]);
+    assertValidatedSource();
+    git(["push", "origin", `${sha}:refs/heads/main`]);
     const credential = await call("create_source_repository_write_credential", {
       project_id: manifest.project_id,
     });
     const skill = await sitesSkill();
     const archive = resolve(tmpdir(), "voltura-places-site.tar.gz");
+    assertValidatedSource();
     const output = await run(
       process.execPath,
       [

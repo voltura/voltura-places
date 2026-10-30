@@ -28,7 +28,7 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
         if (blob && blob.size <= PHOTO_BYTES) {
           const photo = await makeStoredPhoto(workspace, crypto.randomUUID(), blob);
           if (!isCurrent()) throw new Error("accountChanged");
-          await putPhotos([photo]);
+          await putPhotos([photo], isCurrent);
           return photo.id;
         }
       }
@@ -53,12 +53,18 @@ export async function loadPhoto(workspace: string, id: string, isCurrent = () =>
   jpegDimensions(new Uint8Array(buffer));
   const photo = await makeStoredPhoto(workspace, id, new Blob([buffer], { type: "image/jpeg" }));
   if (!isCurrent()) throw new Error("accountChanged");
-  await putPhotos([{ ...photo, uploaded: true }]);
+  await putPhotos([{ ...photo, uploaded: true }], isCurrent);
   return photo.blob;
 }
-export async function uploadPhoto(workspace: string, id: string) {
-  const photo = await getPhoto(workspace, id);
+export async function uploadPhoto(workspace: string, id: string, isCurrent = () => true) {
+  if (!isCurrent()) throw new Error("accountChanged");
+  let photo = await getPhoto(workspace, id);
+  if (!photo) {
+    await loadPhoto(workspace, id, isCurrent);
+    photo = await getPhoto(workspace, id);
+  }
   if (!photo) throw new Error("photoUnavailable");
+  if (!isCurrent()) throw new Error("accountChanged");
   if (photo.uploaded) return;
   const response = await fetch(`/api/v1/photos/${id}`, {
     method: "PUT",

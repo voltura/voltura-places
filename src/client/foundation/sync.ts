@@ -50,10 +50,12 @@ export async function api<T>(
     );
   return data as T;
 }
-export const fetchSnapshot = async (account: string) => {
+export const fetchSnapshot = async (account: string, isCurrent = () => true) => {
   const records = [];
+  const ids = new Set<string>();
   let cursor = "";
   for (let page = 0; page < 200; page++) {
+    if (!isCurrent()) throw new Error("accountChanged");
     const result = snapshotSchema.parse(
       await api(
         `/api/v1/sync${cursor ? `?after=${encodeURIComponent(cursor)}` : ""}`,
@@ -61,7 +63,12 @@ export const fetchSnapshot = async (account: string) => {
         account,
       ),
     );
+    if (!isCurrent()) throw new Error("accountChanged");
     if (result.accountId !== account) throw new Error("accountChanged");
+    for (const record of result.records) {
+      if (ids.has(record.id) || (cursor && record.id <= cursor)) throw new Error("invalidResponse");
+      ids.add(record.id);
+    }
     records.push(...result.records);
     if (!result.nextCursor) return { version: 1 as const, accountId: account, records };
     if (result.nextCursor <= cursor) throw new Error("invalidResponse");
@@ -83,7 +90,9 @@ export async function synchronize(
   running.add(account);
   const run = async () => {
     try {
+      if (!isCurrent()) return;
       if (!(await readWorkspace(account)).reconciled) return;
+      if (!isCurrent()) return;
       if (!navigator.onLine) {
         onStatus("offline");
         return;
@@ -99,7 +108,7 @@ export async function synchronize(
           flight.mutation.entity.kind === "place" &&
           flight.mutation.entity.value.photoId
         )
-          await uploadPhoto(account, flight.mutation.entity.value.photoId);
+          await uploadPhoto(account, flight.mutation.entity.value.photoId, isCurrent);
         if (!isCurrent()) return;
         const response = await fetch("/api/v1/sync", {
           method: "POST",
@@ -119,11 +128,12 @@ export async function synchronize(
         if (!response.ok && response.status !== 409)
           throw new Error(data.error ?? "serviceUnavailable");
         const remote = recordSchema.parse(data.record);
-        if (remote.id !== flight.mutation.entity.id) throw new Error("invalidResponse");
+        if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
+          throw new Error("invalidResponse");
         await acknowledge(account, flight.mutation.mutationId, remote, response.status === 409);
       }
       if (!isCurrent()) return;
-      const snapshot = await fetchSnapshot(account);
+      const snapshot = await fetchSnapshot(account, isCurrent);
       if (!isCurrent()) return;
       if (snapshot.accountId !== account) throw new Error("accountChanged");
       await mergeSnapshot(account, snapshot.records);
@@ -139,6 +149,7 @@ export async function synchronize(
         if (!isCurrent()) return;
         await loadPhoto(account, id, isCurrent);
       }
+      if (!isCurrent()) return;
       onStatus(
         w.records.some((r) => r.conflict)
           ? "actionRequired"
@@ -147,12 +158,25 @@ export async function synchronize(
             : "synced",
       );
     } catch {
-      onStatus(navigator.onLine ? "actionRequired" : "offline");
+      if (isCurrent()) onStatus(navigator.onLine ? "actionRequired" : "offline");
     }
   };
+  let entered = false;
   try {
-    if (navigator.locks) await navigator.locks.request(`places-sync:${account}`, run);
-    else await run();
+    if (typeof navigator.locks?.request === "function")
+      await navigator.locks.request(`places-sync:${account}`, () => {
+        entered = true;
+        return run();
+      });
+    else {
+      entered = true;
+      await run();
+    }
+  } catch {
+    // The durable flight and server receipts also protect browsers that deny
+    // Web Locks. Never start another run after its callback already entered.
+    if (!entered) await run();
+    else if (isCurrent()) onStatus(navigator.onLine ? "actionRequired" : "offline");
   } finally {
     running.delete(account);
   }

@@ -37,7 +37,15 @@ export function Sheet({
         onClose();
       }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target !== ref.current) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        if (
+          e.clientX < rect.left ||
+          e.clientX >= rect.right ||
+          e.clientY < rect.top ||
+          e.clientY >= rect.bottom
+        )
+          onClose();
       }}
     >
       <div className="sheet-head">

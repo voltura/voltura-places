@@ -1,5 +1,69 @@
 # Verification
 
+## Version 0.1.1 bounded bug audit — 30 October 2026
+
+The release fixes 51 distinct bugs and adverse edge cases. Parameter variants, repeated runs and viewport/browser variants are not counted as additional defects. The original target was 140; the owner set a 70-minute total limit with deployment of the validated fixes at the cutoff.
+
+Evidence: R = [recovery data tests](../tests/recovery.test.ts); Q = [request validation tests](../tests/requests.test.ts); A = [real workerd/D1 integration checks](../scripts/test-api.mjs); C = [account tests](../tests/account.test.ts); P = [photo tests](../tests/photos.test.ts); F = [family storage tests](../tests/family-library.test.ts); B = [browser recovery flows](../tests/browser/recovery.spec.ts); L = [location/units tests](../tests/location-review.test.ts).
+
+| ID  | Defect fixed                                                                                                                | Evidence |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | Merge imports resurrected existing place/category tombstones instead of preserving their identities.                        | R        |
+| 2   | Place/category ID collisions made otherwise valid imports fail, including replace mode.                                     | R        |
+| 3   | Importing unchanged categories unnecessarily dirtied records and queued cloud writes.                                       | R        |
+| 4   | Editing or deleting a conflicted record discarded its preserved cloud version.                                              | R        |
+| 5   | Keep both copied foreign conflict metadata onto the new record, leaving it unsendable; older cached copies now recover too. | R        |
+| 6   | Older pull responses could roll back a clean record or replace a newer preserved conflict.                                  | R        |
+| 7   | Equivalent values with different object-property order produced false conflicts.                                            | R        |
+| 8   | Duplicate snapshot identities were accepted instead of rejecting an ambiguous pull.                                         | R        |
+| 9   | A mutation response with the wrong entity kind could overwrite the local kind.                                              | R        |
+| 10  | A snapshot kind collision could corrupt existing local entity types.                                                        | R        |
+| 11  | Acknowledging an older flight could leave that already accepted version stuck as a conflict on a newer edit.                | R        |
+| 12  | A late acknowledgement could discard a newer cloud conflict, including on the following pull.                               | R        |
+| 13  | A late acknowledgement could roll back a cloud version already explicitly chosen by the user.                               | R        |
+| 14  | A discarded sync operation could still report a failure status to its old callback.                                         | R        |
+| 15  | Local write boundaries accepted entities outside the shared schema.                                                         | R        |
+| 16  | Adding missing default categories could prevent opening a full cloud category library.                                      | R        |
+| 17  | A stale editor could silently overwrite a cloud update/deletion or another tab's newer unsynced edit.                       | R, B     |
+| 18  | JSON media-type parsing accepted suffix lookalikes and rejected valid casing.                                               | Q        |
+| 19  | Non-object JSON bodies fell through to server failures instead of bounded client errors.                                    | Q        |
+| 20  | Invalid UTF-8 could silently change submitted text through replacement decoding.                                            | Q        |
+| 21  | Sync/group handlers converted malformed, wrong-type and oversized request errors into generic 503 failures.                 | A        |
+| 22  | Full live libraries rejected new deletion markers for items created and deleted offline.                                    | A        |
+| 23  | An existing invitation applicant could not retry when all five pending slots were occupied.                                 | A        |
+| 24  | Unavailable browser settings storage broke account discovery and could lose the pending logout retry.                       | C        |
+| 25  | Photo writes checked cancellation before opening the database but not at their commit boundary.                             | P        |
+| 26  | An account-discarded group copy could recreate its destination records/photos.                                              | P        |
+| 27  | An open missing-photo placeholder did not update when reconnection stored the photo.                                        | B        |
+| 28  | Photo ID collisions with different bytes aborted group/account copies instead of preserving both images.                    | P        |
+| 29  | An edited cloud place could not synchronize when only its local photo cache was missing.                                    | P        |
+| 30  | Device-data removal could miss a family draft still queued before partition enumeration.                                    | F        |
+| 31  | Newest sorting misordered valid ISO timestamps with different fractional precision.                                         | B        |
+| 32  | Other filtering excluded places whose category had disappeared on another device.                                           | B        |
+| 33  | Shared-place saving was available before account initialization, allowing a later reconciliation to discard the new save.   | B        |
+| 34  | Repeated shared-place submissions created multiple copies.                                                                  | B        |
+| 35  | Invalid shared-place fragments remained in the address bar after validation.                                                | B        |
+| 36  | Clicks inside a sheet's own bottom padding were treated as backdrop dismissal.                                              | B        |
+| 37  | Appearance-only preset changes froze the displayed category name in its current language.                                   | B        |
+| 38  | Repeated category submissions created duplicate categories.                                                                 | B        |
+| 39  | Read-only group settings displayed enabled category/import controls that could not work.                                    | B        |
+| 40  | Shared links arriving through hash changes in an already-open app were ignored.                                             | B        |
+| 41  | A late draft read overwrote text typed before restoration finished.                                                         | B        |
+| 42  | Floating-point imperial conversion added an extra foot to exact whole-foot accuracy values.                                 | L        |
+| 43  | Export failures incorrectly described a nonexistent imported backup as invalid.                                             | B        |
+| 44  | A cancelled export could download photos back into a discarded account.                                                     | P        |
+| 45  | A second tab retained its account view after sign-out until a later poll/focus.                                             | B        |
+| 46  | An automatic guest-copy capacity/photo failure trapped sign-in in a retry loop without the keep-on-device recovery choice.  | B        |
+| 47  | Import/editor capacity failures showed unrelated browser-storage guidance.                                                  | B        |
+| 48  | Editor record saving and draft cleanup could partially succeed in separate transactions.                                    | R        |
+| 49  | Deleting a place retained its matching draft, allowing stale editor restoration.                                            | R        |
+| 50  | A rejected Web Locks request escaped synchronization instead of using the durable-flight fallback.                          | R        |
+| 51  | A discarded paginated pull continued requesting subsequent pages.                                                           | R        |
+
+Validation before publication: type/document checks, 97 unit/data tests, 127 isolated workerd/D1 checks, the real-handler authentication fixture and all 100 browser flows pass. The final synchronization refinements are included in the final integrated build and second complete 100-flow browser pass. The preserved-conflict and copy-capacity recovery screenshots were visually inspected. Browser evidence uses synthetic accounts, images and GPS. Chromium and desktop WebKit checks are not physical-phone validation; real GPS, camera and native OS share sheets remain unverified. The existing family/offline fixture refreshes its emulated provider before acquisition after its lengthy sharing sequence, keeping offline durability separate from real provider latency.
+
+The shared human-review preview remains http://127.0.0.1:5173/. No existing preview storage was cleared. The app release uses the same Sites project and audience; no promo, mail relay, one.com, Air or sibling repository changes are included.
+
 30 October 2026 publication validation: reviewed all pending category appearance, invitation sharing, Safari library switching, map-button layout and shared-preview API changes together on main. Type/document checks, 53 unit/data tests, the production build, 106 real workerd/D1 authorization/CAS/retry/recovery checks, the real-handler authentication fixture and all 82 browser flows pass, including focused WebKit touch and map-layout coverage. The owner's final request removes the redundant Location updated status from Place saved while retaining the accuracy row; after that change, type/document checks, the production build and both focused GPS/saved-place flows pass. The shared 5173 preview serves these changes. Existing local/unpublished entries below record prepublication observations. Publication of all changes is authorized by the owner. Physical-device and native OS share-sheet validation remain open. No promo, relay or one.com source changed.
 
 Open maps right margin (30 October 2026, local and unpublished): iPhone-emulated WebKit reproduced the native select occupying 72px inside its 56px column and overflowing the right margin by 16px. Setting its minimum width to zero restores equal content margins. WebKit and Chromium regression checks pass at 320/390/430px and 375px with doubled text; all nine focused layout/map-handoff flows, type/document checks and the production build pass. The shared 5173 preview was visually checked with synthetic data. Physical iPhone confirmation and owner feedback remain open.

@@ -43,7 +43,7 @@ import { LocationReview } from "../features/LocationReview";
 import { validPosition, captureLocation } from "../foundation/location-review";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
-import { messages, type Message } from "../foundation/i18n";
+import { libraryErrorMessage, messages, type Message } from "../foundation/i18n";
 import { keepOfflineData } from "../foundation/storage";
 import { api, synchronize, type AccountState } from "../foundation/sync";
 import { cachedAccount, currentAccount, signOutLocally } from "../foundation/account";
@@ -208,6 +208,8 @@ export function App() {
       icon: NonNullable<Category["icon"]>;
     } | null>(null),
     [backup, setBackup] = useState<Backup | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const categorySavePending = useRef(false);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [locating, setLocating] = useState(false),
     [gpsReview, setGpsReview] = useState(false),
@@ -215,6 +217,9 @@ export function App() {
     [update, setUpdate] = useState(false);
   const [shared, setShared] = useState(() => parseShare(location.hash)),
     [sharePlace, setSharePlace] = useState<PlaceRecord | null>(null);
+  const [savingShared, setSavingShared] = useState(false);
+  const sharedSavePending = useRef(false);
+  const sharedRevision = useRef(0);
   const [reconciling, setReconciling] = useState(false),
     [menu, setMenu] = useState<PlaceRecord | null>(null),
     [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
@@ -263,7 +268,7 @@ export function App() {
   const filtered = places
     .filter(
       (p) =>
-        (filter === "all" || p.value.categoryId === filter) &&
+        (filter === "all" || (categoryFor(p.value.categoryId)?.id ?? "other") === filter) &&
         `${p.value.name} ${categoryFor(p.value.categoryId) ? categoryLabel(categoryFor(p.value.categoryId)!) : ""}`
           .toLocaleLowerCase(prefs.language)
           .includes(search.toLocaleLowerCase(prefs.language)),
@@ -271,7 +276,7 @@ export function App() {
     .sort((a, b) =>
       sort === "name"
         ? a.value.name.localeCompare(b.value.name, prefs.language)
-        : b.value.capturedAt.localeCompare(a.value.capturedAt),
+        : Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt),
     );
   const current = places.find((p) => p.id === selected),
     conflicts = workspace?.records.filter((r) => r.conflict) ?? [];
@@ -415,8 +420,19 @@ export function App() {
           .catch(() => {});
       }
     };
+    const accountStorageChanged = (event: StorageEvent) => {
+      if (
+        event.key === null ||
+        event.key === "places-account" ||
+        event.key === "places-pending-logout"
+      )
+        void refreshAccount()
+          .then(sync)
+          .catch(() => {});
+    };
     window.addEventListener("online", foreground);
     window.addEventListener("focus", foreground);
+    window.addEventListener("storage", accountStorageChanged);
     document.addEventListener("visibilitychange", foreground);
     const timer = setInterval(() => {
       foreground();
@@ -425,6 +441,7 @@ export function App() {
       clearInterval(timer);
       window.removeEventListener("online", foreground);
       window.removeEventListener("focus", foreground);
+      window.removeEventListener("storage", accountStorageChanged);
       document.removeEventListener("visibilitychange", foreground);
     };
   }, [sync, refreshAccount]);
@@ -447,8 +464,23 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (location.hash && !shared) notify("invalidShare", true);
-    if (shared) history.replaceState(null, "", location.pathname + location.search);
+    const consume = () => {
+      const hash = location.hash;
+      if (!hash) return;
+      const incoming = parseShare(hash);
+      if (hash.startsWith("#place="))
+        history.replaceState(history.state, "", location.pathname + location.search);
+      if (incoming) {
+        sharedRevision.current++;
+        setShared(incoming);
+        setNotice(null);
+      } else setNotice({ text: t("invalidShare"), error: true });
+    };
+    consume();
+    window.addEventListener("hashchange", consume);
+    return () => window.removeEventListener("hashchange", consume);
+  }, [t]);
+  useEffect(() => {
     let disposed = false;
     if (import.meta.env.PROD)
       swUpdate.current = registerSW({
@@ -468,9 +500,13 @@ export function App() {
       updateMonitor.current?.dispose();
     };
   }, []);
-  async function save(entity: Entity) {
+  async function save(entity: Entity, base?: Entity, clearDraft = false) {
+    const key = scopeRef.current;
     if (!writeAllowed.current) throw new Error("familyAccessEnded");
-    await saveEntity(scopeRef.current, entity);
+    if (!(await readWorkspace(key)).reconciled) throw new Error("syncBusy");
+    if (scopeRef.current !== key) throw new Error("accountChanged");
+    await saveEntity(key, entity, base, clearDraft);
+    if (scopeRef.current !== key) return;
     if (entity.kind === "place") setPrefs((p) => ({ ...p, lastCategory: entity.value.categoryId }));
     await refresh();
     setStatus(scopeRef.current === "guest" ? "localOnly" : "pending");
@@ -583,9 +619,13 @@ export function App() {
     }
   };
   async function download(key = scopeRef.current) {
+    const accountAtStart = authRef.current;
+    const isCurrent = () => authRef.current === accountAtStart;
     try {
       const exporting = await readWorkspace(key);
-      const blob = new Blob([JSON.stringify(await exportWithPhotos(exporting), null, 2)], {
+      const exported = await exportWithPhotos(exporting, isCurrent);
+      if (!isCurrent()) return;
+      const blob = new Blob([JSON.stringify(exported, null, 2)], {
           type: "application/json",
         }),
         url = URL.createObjectURL(blob),
@@ -596,7 +636,7 @@ export function App() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       notify("exported");
     } catch {
-      notify("invalidImport", true);
+      if (isCurrent()) notify("exportFailed", true);
     }
   }
   async function loadFile(file?: File) {
@@ -692,18 +732,18 @@ export function App() {
       return;
     copyInProgress.current = true;
     setCopyingToGroup(true);
+    const accountId = account.account.id;
+    const isCurrent = () => authRef.current === accountId;
     const key = familyKey(account.account.id, groupId);
     try {
-      await copyPlaceToWorkspace(scopeRef.current, key, id);
-      await synchronize(
-        key,
-        () => {},
-        () => workspaceIdentity(scopeRef.current).account === account.account!.id,
-      );
+      await copyPlaceToWorkspace(scopeRef.current, key, id, isCurrent);
+      if (!isCurrent()) return;
+      await synchronize(key, () => {}, isCurrent);
+      if (!isCurrent()) return;
       setMenu(null);
       notify("copiedToGroup");
     } catch {
-      notify("storageFailure", true);
+      if (isCurrent()) notify("storageFailure", true);
     } finally {
       copyInProgress.current = false;
       setCopyingToGroup(false);
@@ -990,7 +1030,7 @@ export function App() {
           onClose={() => {
             if (scopeRef.current === scope) setEditor(null);
           }}
-          onSave={save}
+          onSave={(value) => save(value, editor.entity, true)}
           onDiscardPlace={async (id) => {
             const key = scope;
             if (scopeRef.current !== key || !writeAllowed.current)
@@ -1012,6 +1052,7 @@ export function App() {
       )}
       {settings && (
         <Settings
+          canWrite={canWrite}
           initial={settings === "participants" ? "familySharing" : settings}
           familyPanel={
             <FamilyPanel
@@ -1092,26 +1133,50 @@ export function App() {
       {categoryEdit && (
         <Sheet
           title={t(categoryEdit.entity ? "rename" : "newCategory")}
-          onClose={() => setCategoryEdit(null)}
+          onClose={() => {
+            if (!savingCategory) setCategoryEdit(null);
+          }}
           closeLabel={t("close")}
         >
           <form
             className="stack"
+            inert={savingCategory}
             onSubmit={(e) => {
               e.preventDefault();
+              if (categorySavePending.current) return;
+              const original = categoryEdit.entity;
+              const unchangedName =
+                original?.kind === "category" && categoryEdit.name === categoryLabel(original);
               const parsed = categorySchema.safeParse({
-                name: categoryEdit.name,
+                name: unchangedName ? original.value.name : categoryEdit.name,
                 color: categoryEdit.color,
                 icon: categoryEdit.icon,
+                ...(unchangedName && original.value.builtIn
+                  ? { builtIn: original.value.builtIn }
+                  : {}),
               });
               if (!parsed.success) return;
-              void save({
-                id: categoryEdit.entity?.id ?? crypto.randomUUID(),
-                kind: "category",
-                value: parsed.data,
-              })
-                .then(() => setCategoryEdit(null))
-                .catch(() => notify("storageFailure", true));
+              categorySavePending.current = true;
+              setSavingCategory(true);
+              const key = scopeRef.current;
+              void save(
+                {
+                  id: categoryEdit.entity?.id ?? crypto.randomUUID(),
+                  kind: "category",
+                  value: parsed.data,
+                },
+                original,
+              )
+                .then(() => {
+                  if (scopeRef.current === key) setCategoryEdit(null);
+                })
+                .catch((error) => {
+                  if (scopeRef.current === key) notify(libraryErrorMessage(error), true);
+                })
+                .finally(() => {
+                  categorySavePending.current = false;
+                  setSavingCategory(false);
+                });
             }}
           >
             <label>
@@ -1129,7 +1194,9 @@ export function App() {
               t={t}
               onChange={(change) => setCategoryEdit({ ...categoryEdit, ...change })}
             />
-            <button className="button primary">{t("save")}</button>
+            <button className="button primary" disabled={savingCategory}>
+              {t(savingCategory ? "working" : "save")}
+            </button>
           </form>
         </Sheet>
       )}
@@ -1168,8 +1235,14 @@ export function App() {
             </p>
             <button
               className="button primary"
+              disabled={savingShared || !workspace?.reconciled || reconciling || !canWrite}
               onClick={() =>
                 void (async () => {
+                  if (sharedSavePending.current) return;
+                  sharedSavePending.current = true;
+                  setSavingShared(true);
+                  const key = scopeRef.current;
+                  const revision = sharedRevision.current;
                   const now = new Date().toISOString(),
                     cat = categories.find((c) => categoryLabel(c) === shared.category);
                   try {
@@ -1186,10 +1259,16 @@ export function App() {
                         categoryId: cat?.id ?? "other",
                       },
                     });
-                    setShared(null);
-                    notify("saved");
+                    if (key === scopeRef.current && revision === sharedRevision.current) {
+                      setShared(null);
+                      notify("saved");
+                    }
                   } catch {
-                    notify("storageFailure", true);
+                    if (key === scopeRef.current && revision === sharedRevision.current)
+                      notify("storageFailure", true);
+                  } finally {
+                    sharedSavePending.current = false;
+                    setSavingShared(false);
                   }
                 })()
               }
@@ -1382,7 +1461,11 @@ export function App() {
             </span>
             <button
               className="button primary"
-              onClick={() => void flushDrafts().then(() => swUpdate.current?.(true))}
+              onClick={() =>
+                void flushDrafts()
+                  .then(() => swUpdate.current?.(true))
+                  .catch(() => notify("storageFailure", true))
+              }
             >
               {t("update")}
             </button>

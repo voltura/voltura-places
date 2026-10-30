@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { readJSON } from "./accounts.js";
+import { readJSON, RequestError } from "./accounts.js";
 import { authorizedWorkspace, requireOrigin, WorkspaceError } from "./workspace";
 import { starters } from "../shared/model";
 import type { Environment } from "./types";
@@ -171,8 +171,18 @@ export async function handleFamilies(request: Request, env: Environment) {
     return Response.json(await state(env, account, responseFamilyId));
   } catch (error) {
     return Response.json(
-      { error: error instanceof WorkspaceError ? error.message : "serviceUnavailable" },
-      { status: error instanceof WorkspaceError ? error.status : 503 },
+      {
+        error:
+          error instanceof WorkspaceError
+            ? error.message
+            : error instanceof RequestError
+              ? "invalidFamilyAction"
+              : "serviceUnavailable",
+      },
+      {
+        status:
+          error instanceof WorkspaceError || error instanceof RequestError ? error.status : 503,
+      },
     );
   }
 }

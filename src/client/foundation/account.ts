@@ -16,13 +16,25 @@ const stateSchema = z.object({
 });
 const empty: AccountState = { enabled: false, providers: {}, account: null };
 let identityRevision = 0;
+let memoryPending: string | undefined;
+function pendingLogout() {
+  if (memoryPending) return memoryPending;
+  try {
+    return localStorage.getItem("places-pending-logout");
+  } catch {
+    return null;
+  }
+}
 function clearPending(expected: string) {
-  if (localStorage.getItem("places-pending-logout") === expected)
-    localStorage.removeItem("places-pending-logout");
+  if (memoryPending === expected) memoryPending = undefined;
+  try {
+    if (localStorage.getItem("places-pending-logout") === expected)
+      localStorage.removeItem("places-pending-logout");
+  } catch {}
 }
 export function cachedAccount(): AccountState {
   try {
-    if (localStorage.getItem("places-pending-logout")) return empty;
+    if (pendingLogout()) return empty;
     return stateSchema.parse(JSON.parse(localStorage.getItem("places-account") ?? "null"));
   } catch {
     return empty;
@@ -30,7 +42,7 @@ export function cachedAccount(): AccountState {
 }
 export async function currentAccount(): Promise<AccountState> {
   const revision = ++identityRevision;
-  const pending = localStorage.getItem("places-pending-logout");
+  const pending = pendingLogout();
   if (pending) {
     try {
       await api("/api/account/sign-out", {}, pending);
@@ -49,6 +61,7 @@ export async function currentAccount(): Promise<AccountState> {
 }
 export async function signOutLocally(accountId?: string) {
   identityRevision++;
+  if (accountId) memoryPending = accountId;
   // Hide the account workspace immediately, even when logout cannot reach the server.
   try {
     localStorage.removeItem("places-account");

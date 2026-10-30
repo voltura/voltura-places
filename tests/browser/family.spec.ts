@@ -316,6 +316,9 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
     ).toBeVisible();
+    // Refresh the emulated provider after the lengthy sharing sequence. This
+    // fixture checks offline durability rather than real GPS acquisition.
+    await a.context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 6 });
     await a.page.getByRole("button", { name: "Save position", exact: true }).click();
     await a.page
       .getByRole("textbox", { name: "Name", exact: true })

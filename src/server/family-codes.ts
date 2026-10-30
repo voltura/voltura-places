@@ -55,9 +55,9 @@ export async function handleFamilyCode(
     if (!b.code) throw new WorkspaceError(422, "invalidFamilyCode");
     const hash = await digest(`family-code:${b.code}`);
     const result = await env.DB.prepare(
-      "INSERT INTO places_family_requests(account_id,family_id,code_hash,created_at) SELECT ?,c.family_id,c.code_hash,? FROM places_family_codes c WHERE c.code_hash=? AND (c.expires_at=0 OR c.expires_at>?) AND (SELECT COUNT(*) FROM places_family_requests WHERE family_id=c.family_id)<5 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=? AND family_id=c.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=?)<20 ON CONFLICT(account_id) DO UPDATE SET family_id=excluded.family_id,code_hash=excluded.code_hash,created_at=excluded.created_at",
+      "INSERT INTO places_family_requests(account_id,family_id,code_hash,created_at) SELECT ?,c.family_id,c.code_hash,? FROM places_family_codes c WHERE c.code_hash=? AND (c.expires_at=0 OR c.expires_at>?) AND (SELECT COUNT(*) FROM places_family_requests WHERE family_id=c.family_id AND account_id<>?)<5 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=? AND family_id=c.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=?)<20 ON CONFLICT(account_id) DO UPDATE SET family_id=excluded.family_id,code_hash=excluded.code_hash,created_at=excluded.created_at",
     )
-      .bind(account, now, hash, now, account, account)
+      .bind(account, now, hash, now, account, account, account)
       .run();
     if (!result.meta.changes) throw new WorkspaceError(410, "invalidFamilyCode");
     return Response.json({ pendingRequest: await pendingRequest(env, account) });

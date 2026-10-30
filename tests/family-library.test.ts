@@ -10,8 +10,62 @@ import {
   removeAccountWorkspaces,
   setDraft,
   getDraft,
+  flushDrafts,
 } from "../src/client/foundation/library";
 import { makeStoredPhoto, putPhotos, getPhoto } from "../src/client/foundation/photo-store";
+
+test("removing device data drains queued family drafts before enumerating account partitions", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  const account = crypto.randomUUID(),
+    key = familyKey(account, crypto.randomUUID());
+  const originalOpen = IDBFactory.prototype.open;
+  let release: (() => void) | undefined;
+  const opening = vi.spyOn(IDBFactory.prototype, "open").mockImplementationOnce(function (
+    this: IDBFactory,
+    name,
+    version,
+  ) {
+    const request = originalOpen.call(this, name, version),
+      add = request.addEventListener.bind(request);
+    request.addEventListener = ((
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
+      if (!listener) return;
+      if (type !== "success") return add(type, listener, options);
+      add(
+        type,
+        (event) => {
+          release = () => {
+            if (typeof listener === "function") listener.call(request, event);
+            else listener.handleEvent(event);
+          };
+        },
+        options,
+      );
+    }) as typeof request.addEventListener;
+    return request;
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const pending = setDraft(key, { name: "Uncommitted family draft" });
+    await vi.waitFor(() => expect(release).toBeDefined());
+    const removing = removeAccountWorkspaces(account);
+    // The old remover finishes before this gated draft. The repaired remover
+    // waits for it; release that wait without depending on transaction timing.
+    void removing.then(() => release!());
+    timer = setTimeout(() => release!(), 200);
+    await removing;
+    await pending;
+    await flushDrafts();
+    expect(await getDraft(key)).toBeUndefined();
+  } finally {
+    clearTimeout(timer);
+    release?.();
+    opening.mockRestore();
+  }
+});
 
 test("single-group cache upgrades and keeps independent active and archived group selections", () => {
   const values = new Map<string, string>(),

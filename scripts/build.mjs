@@ -45,7 +45,8 @@ try {
   }).trim();
 } catch {}
 const contentHash = createHash("sha256").update(JSON.stringify(assets)).digest("hex").slice(0, 12);
-const version = `0.1.0-${revision}-${contentHash}`;
+const packageVersion = JSON.parse(await readFile("package.json", "utf8")).version;
+const version = `${packageVersion}-${revision}-${contentHash}`;
 await build({
   stdin: {
     contents: `import {createWorker} from './src/server/index.ts';export default createWorker(${JSON.stringify(assets)},${JSON.stringify(version)});`,

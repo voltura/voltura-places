@@ -6,6 +6,14 @@ test("accuracy units change display only and round the radius upward", () => {
   expect(formatAccuracy(3.048, "imperial")).toBe("±10 ft");
   expect(formatAccuracy(8.2, "metric")).toBe("±9 m");
 });
+
+test("imperial conversion does not add a foot to exact whole-foot accuracy values", () => {
+  for (let feet = 1; feet <= 1000; feet++)
+    expect(formatAccuracy(feet * 0.3048, "imperial")).toBe(`±${feet} ft`);
+  expect(formatAccuracy(0, "imperial")).toBe("±0 ft");
+  expect(formatAccuracy(1e-20, "imperial")).toBe("±1 ft");
+  expect(formatAccuracy(53.01 * 0.3048, "imperial")).toBe("±54 ft");
+});
 import {
   watchLocation,
   freshPosition,

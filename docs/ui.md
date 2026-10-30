@@ -1,5 +1,9 @@
 # UI contract
 
+Recovery refinements in 0.1.1: editor controls wait for draft restoration before accepting input. Shared-place copying waits for library initialization and write access; repeated copy/category submissions create one result. Incoming share fragments also work in an already-open app. Read-only group settings disable category changes and imports while retaining export. Library-limit and photo-limit failures use their relevant guidance; backup export failures describe export recovery. An automatic copying failure offers the explicit keep-on-device choice instead of an endless retry.
+
+Newest sorting compares capture instants rather than timestamp strings. Other filtering includes places whose original category is missing. Appearance-only preset edits retain their translated names; an explicit rename remains custom. Imperial accuracy formatting avoids an extra foot caused solely by floating-point conversion noise. Clicking inside a sheet's bottom padding retains the sheet; the backdrop and Escape still dismiss it.
+
 In the Place saved dialog, updating GPS shows the resulting accuracy without an additional Location updated message.
 
 Split map controls keep the native select inside its 56px dropdown column, including Safari's intrinsic sizing, so the complete Open maps button retains the same left and right content margins as Share/Edit.

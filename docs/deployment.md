@@ -16,6 +16,8 @@ The dedicated email relay uses its own 32-byte HMAC secret and fixed sender plac
 
 ## Publication
 
+The build version uses package.json's semantic version followed by the source revision and client-asset digest. The publisher rechecks clean main and the captured revision after validation and before packaging, and pushes that exact commit SHA rather than a moving branch tip. A concurrent checkout change stops publication for revalidation without discarding local work.
+
 Validate/commit reviewed changes to main; npm run publish synchronizes the exact public source commit with Sites, packages/saves/deploys it, and retains checkpoint IDs until success. CI validates contributions without deployment credentials. Manual merges do not autonomously publish Sites. Initial publication stays private until verified, then publicly enable as requested.
 
 Add the custom domain through Sites and apply only its exact CNAME/TXT records at one.com. Preserve nameservers/mail/other products. Verify HTTPS and login callbacks after activation.

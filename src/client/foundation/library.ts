@@ -11,6 +11,8 @@ import {
 import { decodePhoto } from "../../shared/photos";
 import {
   starters,
+  entitySchema,
+  recordSchema,
   validateBackup,
   type Backup,
   type Entity,
@@ -59,8 +61,14 @@ const changed = () => {
 };
 export async function readWorkspace(key: string) {
   const db = await database();
-  const existing = await db.get("workspaces", key);
+  let existing = await db.get("workspaces", key);
   if (!existing) return seed(key);
+  // Older Keep both writes copied the source's conflict onto a fresh identity.
+  // Its cloud version already belongs to the original record, not this copy.
+  if (existing.records.some((r) => r.conflict && r.conflict.id !== r.id))
+    existing = await changeWorkspace(key, (w) => {
+      for (const r of w.records) if (r.conflict && r.conflict.id !== r.id) delete r.conflict;
+    });
   if ((existing.presetRevision ?? 1) >= 2) return existing;
   // Add the new preset once, preserving custom names, tombstones and in-flight writes.
   if (
@@ -83,14 +91,25 @@ export async function readWorkspace(key: string) {
     w.presetRevision = 2;
   });
 }
-export async function changeWorkspace(key: string, update: (w: Workspace) => void) {
+export async function changeWorkspace(
+  key: string,
+  update: (w: Workspace) => void,
+  clearDraftId?: string,
+) {
   const db = await database(),
-    tx = db.transaction("workspaces", "readwrite");
-  const w = (await tx.store.get(key)) ?? seed(key);
+    tx = db.transaction(clearDraftId ? ["workspaces", "drafts"] : ["workspaces"], "readwrite");
+  const store = tx.objectStore("workspaces");
+  const w = (await store.get(key)) ?? seed(key);
   try {
     update(w);
     enforceCapacity(w);
-    await tx.store.put(w);
+    await store.put(w);
+    if (clearDraftId) {
+      const drafts = tx.objectStore("drafts"),
+        draft = await drafts.get(key);
+      if (draft && typeof draft === "object" && "id" in draft && draft.id === clearDraftId)
+        await drafts.delete(key);
+    }
     await tx.done;
   } catch (error) {
     try {
@@ -113,25 +132,53 @@ function write(w: Workspace, e: Entity, deleted = false) {
   const previous = w.records.find((r) => r.id === e.id);
   if (previous && previous.kind !== e.kind) throw new Error("invalidImport");
   const next: LocalRecord = {
-    ...e,
+    ...entitySchema.parse(e),
     revision: previous?.revision ?? 0,
     generation: (previous?.generation ?? 0) + 1,
     dirty: true,
     deleted,
+    ...(previous?.conflict ? { conflict: previous.conflict } : {}),
   };
   w.records = w.records.filter((r) => r.id !== e.id).concat(next);
 }
-export const saveEntity = (key: string, e: Entity) => changeWorkspace(key, (w) => write(w, e));
-export async function copyPlaceToWorkspace(from: string, to: string, id: string) {
+export async function saveEntity(key: string, e: Entity, base?: Entity, clearDraft = false) {
+  if (clearDraft) await flushDrafts().catch(() => {});
+  return changeWorkspace(
+    key,
+    (w) => {
+      const previous = w.records.find((r) => r.id === e.id);
+      const stale =
+        base &&
+        previous &&
+        (previous.deleted || !sameValue(previous.value, base.value)) &&
+        (previous.deleted || !sameValue(previous.value, e.value));
+      if (stale && previous.dirty) throw new Error("placeChanged");
+      write(w, e);
+      const saved = w.records.find((r) => r.id === e.id)!;
+      if (stale && !saved.conflict) saved.conflict = recordSchema.parse(previous);
+    },
+    clearDraft ? e.id : undefined,
+  );
+}
+export async function copyPlaceToWorkspace(
+  from: string,
+  to: string,
+  id: string,
+  isCurrent = () => true,
+) {
   const source = await readWorkspace(from),
     place = source.records.find((r) => r.id === id && r.kind === "place" && !r.deleted);
   if (!place || place.kind !== "place") throw new Error("invalidImport");
-  if (place.value.photoId) await copyPhotos(from, to, [place.value.photoId]);
+  if (!isCurrent()) throw new Error("accountChanged");
+  const photoIds = place.value.photoId
+    ? await copyPhotos(from, to, [place.value.photoId], isCurrent)
+    : new Map<string, string>();
   const category = source.records.find(
     (r) => r.id === place.value.categoryId && r.kind === "category" && !r.deleted,
   );
   const newId = crypto.randomUUID();
   return changeWorkspace(to, (w) => {
+    if (!isCurrent()) throw new Error("accountChanged");
     let categoryId = "other";
     if (category?.kind === "category") {
       const same = w.records.find(
@@ -148,24 +195,35 @@ export async function copyPlaceToWorkspace(from: string, to: string, id: string)
     write(w, {
       id: newId,
       kind: "place",
-      value: { ...place.value, categoryId, updatedAt: new Date().toISOString() },
+      value: {
+        ...place.value,
+        ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
+        categoryId,
+        updatedAt: new Date().toISOString(),
+      },
     });
   });
 }
-export const deleteEntity = (key: string, id: string) =>
-  changeWorkspace(key, (w) => {
-    const r = w.records.find((r) => r.id === id);
-    if (!r || id === "other") return;
-    if (r.kind === "category")
-      for (const place of w.records.filter((p) => p.kind === "place" && !p.deleted)) {
-        if (place.kind === "place" && place.value.categoryId === id)
-          write(w, {
-            ...place,
-            value: { ...place.value, categoryId: "other", updatedAt: new Date().toISOString() },
-          });
-      }
-    write(w, r, true);
-  });
+export async function deleteEntity(key: string, id: string) {
+  await flushDrafts().catch(() => {});
+  return changeWorkspace(
+    key,
+    (w) => {
+      const r = w.records.find((r) => r.id === id);
+      if (!r || id === "other") return;
+      if (r.kind === "category")
+        for (const place of w.records.filter((p) => p.kind === "place" && !p.deleted)) {
+          if (place.kind === "place" && place.value.categoryId === id)
+            write(w, {
+              ...place,
+              value: { ...place.value, categoryId: "other", updatedAt: new Date().toISOString() },
+            });
+        }
+      write(w, r, true);
+    },
+    id,
+  );
+}
 export function exportBackup(w: Workspace, photos?: { id: string; data: string }[]): Backup {
   const categories = w.records
     .filter((r) => r.kind === "category" && !r.deleted)
@@ -216,33 +274,41 @@ export async function importBackup(
     }),
   );
   if (!isCurrent()) throw new Error("accountChanged");
-  await putPhotos(stored);
+  await putPhotos(stored, isCurrent);
   for (const place of b.places)
     if (place.value.photoId) place.value.photoId = ids.get(place.value.photoId)!;
   return changeWorkspace(key, (w) => {
     if (!isCurrent()) throw new Error("accountChanged");
     if (w.flight) throw new Error("syncBusy");
-    const incoming = new Set([...b.places, ...b.categories].map((e) => e.id));
+    const incoming = new Map([
+      ...b.places.map((e) => [e.id, "place"] as const),
+      ...b.categories.map((e) => [e.id, "category"] as const),
+    ]);
     if (replace)
-      for (const r of [...w.records]) if (!r.deleted && !incoming.has(r.id)) write(w, r, true);
+      for (const r of [...w.records])
+        if (!r.deleted && incoming.get(r.id) !== r.kind) write(w, r, true);
     // Merge retains a conflicting local value under its own identity.
     const categoryMap = new Map<string, string>();
     for (const e of b.categories) {
-      const old = w.records.find((r) => r.id === e.id && !r.deleted);
-      const different = old && JSON.stringify(old.value) !== JSON.stringify(e.value);
+      const old = w.records.find((r) => r.id === e.id);
+      const different =
+        old && (old.kind !== "category" || old.deleted || !sameValue(old.value, e.value));
       if (!replace && different && e.id === "other") {
         categoryMap.set(e.id, "other");
         continue;
       }
-      const id = !replace && different ? crypto.randomUUID() : e.id;
+      const id =
+        old && (old.kind !== "category" || (!replace && different)) ? crypto.randomUUID() : e.id;
       categoryMap.set(e.id, id);
+      if (old?.kind === "category" && !old.deleted && sameValue(old.value, e.value)) continue;
       write(w, { id, kind: "category", value: e.value });
     }
     for (const e of b.places) {
       const value = { ...e.value, categoryId: categoryMap.get(e.value.categoryId) ?? "other" };
-      const old = w.records.find((r) => r.id === e.id && !r.deleted);
-      if (!replace && old && JSON.stringify(old.value) === JSON.stringify(value)) continue;
-      write(w, { id: !replace && old ? crypto.randomUUID() : e.id, kind: "place", value });
+      const old = w.records.find((r) => r.id === e.id);
+      if (old?.kind === "place" && !old.deleted && sameValue(old.value, value)) continue;
+      const id = old && (old.kind !== "place" || !replace) ? crypto.randomUUID() : e.id;
+      write(w, { id, kind: "place", value });
     }
   });
 }
@@ -311,8 +377,9 @@ export async function reconcileDevicePlaces(
       }),
     ),
   );
+  let photoIds = new Map<string, string>();
   if (decision !== "skip")
-    await copyPhotos(
+    photoIds = await copyPhotos(
       "guest",
       key,
       source
@@ -343,8 +410,13 @@ export async function reconcileDevicePlaces(
       throw new Error("accountChoiceRequired");
     if (!w.reconciled) {
       w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
-      for (const e of starters)
-        if (!w.records.some((r) => r.id === e.id))
+      const presets = [
+        starters.find((e) => e.id === "other")!,
+        ...starters.filter((e) => e.id !== "other"),
+      ];
+      let categoryCount = w.records.filter((r) => r.kind === "category" && !r.deleted).length;
+      for (const e of presets)
+        if (categoryCount < 200 && !w.records.some((r) => r.id === e.id)) {
           w.records.push({
             ...structuredClone(e),
             revision: 0,
@@ -352,6 +424,8 @@ export async function reconcileDevicePlaces(
             generation: 0,
             dirty: false,
           });
+          categoryCount++;
+        }
     }
     if (w.reconciled && !w.guestPlaces) {
       const legacyIds = new Set(w.records.filter((r) => r.kind === "place").map((r) => r.id));
@@ -400,7 +474,15 @@ export async function reconcileDevicePlaces(
         categories.set(r.value.categoryId, categoryId);
       }
       const id = ids.get(r.id)!;
-      write(w, { id, kind: "place", value: { ...r.value, categoryId } });
+      write(w, {
+        id,
+        kind: "place",
+        value: {
+          ...r.value,
+          ...(r.value.photoId ? { photoId: photoIds.get(r.value.photoId) ?? r.value.photoId } : {}),
+          categoryId,
+        },
+      });
       w.guestPlaces[r.id] = id;
       added++;
     }
@@ -442,6 +524,8 @@ export const mergeSnapshot = (key: string, remote: RecordState[]) =>
         w.records.push({ ...r, generation: 0, dirty: false });
         continue;
       }
+      if (local.kind !== r.kind) throw new Error("invalidResponse");
+      if (r.revision < Math.max(local.revision, local.conflict?.revision ?? 0)) continue;
       if (!local.dirty) {
         Object.assign(local, r);
         delete local.conflict;
@@ -479,18 +563,33 @@ export const acknowledge = (
   changeWorkspace(key, (w) => {
     const flight = w.flight;
     if (!flight || flight.mutation.mutationId !== mutationId) return;
+    if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
+      throw new Error("invalidResponse");
     const r = w.records.find((r) => r.id === remote.id);
     if (r) {
+      if (r.revision > remote.revision) {
+        delete w.flight;
+        return;
+      }
+      const newerConflict =
+        r.conflict && r.conflict.revision > remote.revision ? r.conflict : undefined;
       const identical =
         remote.kind === flight.mutation.entity.kind &&
         remote.deleted === flight.mutation.deleted &&
-        JSON.stringify(remote.value) === JSON.stringify(flight.mutation.entity.value);
+        sameValue(remote.value, flight.mutation.entity.value);
       // Two devices may add the same new preset before either sees the other's write.
-      if (conflict && !identical) r.conflict = remote;
+      if (conflict && !identical) r.conflict = newerConflict ?? remote;
       else if (r.generation === flight.generation) {
         Object.assign(r, remote, { dirty: false });
         delete r.conflict;
-      } else r.revision = remote.revision;
+      } else {
+        r.revision = remote.revision;
+        delete r.conflict;
+      }
+      if (newerConflict) {
+        r.conflict = newerConflict;
+        r.dirty = true;
+      }
     }
     delete w.flight;
   });
@@ -530,6 +629,8 @@ export async function removeWorkspace(key: string) {
   changed();
 }
 export async function removeAccountWorkspaces(account: string) {
+  // A family may exist only as a queued draft, with no workspace row yet.
+  await flushDrafts().catch(() => {});
   const db = await database();
   const keys = new Set([
     ...(await db.getAllKeys("workspaces")),

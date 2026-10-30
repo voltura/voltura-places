@@ -3,7 +3,7 @@ import { Sheet } from "../ui/Sheet";
 import { importBackup, devicePlacePlan, reconcileDevicePlaces } from "../foundation/library";
 import { fetchSnapshot } from "../foundation/sync";
 import type { Backup } from "../../shared/model";
-import type { Message } from "../foundation/i18n";
+import { libraryErrorMessage, type Message } from "../foundation/i18n";
 type Common = { t: (key: Message) => string; onClose: () => void; onComplete: () => void };
 export function ImportDialog({
   backup,
@@ -30,7 +30,7 @@ export function ImportDialog({
       await importBackup(workspace, backup, replace, () => active.current);
       if (active.current) onComplete();
     } catch (e) {
-      setError(t(e instanceof Error && e.message === "syncBusy" ? "syncBusy" : "storageFailure"));
+      if (active.current) setError(t(libraryErrorMessage(e)));
     } finally {
       setBusy(false);
     }
@@ -79,6 +79,7 @@ export function ReconcileDialog({
     [error, setError] = useState(""),
     [checking, setChecking] = useState(true),
     [hasPlaces, setHasPlaces] = useState(false),
+    [copyRecovery, setCopyRecovery] = useState(false),
     [attempt, setAttempt] = useState(0);
   const active = useRef(true);
   useEffect(() => {
@@ -105,14 +106,24 @@ export function ReconcileDialog({
     setBusy(true);
     setError("");
     try {
-      const snapshot = await fetchSnapshot(accountId);
+      const snapshot = await fetchSnapshot(accountId, isCurrent);
       if (!isCurrent()) return;
       const added = await reconcileDevicePlaces(accountId, snapshot.records, decision, isCurrent);
       if (isCurrent()) onComplete(added);
     } catch (error) {
       if (isCurrent()) {
         if (error instanceof Error && error.message === "accountChoiceRequired") setHasPlaces(true);
-        else setError(t("serviceUnavailable"));
+        else {
+          if (
+            decision === "auto" &&
+            error instanceof Error &&
+            ["libraryLimit", "photoQuota", "photoUnavailable"].includes(error.message)
+          ) {
+            setHasPlaces(true);
+            setCopyRecovery(true);
+          }
+          setError(t(libraryErrorMessage(error, "serviceUnavailable")));
+        }
       }
     } finally {
       if (isCurrent()) setBusy(false);
@@ -126,7 +137,9 @@ export function ReconcileDialog({
       closeLabel={t("signOut")}
     >
       <div className="stack">
-        {hasPlaces && <p className="muted">{t("reconcileBody")}</p>}
+        {hasPlaces && (
+          <p className="muted">{t(copyRecovery ? "copyRecoveryBody" : "reconcileBody")}</p>
+        )}
         {(hasPlaces ? [true, false] : [false]).map((merge) => (
           <button
             key={String(merge)}

@@ -20,6 +20,22 @@ const database = () =>
       );
     },
   });
+const photoChannel =
+  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("places-photos") : null;
+export function watchPhoto(workspace: string, id: string, onChange: () => void) {
+  const receive = (data: { workspace?: string; ids?: string[] }) => {
+    if (data?.workspace === workspace && Array.isArray(data.ids) && data.ids.includes(id))
+      onChange();
+  };
+  const local = (event: Event) => receive((event as CustomEvent).detail);
+  const remote = (event: MessageEvent) => receive(event.data);
+  window.addEventListener("places-photos", local);
+  photoChannel?.addEventListener("message", remote);
+  return () => {
+    window.removeEventListener("places-photos", local);
+    photoChannel?.removeEventListener("message", remote);
+  };
+}
 export async function getPhoto(workspace: string, id: string) {
   return (await database()).get("photos", [workspace, id]);
 }
@@ -38,7 +54,8 @@ export async function makeStoredPhoto(
     uploaded: false,
   };
 }
-export async function putPhotos(photos: StoredPhoto[]) {
+export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
+  if (!isCurrent()) throw new Error("accountChanged");
   if (!photos.length) return;
   const workspace = photos[0].workspace;
   if (photos.some((p) => p.workspace !== workspace || p.blob.size > PHOTO_BYTES))
@@ -47,6 +64,7 @@ export async function putPhotos(photos: StoredPhoto[]) {
     tx = db.transaction("photos", "readwrite");
   try {
     const existing = await tx.store.index("workspace").getAll(workspace);
+    if (!isCurrent()) throw new Error("accountChanged");
     const all = new Map(existing.map((p) => [p.id, p]));
     for (const p of photos) {
       const previous = all.get(p.id);
@@ -55,8 +73,21 @@ export async function putPhotos(photos: StoredPhoto[]) {
     }
     if (all.size > 1000 || [...all.values()].reduce((n, p) => n + p.blob.size, 0) > PHOTO_QUOTA)
       throw new Error("photoQuota");
-    for (const p of photos) await tx.store.put(all.get(p.id)!);
+    for (const p of photos) {
+      if (!isCurrent()) throw new Error("accountChanged");
+      await tx.store.put(all.get(p.id)!);
+    }
+    if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
+    const ids = [
+      ...new Set(photos.filter((p) => !existing.some((e) => e.id === p.id)).map((p) => p.id)),
+    ];
+    if (ids.length) {
+      const detail = { workspace, ids };
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new CustomEvent("places-photos", { detail }));
+      photoChannel?.postMessage(detail);
+    }
   } catch (error) {
     try {
       tx.abort();
@@ -76,7 +107,26 @@ export async function copyPhotos(from: string, to: string, ids: string[], isCurr
   const photos = await Promise.all([...new Set(ids)].map((id) => getPhoto(from, id)));
   if (photos.some((p) => !p)) throw new Error("photoUnavailable");
   if (!isCurrent()) throw new Error("accountChanged");
-  await putPhotos(photos.map((p) => ({ ...p!, workspace: to, uploaded: false })));
+  const mapping = new Map<string, string>();
+  if (!photos.length) return mapping;
+  const existing = await (await database()).getAllFromIndex("photos", "workspace", to);
+  const all = new Map(existing.map((p) => [p.id, p]));
+  const copies = photos.map((photo) => {
+    const p = photo!;
+    let id = p.id;
+    const previous = all.get(id);
+    if (previous && previous.hash !== p.hash) {
+      id =
+        [...all.values()].find((candidate) => candidate.hash === p.hash)?.id ?? crypto.randomUUID();
+      while (all.has(id) && all.get(id)!.hash !== p.hash) id = crypto.randomUUID();
+    }
+    mapping.set(p.id, id);
+    const copy = { ...p, id, workspace: to, uploaded: false };
+    all.set(id, all.get(id) ?? copy);
+    return copy;
+  });
+  await putPhotos(copies, isCurrent);
+  return mapping;
 }
 export async function clearPhotos(workspace: string) {
   const db = await database(),

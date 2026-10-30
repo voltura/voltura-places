@@ -118,7 +118,9 @@ export function LibraryView({
                 {t("all")}
               </button>
               {categories
-                .filter((c) => places.some((p) => p.value.categoryId === c.id))
+                .filter((c) =>
+                  places.some((p) => (categoryFor(p.value.categoryId)?.id ?? "other") === c.id),
+                )
                 .map((c) => (
                   <button
                     key={c.id}
