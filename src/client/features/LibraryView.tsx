@@ -12,9 +12,11 @@ import {
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
+import { Tooltip } from "../ui/Tooltip";
 type Props = {
   canWrite: boolean;
   title?: string;
+  shared?: boolean;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -42,6 +44,7 @@ type Props = {
 export function LibraryView({
   canWrite,
   title,
+  shared = false,
   t,
   places,
   filtered,
@@ -72,20 +75,21 @@ export function LibraryView({
         <div className="library-title">
           <div>
             <h1>
-              {title ?? t("library")}
+              {shared && !places.length ? t("emptySharedTitle") : (title ?? t("library"))}
               {places.length > 0 && <span className="count">{places.length}</span>}
             </h1>
           </div>
           {places.length > 0 && (
-            <button
-              className="icon-button add-manual"
-              disabled={!canWrite}
-              onClick={() => setEditor({})}
-              aria-label={t("manual")}
-              title={t("manual")}
-            >
-              <Plus />
-            </button>
+            <Tooltip text={t("manual")}>
+              <button
+                className="icon-button add-manual"
+                disabled={!canWrite}
+                onClick={() => setEditor({})}
+                aria-label={t("manual")}
+              >
+                <Plus />
+              </button>
+            </Tooltip>
           )}
         </div>
         {places.length > 0 && (
@@ -144,7 +148,7 @@ export function LibraryView({
         )}
         {!places.length ? (
           <div className="empty-state">
-            <p>{t("emptyBody")}</p>
+            <p>{t(shared ? "emptySharedBody" : "emptyBody")}</p>
             <button className="button quiet" disabled={!canWrite} onClick={() => setEditor({})}>
               {t("addWithDetails")}
               <ChevronRight size={17} />

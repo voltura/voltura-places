@@ -1,5 +1,5 @@
 import { DialogLayer } from "./DialogLayer";
-import { Check, MapPin, X } from "lucide-react";
+import { Check, CircleAlert, X } from "lucide-react";
 
 export function Toast({
   text,
@@ -15,7 +15,7 @@ export function Toast({
   return (
     <DialogLayer>
       <div className={`toast ${error ? "error-toast" : ""}`} role={error ? "alert" : "status"}>
-        {error ? <MapPin size={18} /> : <Check size={18} />}
+        {error ? <CircleAlert size={20} /> : <Check size={20} />}
         <span>{text}</span>
         <button className="icon-button" aria-label={closeLabel} onClick={onClose}>
           <X size={17} />

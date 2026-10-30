@@ -3,6 +3,7 @@ import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
+import { Tooltip } from "../ui/Tooltip";
 export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 export function PlaceDetails({
   canWrite,
@@ -35,6 +36,12 @@ export function PlaceDetails({
   setEditor: (value: { entity: Entity }) => void;
   copy: (text: string) => Promise<void>;
 }) {
+  const coordinates = [record.value.latitude, record.value.longitude].map((value) =>
+    Number(value.toFixed(6)),
+  );
+  const decimals = Math.max(
+    ...coordinates.map((value) => value.toString().split(".")[1]?.length ?? 0),
+  );
   return (
     <div className="details-content">
       <div className="details-header">
@@ -51,16 +58,17 @@ export function PlaceDetails({
       <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
       <div className="details-coordinates">
         <p className="coordinate-display">
-          {record.value.latitude.toFixed(6)}, {record.value.longitude.toFixed(6)}
+          {coordinates.map((value) => value.toFixed(decimals)).join(", ")}
         </p>
-        <button
-          className="icon-button"
-          aria-label={t("copyCoordinates")}
-          title={t("copyCoordinates")}
-          onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
-        >
-          <Copy size={20} />
-        </button>
+        <Tooltip text={t("copyCoordinates")}>
+          <button
+            className="icon-button"
+            aria-label={t("copyCoordinates")}
+            onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
+          >
+            <Copy size={20} />
+          </button>
+        </Tooltip>
       </div>
       <dl>
         <div>

@@ -1,4 +1,5 @@
-import { ChevronDown, LockKeyhole, Users } from "lucide-react";
+import { useId, useLayoutEffect, useRef } from "react";
+import { Check, ChevronDown, LockKeyhole, Users } from "lucide-react";
 
 export function LibrarySelector({
   value,
@@ -7,6 +8,8 @@ export function LibrarySelector({
   label,
   groups,
   onChange,
+  open,
+  onOpenChange,
 }: {
   value: string;
   privateValue: string;
@@ -14,29 +17,126 @@ export function LibrarySelector({
   label: string;
   groups: { value: string; label: string }[];
   onChange: (value: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const shared = value !== privateValue;
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const options = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  useLayoutEffect(() => {
+    if (!open) return;
+    const button = trigger.current!;
+    button.scrollIntoView({ block: "nearest" });
+    const dockHeight = document.querySelector(".save-dock")?.getBoundingClientRect().height ?? 0;
+    if (button.getBoundingClientRect().bottom > innerHeight - dockHeight - 160)
+      button.scrollIntoView({ block: "start" });
+    const sizeMenu = () => {
+      root.current?.style.setProperty(
+        "--library-menu-top",
+        `${button.getBoundingClientRect().bottom}px`,
+      );
+    };
+    sizeMenu();
+    options.current
+      ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
+      ?.focus({ preventScroll: true });
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        !root.current?.contains(event.target) &&
+        !event.target.closest("button.save-destination")
+      )
+        onOpenChange(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChange(false);
+        button.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("resize", sizeMenu);
+    window.addEventListener("scroll", sizeMenu, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("resize", sizeMenu);
+      window.removeEventListener("scroll", sizeMenu);
+    };
+  }, [open, onOpenChange]);
   const selected = groups.find((group) => group.value === value)?.label ?? privateLabel;
-  const Icon = shared ? Users : LockKeyhole;
+  const Icon = value !== privateValue ? Users : LockKeyhole;
   return (
-    <div className="library-selector">
-      <div className="library-selector-label" aria-hidden="true">
-        <Icon size={22} />
+    <div
+      ref={root}
+      className="library-selector"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onOpenChange(false);
+      }}
+    >
+      <button
+        ref={trigger}
+        className="library-selector-label"
+        aria-label={label}
+        aria-description={selected}
+        aria-controls={open ? menuId : undefined}
+        aria-expanded={open}
+        onClick={() => onOpenChange(!open)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            onOpenChange(true);
+          }
+        }}
+      >
+        <Icon size={22} aria-hidden="true" />
         <span>{selected}</span>
-        <ChevronDown size={20} />
-      </div>
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value={privateValue}>
-          <LockKeyhole size={22} aria-hidden="true" />
-          <span>{privateLabel}</span>
-        </option>
-        {groups.map((group) => (
-          <option key={group.value} value={group.value}>
-            <Users size={22} aria-hidden="true" />
-            <span>{group.label}</span>
-          </option>
-        ))}
-      </select>
+        <ChevronDown size={20} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          ref={options}
+          id={menuId}
+          className="library-options"
+          role="group"
+          aria-label={label}
+          onKeyDown={(event) => {
+            const buttons = [...event.currentTarget.querySelectorAll("button")];
+            const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+            let next: number;
+            if (event.key === "ArrowDown") next = (index + 1) % buttons.length;
+            else if (event.key === "ArrowUp") next = (index - 1 + buttons.length) % buttons.length;
+            else if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = buttons.length - 1;
+            else return;
+            event.preventDefault();
+            buttons[next]?.focus();
+          }}
+        >
+          {[{ value: privateValue, label: privateLabel }, ...groups].map((group) => {
+            const OptionIcon = group.value === privateValue ? LockKeyhole : Users;
+            return (
+              <button
+                key={group.value}
+                className="library-option"
+                aria-pressed={group.value === value}
+                onClick={() => {
+                  onChange(group.value);
+                  onOpenChange(false);
+                  trigger.current?.focus({ preventScroll: true });
+                }}
+              >
+                <OptionIcon size={22} aria-hidden="true" />
+                <span>{group.label}</span>
+                {group.value === value && <Check size={20} aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

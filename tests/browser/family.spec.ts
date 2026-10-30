@@ -79,11 +79,15 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page
       .getByRole("button", { name: "Edit place: Private chanterelles", exact: true })
       .click();
-    await a.page.getByRole("button", { name: "Copy to family", exact: true }).click();
-    await expect(a.page.getByRole("status")).toContainText("Copied to your family library");
+    await a.page.getByRole("button", { name: "Copy to Forest family", exact: true }).click();
+    await expect(a.page.getByRole("status")).toContainText("Copied to the selected group");
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Forest family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Forest family", exact: true })
+      .click();
     await expect(
       a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
     ).toBeVisible();
@@ -130,15 +134,23 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
     ).toBeVisible();
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Private places" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Private places", exact: true })
+      .click();
     await expect(
       a.page.getByRole("button", { name: "Edit place: Private chanterelles", exact: true }),
     ).toBeVisible();
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Forest family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Forest family", exact: true })
+      .click();
     await a.page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
     await a.context.setOffline(true);
     await a.page.reload();
@@ -178,11 +190,15 @@ test("two signed-in family members share photos and offline saves while private 
       ).ok(),
     ).toBe(true);
     await b.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Mother and family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Mother and family", exact: true })
+      .click();
     await expect(
-      b.page.getByRole("heading", { name: "Mother and family", exact: true }),
+      b.page.getByRole("heading", { name: "No shared places yet", exact: true }),
     ).toBeVisible();
     await expect(
       b.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
@@ -195,25 +211,37 @@ test("two signed-in family members share photos and offline saves while private 
       "Synced",
     );
     await a.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Mother and family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Mother and family", exact: true })
+      .click();
     await expect(
       a.page.getByRole("button", { name: "Edit place: Family picnic", exact: true }),
     ).toBeVisible();
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Forest family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Forest family", exact: true })
+      .click();
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Forest family" });
-    await b.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Forest family", exact: true })
+      .click();
+    await b.page.getByRole("button", { name: "Members · 2", exact: true }).click();
     await expect(
       b.page.getByRole("list", { name: "Participants · 2/10" }).getByRole("listitem"),
     ).toHaveCount(2);
     await expect(b.page.getByRole("button", { name: /Remove member/ })).toHaveCount(0);
     await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
-    await a.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+    await a.page.getByRole("button", { name: "Members · 2", exact: true }).click();
     const participants = a.page.getByRole("list", { name: "Participants · 2/10" });
     await expect(participants.getByText("Owner", { exact: true })).toBeVisible();
     await expect(participants.getByText("You", { exact: true })).toBeVisible();
@@ -260,10 +288,14 @@ test("two signed-in family members share photos and offline saves while private 
       a.page.getByRole("list", { name: "Participants · 1/10" }).getByRole("listitem"),
     ).toHaveCount(1);
     await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "Mother and family" });
-    await a.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "Mother and family", exact: true })
+      .click();
+    await a.page.getByRole("button", { name: "Members · 2", exact: true }).click();
     await expect(
       a.page.getByRole("heading", { name: "Mother and family", exact: true }),
     ).toBeVisible();
@@ -280,18 +312,22 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await expect(b.page.getByRole("button", { name: "Save position", exact: true })).toBeDisabled();
     await expect(
-      b.page.getByRole("button", { name: /^Add place(?: with details)?$/, exact: true }),
+      b.page.getByRole("button", { name: /^(?:Add place|Save with details)$/, exact: true }),
     ).toBeDisabled();
-    await expect(b.page.getByRole("button", { name: /Participants/ })).toHaveCount(0);
+    await expect(b.page.getByRole("button", { name: /Members/ })).toHaveCount(0);
     expect((await familyAction(b, { action: "create", name: "A different family" })).ok()).toBe(
       true,
     );
     await b.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+      await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
-      .getByRole("combobox", { name: "Library", exact: true })
-      .selectOption({ label: "A different family" });
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: "A different family", exact: true })
+      .click();
     await expect(
-      b.page.getByRole("heading", { name: "A different family", exact: true }),
+      b.page.getByRole("heading", { name: "No shared places yet", exact: true }),
     ).toBeVisible();
     await expect(b.page.locator(".library-selector-label")).toBeVisible();
     await expect(

@@ -90,6 +90,9 @@ export function watchLocation(
   }
   const resume = () => {
     if (!active || resumes >= 2 || freshPosition(state.position)) return;
+    // A focus/visibility event can come from the browser's still-open permission
+    // prompt. Keep that request alive rather than opening another acquisition.
+    if (permission && permission.state !== "granted") return;
     resumes++;
     start();
   };
@@ -129,7 +132,7 @@ export function watchLocation(
             const delay = retryDelays[transientRetries++];
             retry = setTimeout(() => {
               retry = undefined;
-              start();
+              if (!permission || permission.state === "granted") start();
             }, delay);
           }
         },

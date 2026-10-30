@@ -497,7 +497,12 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
-  await page.getByRole("button", { name: /^Add place(?: with details)?$/, exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Keep my draft");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await expect(review).toBeVisible();
@@ -542,7 +547,10 @@ test("camera and library inputs support a durable offline photo and removable dr
 }) => {
   await page.goto("/");
   await page
-    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
     .first()
     .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
@@ -622,7 +630,10 @@ test("GPS denial leaves the library intact and offers recovery", async ({ page }
 test("an unfinished manual draft reopens after reload", async ({ page }) => {
   await page.goto("/");
   await page
-    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
     .first()
     .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Unfinished draft");
@@ -671,7 +682,10 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await page.reload();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
   await page
-    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
     .first()
     .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Offline clearing");
@@ -682,7 +696,10 @@ test("GPS quick save commits before naming and survives offline reload", async (
 test("location is required and GPS places search and edit", async ({ page }) => {
   await page.goto("/");
   await page
-    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
     .first()
     .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Trailhead");
@@ -775,7 +792,10 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page
-    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .getByRole("button", {
+      name: /^(?:Add place(?: with details)?|Save with details)$/,
+      exact: true,
+    })
     .first()
     .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Copy example");
@@ -863,7 +883,11 @@ for (const [width, scale] of [
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await context.grantPermissions(["geolocation"]);
-    await context.setGeolocation({ latitude: -58.912058, longitude: -117.944706, accuracy: 16 });
+    await context.setGeolocation(
+      width === 320
+        ? { latitude: 59.123, longitude: 18.1, accuracy: 16 }
+        : { latitude: -58.912058, longitude: -117.944706, accuracy: 16 },
+    );
     await page.goto("/");
     await page.getByRole("button", { name: "Save position", exact: true }).click();
     const name =
@@ -877,6 +901,9 @@ for (const [width, scale] of [
       }, scale);
     const details = page.locator(".details-content:visible");
     await expect(details.getByRole("heading", { name, exact: true })).toBeVisible();
+    await expect(details.locator(".coordinate-display")).toHaveText(
+      width === 320 ? "59.123, 18.100" : "-58.912058, -117.944706",
+    );
     const measurements = await details.evaluate((el) => {
       const rect = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
       return {
@@ -889,6 +916,14 @@ for (const [width, scale] of [
         edit: rect(".details-secondary-actions button:last-child").width,
         nameBottom: rect("h2").bottom,
         coordinatesTop: rect(".details-coordinates").top,
+        coordinateRight: rect(".coordinate-display").right,
+        copyLeft: rect(".details-coordinates button").left,
+        savedTop: rect("dt").top,
+        dateTop: rect("dd").top,
+        dateSize: parseFloat(getComputedStyle(el.querySelector("dd")!).fontSize),
+        nameSize: parseFloat(getComputedStyle(el.querySelector("h2")!).fontSize),
+        mapsWidth: rect(".details-map-actions button:first-child").width,
+        chooserWidth: rect(".details-map-actions button:last-child").width,
         mapColumns: getComputedStyle(
           el.querySelector(".details-map-actions")!,
         ).gridTemplateColumns.split(" ").length,
@@ -902,6 +937,13 @@ for (const [width, scale] of [
     }
     expect(measurements.share).toBeCloseTo(measurements.edit, 0);
     expect(measurements.coordinatesTop).toBeGreaterThanOrEqual(measurements.nameBottom);
+    expect(measurements.coordinatesTop - measurements.nameBottom).toBeGreaterThanOrEqual(16);
+    expect(measurements.coordinatesTop - measurements.nameBottom).toBeLessThanOrEqual(20);
+    expect(measurements.copyLeft - measurements.coordinateRight).toBeCloseTo(8, 0);
+    expect(measurements.dateSize).toBeLessThan(measurements.nameSize);
+    if (scale === 1) expect(Math.abs(measurements.savedTop - measurements.dateTop)).toBeLessThan(5);
+    if (measurements.mapColumns === 2)
+      expect(measurements.mapsWidth / measurements.chooserWidth).toBeCloseTo(1.5, 1);
     if (width <= 375) expect(measurements.mapColumns).toBe(1);
     if (width === 430) expect(measurements.mapColumns).toBe(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(

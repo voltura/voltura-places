@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Map,
   Users,
+  LockKeyhole,
   UserRound,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
@@ -133,6 +134,8 @@ export function App() {
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
   const authRef = useRef(account.account?.id);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  useEffect(() => setLibraryOpen(false), [account.account?.id]);
   const saveDock = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const dock = saveDock.current!;
@@ -195,6 +198,10 @@ export function App() {
   const [reconciling, setReconciling] = useState(false),
     [menu, setMenu] = useState<PlaceRecord | null>(null),
     [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
+  const [copyGroupPicker, setCopyGroupPicker] = useState(false);
+  const [copyingToGroup, setCopyingToGroup] = useState(false);
+  const copyInProgress = useRef(false);
+  useEffect(() => setCopyGroupPicker(false), [menu]);
   const capture = useRef(0),
     stopCapture = useRef(() => {}),
     fileRef = useRef<HTMLInputElement>(null),
@@ -656,7 +663,15 @@ export function App() {
     }
   }
   async function copyToFamily(id: string, groupId: string) {
-    if (!account.account || !familyCache.families.some((f) => f.id === groupId)) return;
+    if (
+      copyInProgress.current ||
+      !account.account ||
+      selectedFamily ||
+      !familyCache.families.some((f) => f.id === groupId)
+    )
+      return;
+    copyInProgress.current = true;
+    setCopyingToGroup(true);
     const key = familyKey(account.account.id, groupId);
     try {
       await copyPlaceToWorkspace(scopeRef.current, key, id);
@@ -666,9 +681,12 @@ export function App() {
         () => workspaceIdentity(scopeRef.current).account === account.account!.id,
       );
       setMenu(null);
-      notify("copiedToFamily");
+      notify("copiedToGroup");
     } catch {
       notify("storageFailure", true);
+    } finally {
+      copyInProgress.current = false;
+      setCopyingToGroup(false);
     }
   }
   const formatDate = (value: string) =>
@@ -748,6 +766,8 @@ export function App() {
             privateValue={account.account.id}
             privateLabel={t("privateLibrary")}
             label={t("libraryChoice")}
+            open={libraryOpen}
+            onOpenChange={setLibraryOpen}
             groups={[...familyCache.families, ...familyCache.inactive].map((group) => ({
               value: familyKey(account.account!.id, group.id),
               label:
@@ -766,7 +786,7 @@ export function App() {
           {canWrite && selectedGroup && (
             <button className="button outline" onClick={() => setSettings("participants")}>
               <Users size={20} />
-              {t("familyParticipants")} · {selectedGroup.members.length}
+              {t("groupMembers")} · {selectedGroup.members.length}
             </button>
           )}
         </div>
@@ -774,6 +794,7 @@ export function App() {
       <LibraryView
         canWrite={canWrite}
         title={selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : undefined}
+        shared={Boolean(selectedFamily)}
         {...{
           t,
           places,
@@ -821,11 +842,26 @@ export function App() {
             {t("emptyTip")}
           </div>
           <div className="save-action">
-            <span className="save-destination" id="save-destination">
-              {selectedFamily
-                ? `${t(canWrite ? "sharedDestination" : "familyReadonly")} · ${selectedGroup?.name ?? t("familyLibrary")}`
-                : t("privateLibrary")}
-            </span>
+            <button
+              className="save-destination"
+              id="save-destination"
+              aria-expanded={libraryOpen}
+              onClick={() =>
+                account.account &&
+                (familyCache.families.length > 0 || familyCache.inactive.length > 0)
+                  ? setLibraryOpen(true)
+                  : setSettings("familySharing")
+              }
+            >
+              {selectedFamily ? (
+                <Users size={18} aria-hidden="true" />
+              ) : (
+                <LockKeyhole size={18} aria-hidden="true" />
+              )}
+              <span className="save-destination-name">
+                {selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : t("privateLibrary")}
+              </span>
+            </button>
             <div className="save-controls">
               <button
                 className="button primary save-here"
@@ -1166,50 +1202,86 @@ export function App() {
         />
       )}
       {menu && (
-        <Sheet title={menu.value.name} onClose={() => setMenu(null)} closeLabel={t("close")}>
-          <div className="stack">
-            <button
-              className="button outline"
-              disabled={!canWrite}
-              onClick={() => {
-                setEditor({ entity: menu });
-                setMenu(null);
-              }}
-            >
-              <Pencil size={18} />
-              {t("edit")}
-            </button>
-            <button
-              className="button outline"
-              onClick={() => {
-                setSharePlace(menu);
-                setMenu(null);
-              }}
-            >
-              <Share2 size={18} />
-              {t("share")}
-            </button>
-            {account.account &&
-              !selectedFamily &&
-              familyCache.families.map((group) => (
+        <Sheet
+          key={copyGroupPicker ? "copy-group" : "place-menu"}
+          title={copyGroupPicker ? t("copyToGroup") : menu.value.name}
+          onClose={() => setMenu(null)}
+          closeLabel={t("close")}
+        >
+          {copyGroupPicker ? (
+            <div className="stack copy-group-picker" aria-busy={copyingToGroup}>
+              <p>{t("copyToGroupBody")}</p>
+              {familyCache.families.map((group) => (
                 <button
                   key={group.id}
                   className="button outline"
+                  disabled={copyingToGroup}
                   onClick={() => void copyToFamily(menu.id, group.id)}
                 >
-                  {t("copyToFamily")}
-                  {familyCache.families.length > 1 && ` · ${group.name}`}
+                  <Users size={20} aria-hidden="true" />
+                  <span>{group.name}</span>
                 </button>
               ))}
-            <button
-              className="button danger"
-              disabled={!canWrite}
-              onClick={() => setDeletePlace({ place: menu, scope })}
-            >
-              <Trash2 size={18} />
-              {t("delete")}
-            </button>
-          </div>
+              <button
+                className="button outline"
+                disabled={copyingToGroup}
+                data-initial-focus
+                onClick={() => setCopyGroupPicker(false)}
+              >
+                {t("cancel")}
+              </button>
+            </div>
+          ) : (
+            <div className="stack">
+              <button
+                className="button outline"
+                disabled={!canWrite}
+                onClick={() => {
+                  setEditor({ entity: menu });
+                  setMenu(null);
+                }}
+              >
+                <Pencil size={18} />
+                {t("edit")}
+              </button>
+              <button
+                className="button outline"
+                onClick={() => {
+                  setSharePlace(menu);
+                  setMenu(null);
+                }}
+              >
+                <Share2 size={18} />
+                {t("share")}
+              </button>
+              {account.account && !selectedFamily && familyCache.families.length > 0 && (
+                <button
+                  className="button outline copy-group-action"
+                  disabled={copyingToGroup}
+                  onClick={() =>
+                    familyCache.families.length === 1
+                      ? void copyToFamily(menu.id, familyCache.families[0].id)
+                      : setCopyGroupPicker(true)
+                  }
+                >
+                  <Copy size={18} aria-hidden="true" />
+                  <span>
+                    {familyCache.families.length === 1
+                      ? `${t("copyTo")} ${familyCache.families[0].name}`
+                      : `${t("copyToGroup")}…`}
+                  </span>
+                </button>
+              )}
+              <button
+                className="button danger"
+                disabled={!canWrite}
+                onClick={() => setDeletePlace({ place: menu, scope })}
+              >
+                <Trash2 size={18} />
+                {t("delete")}
+              </button>
+            </div>
+          )}
         </Sheet>
       )}
       {current && mobile && !editor && !menu && !sharePlace && !settings && !maps && (

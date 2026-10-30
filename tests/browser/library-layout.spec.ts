@@ -21,7 +21,7 @@ for (const [width, scale] of [
     await expect(page.getByRole("heading", { name: "Your places", exact: true })).toBeVisible();
     await expect(page.locator(".count, .search-row, .category-chips")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Add place with details", exact: true }),
+      page.getByRole("button", { name: "Save with details", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".account-indicator > svg")).toBeVisible();
     await expect(page.locator(".account-indicator .status-dot")).toHaveCount(0);
@@ -93,6 +93,7 @@ for (const [width, scale] of [
 test("library selector keeps long group destinations explicit and private places separate", async ({
   browser,
 }, testInfo) => {
+  test.setTimeout(60000);
   const origin = "http://127.0.0.1:5174";
   const context = await browser.newContext({
     baseURL: origin,
@@ -130,22 +131,125 @@ test("library selector keeps long group destinations explicit and private places
     await page.goto("/");
     const reconcile = page.getByRole("button", { name: "Use the account library", exact: true });
     await reconcile.click();
-    const selector = page.getByRole("combobox", { name: "Library", exact: true });
-    await expect(selector.locator("option")).toHaveCount(4);
+    const selector = page.getByRole("button", { name: "Choose group", exact: true });
+    const menu = page.getByRole("group", { name: "Choose group", exact: true });
+    const longName = "Averylonggroupnamewhichwrapswithouttruncatingthelabelorbreakingthelayout";
+    await selector.click();
+    await expect(menu.locator(".library-option")).toHaveCount(4);
     await expect(page.locator(".account-indicator .status-dot")).toBeVisible();
-    await selector.selectOption({ index: 1 });
-    await expect(page.locator(".save-destination")).toContainText("Shared places");
-    await expect(page.getByRole("heading", { name: /Averylonggroupname/ })).toBeVisible();
+    await menu.getByRole("button", { name: longName, exact: true }).click();
+    await expect(page.locator(".save-destination")).toHaveText(longName);
+    await expect(page.locator(".save-destination > svg")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "No shared places yet", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Save your current location to share it with this group.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".shared-library-notice p")).toHaveText("Shared with this group");
+    const members = page.getByRole("button", { name: "Members \u00b7 1", exact: true });
+    for (const [width, scale] of [
+      [390, 1],
+      [320, 1],
+      [375, 2],
+      [1280, 1],
+    ]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.evaluate(
+        (scale) => (document.documentElement.style.fontSize = `${scale * 100}%`),
+        scale,
+      );
+      const button = (await members.boundingBox())!;
+      const metrics = await page.locator(".library-selector-label span").evaluate((el) => ({
+        height: el.getBoundingClientRect().height,
+        line: parseFloat(getComputedStyle(el).lineHeight),
+        clamp: getComputedStyle(el).webkitLineClamp,
+      }));
+      expect(metrics.clamp).toBe("2");
+      const icons = await page
+        .locator(".library-selector-label > svg")
+        .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
+      expect(icons).toEqual([22, 20]);
+      expect(await selector.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBe(
+        17 * scale,
+      );
+      expect(metrics.height).toBeLessThanOrEqual(metrics.line * 2 + 1);
+      await expect(page.locator(".save-destination-name")).toHaveText(longName);
+      expect(
+        await page
+          .locator(".save-destination-name")
+          .evaluate((el) => el.scrollWidth > el.clientWidth),
+      ).toBe(true);
+      const beforeDock = (await page.locator(".save-dock").boundingBox())!;
+      const beforeSave = (await page.locator(".save-here").boundingBox())!;
+      await page.screenshot({
+        path: testInfo.outputPath(`save-destination-${width}-${scale}.png`),
+      });
+      await page.locator("button.save-destination").click();
+      await expect(menu.getByRole("button", { name: longName, exact: true })).toBeVisible();
+      const option = menu.getByRole("button", { name: longName, exact: true }).locator("span");
+      expect(
+        await option.evaluate(
+          (el) => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`group-menu-${width}-${scale}.png`) });
+      await menu.getByRole("button", { name: "Weekend walks", exact: true }).click();
+      expect((await page.locator(".save-dock").boundingBox())!.height).toBe(beforeDock.height);
+      expect((await page.locator(".save-here").boundingBox())!.height).toBe(beforeSave.height);
+      await selector.click();
+      await menu.getByRole("button", { name: longName, exact: true }).click();
+      const destination = (await page.locator(".save-destination").boundingBox())!;
+      const save = (await page
+        .getByRole("button", { name: "Save position", exact: true })
+        .boundingBox())!;
+      expect(button.height).toBeGreaterThanOrEqual(48);
+      expect(destination.y + destination.height).toBeLessThanOrEqual(save.y);
+      expect(save.height).toBeGreaterThanOrEqual(56);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      await page.screenshot({ path: testInfo.outputPath(`shared-empty-${width}-${scale}.png`) });
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => (document.documentElement.style.fontSize = "100%"));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
     await page.getByRole("button", { name: "Save position", exact: true }).click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
-    await selector.selectOption(account);
-    await expect(page.locator(".save-destination")).toHaveText("Private places");
-    await expect(page.locator(".place-card")).toHaveCount(0);
+    await page
+      .getByRole("dialog", { name: "Place details", exact: true })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     await selector.click();
+    await menu.getByRole("button", { name: "Private places", exact: true }).click();
+    await expect(page.locator(".save-destination")).toHaveText("Private places");
+    await expect(page.locator(".save-destination > svg.lucide-lock-keyhole")).toBeVisible();
+    await expect(page.locator(".place-card")).toHaveCount(0);
+    await page.locator("button.save-destination").click();
+    await expect(menu).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("library-groups.png") });
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(selector).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(menu).toBeVisible();
+    const triggerBox = (await selector.boundingBox())!;
+    const menuBox = (await menu.boundingBox())!;
+    expect(menuBox.y).toBeCloseTo(triggerBox.y + triggerBox.height + 6, 0);
+    expect(menuBox.x).toBe(triggerBox.x);
+    expect(menuBox.width).toBe(triggerBox.width);
+    await page.keyboard.press("End");
+    await expect(menu.getByRole("button", { name: "Shared parking", exact: true })).toBeFocused();
+    await page.keyboard.press("Home");
+    await expect(menu.getByRole("button", { name: "Private places", exact: true })).toBeFocused();
+    await selector.click();
+    await expect(menu).toBeHidden();
+    await selector.click();
+    await expect(menu).toBeVisible();
+    await page.locator(".header-inner").click({ position: { x: 4, y: 4 } });
+    await expect(menu).toBeHidden();
   } finally {
     for (const familyId of ids)
       await context.request.post("/api/family", { headers, data: { action: "delete", familyId } });

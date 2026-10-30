@@ -100,6 +100,52 @@ test("returning from a system prompt resumes GPS and unavailable-first-fix retri
 const fix = (accuracy: number, timestamp = Date.now()) =>
   ({ timestamp, coords: { latitude: 0, longitude: 0, accuracy } }) as GeolocationPosition;
 
+test("pending permission keeps one acquisition through focus and transient retry events", async () => {
+  vi.useFakeTimers();
+  const permission = Object.assign(new EventTarget(), { state: "prompt" });
+  const win = new EventTarget();
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  vi.stubGlobal("window", win);
+  vi.stubGlobal("document", doc);
+  vi.stubGlobal("navigator", { permissions: { query: async () => permission } });
+  const successes: PositionCallback[] = [];
+  const failures: PositionErrorCallback[] = [];
+  const geo = {
+    watchPosition: vi.fn((success: PositionCallback, error: PositionErrorCallback) => {
+      successes.push(success);
+      failures.push(error);
+      return successes.length;
+    }),
+    clearWatch: vi.fn(),
+  } as unknown as Geolocation;
+  const saved = vi.fn();
+  const failed = vi.fn();
+  const stop = captureLocation(saved, failed, geo);
+  try {
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1000);
+    for (let i = 0; i < 4; i++) {
+      win.dispatchEvent(new Event("focus"));
+      doc.dispatchEvent(new Event("visibilitychange"));
+    }
+    failures[0]({ code: 2 } as GeolocationPositionError);
+    await vi.advanceTimersByTimeAsync(16000);
+    expect(geo.watchPosition).toHaveBeenCalledTimes(1);
+    expect(geo.clearWatch).not.toHaveBeenCalled();
+    expect(saved).not.toHaveBeenCalled();
+    expect(failed).not.toHaveBeenCalled();
+    permission.state = "granted";
+    permission.dispatchEvent(new Event("change"));
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+    successes[1](fix(6));
+    expect(saved).toHaveBeenCalledTimes(1);
+  } finally {
+    stop();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
+
 for (const ending of ["cancel", "deadline", "denied"] as const) {
   test(`refinement retains the best valid fix and ignores callbacks after ${ending}`, () => {
     vi.useFakeTimers();
