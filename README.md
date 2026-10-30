@@ -2,9 +2,15 @@
 
 **Save a place. Find your way back.** A mobile-first location library for the trailhead, the quiet clearing, and where you parked. Freeware with MIT-licensed source. English and Swedish.
 
-Quick-save GPS positions, organize/search offline, open external map apps, share copies, import/export JSON, and optionally synchronize your phone/PC library. No paid map API, app store or runtime AI service.
+Save GPS positions on your device, then name them, choose a category or add a photo. **Save with details** can start from GPS or a photo’s embedded location. Search and filter offline, open Google Maps or Apple Maps, share a snapshot link, and import/export JSON backups. Optional account sync brings places and photos to your other devices when online.
 
-Create named groups in Settings → Family sharing and generate a four-digit code for the selected group. The other person enters it in their own Places app and you approve their request. Each person can belong to several groups using one account. Choose a group before saving to share places and photos; personal places and other groups stay separate. Existing private places can be copied into a chosen group.
+- **Private places and separate groups.** Choose a library before saving. Each group has its own places, photos and members; private places stay private. Copy a private place to a chosen group while keeping the original independent.
+- **Invite from inside the app.** In Settings → Family sharing, create a named group and share its four-digit code. The recipient signs in and enters it in their own app; the owner approves the request. Codes remain available until approved or cancelled. One account supports up to 20 groups, with up to 10 members each. Members can add, edit and delete shared places and photos.
+- **A readable interface.** Dark by default, with Light/System themes, English/Swedish, category colours and icons, large phone controls, and a desktop details pane.
+- **Offline and recovery.** Saves commit locally before success. Signed-in changes sync when online. Settings → Backup offers device-storage retention and JSON backups; browser data can still be cleared, so keep exports. Downloaded group copies remain readable/exportable after access ends.
+- **Install from your browser.** iPhone: Safari → Share → Add to Home Screen. Android: browser menu → Install app / Add to home screen. No app store, paid map API or runtime AI service.
+
+![Current dark Places interface with synthetic example places](site/assets/app-mobile.png)
 
 App: https://places.voltura.se/ · About: https://voltura.se/places/
 

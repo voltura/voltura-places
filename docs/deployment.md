@@ -22,7 +22,7 @@ Add the custom domain through Sites and apply only its exact CNAME/TXT records a
 
 ## Promo and Air protection
 
-npm run publish:promo -- --dry-run reviews the exact file list without connecting. The publisher reuses the Windows-encrypted SFTP password and pinned SSH identity without changing them. Verify the company homepage and Air directory before writing. Only places/ descendants are allowed; reject links/traversal. Never root-sync or recursively remove remote content.
+npm run publish:promo -- --dry-run reviews the exact file list without connecting. The publisher reuses the Windows-encrypted SFTP password and pinned SSH identity without changing them. Verify the company homepage and Air directory before writing. The promo manifest contains two localized pages, four localized phone/desktop screenshots, two social cards, one stylesheet and one icon. Only places/ descendants are allowed; reject links/traversal. Never root-sync or recursively remove remote content.
 
 Stage immutable bytes and save source commit, original destination bytes/hashes, protected-file hashes and route-response baselines under ignored .artifacts/backups. Verify atomic overwrite-rename before promotion. Assets precede entry pages. Verify HTTPS payloads and protected baselines afterward, including /air/, /air/app/, /a/, /s/, /d/, /fortnox/. This does not establish authenticated Air-session behavior.
 

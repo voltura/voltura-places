@@ -149,7 +149,11 @@ export function App() {
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
   const authRef = useRef(account.account?.id);
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState<false | "selector" | "dock">(false);
+  const changeLibraryOpen = useCallback(
+    (open: boolean) => setLibraryOpen(open ? "selector" : false),
+    [],
+  );
   useEffect(() => setLibraryOpen(false), [account.account?.id]);
   const saveDock = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -785,8 +789,9 @@ export function App() {
             privateValue={account.account.id}
             privateLabel={t("privateLibrary")}
             label={t("libraryChoice")}
-            open={libraryOpen}
-            onOpenChange={setLibraryOpen}
+            open={!!libraryOpen}
+            placement={libraryOpen === "dock" ? "dock" : "selector"}
+            onOpenChange={changeLibraryOpen}
             groups={[...familyCache.families, ...familyCache.inactive].map((group) => ({
               value: familyKey(account.account!.id, group.id),
               label:
@@ -865,11 +870,11 @@ export function App() {
               <button
                 className="save-destination"
                 id="save-destination"
-                aria-expanded={libraryOpen}
+                aria-expanded={libraryOpen === "dock"}
                 onClick={() =>
                   account.account &&
                   (familyCache.families.length > 0 || familyCache.inactive.length > 0)
-                    ? setLibraryOpen(true)
+                    ? setLibraryOpen(libraryOpen === "dock" ? false : "dock")
                     : setSettings("familySharing")
                 }
               >

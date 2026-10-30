@@ -13,6 +13,8 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
     "places\\index.html",
     "places/assets/social-fr.0123456789abcdef.png",
     "places/assets/social-sv.png",
+    "places/assets/desktop-fr.0123456789abcdef.png",
+    "places/assets/desktop-en.png",
   ])
     expect(() => assertDestination(path)).toThrow();
   expect(assertDestination("places/index.html")).toBe("places/index.html");
@@ -20,4 +22,8 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
   expect(assertDestination("places/assets/social-sv.0123456789abcdef.png")).toContain(
     "places/assets/",
   );
+  for (const language of ["en", "sv"])
+    expect(assertDestination(`places/assets/desktop-${language}.0123456789abcdef.png`)).toContain(
+      "places/assets/",
+    );
 });

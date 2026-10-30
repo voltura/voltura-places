@@ -235,7 +235,15 @@ test("library selector keeps long group destinations explicit and private places
       await page.screenshot({
         path: testInfo.outputPath(`save-destination-${width}-${scale}.png`),
       });
+      const scrollBefore = await page.evaluate(() => scrollY);
       await page.locator("button.save-destination").click();
+      const dropup = (await menu.boundingBox())!;
+      const dockTrigger = (await page.locator("button.save-destination").boundingBox())!;
+      expect(dropup.y + dropup.height).toBeCloseTo(dockTrigger.y - 6, 0);
+      expect(dropup.x).toBeCloseTo(dockTrigger.x, 0);
+      expect(dropup.width).toBeCloseTo(dockTrigger.width, 0);
+      expect(dropup.y).toBeGreaterThanOrEqual(16);
+      expect(await page.evaluate(() => scrollY)).toBe(scrollBefore);
       await expect(menu.getByRole("button", { name: longName, exact: true })).toBeVisible();
       const option = menu.getByRole("button", { name: longName, exact: true }).locator("span");
       expect(
@@ -282,8 +290,8 @@ test("library selector keeps long group destinations explicit and private places
     await page.screenshot({ path: testInfo.outputPath("library-groups.png") });
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
-    await expect(selector).toBeFocused();
-    await page.keyboard.press("Enter");
+    await expect(page.locator("button.save-destination")).toBeFocused();
+    await selector.click();
     await expect(menu).toBeVisible();
     const triggerBox = (await selector.boundingBox())!;
     const menuBox = (await menu.boundingBox())!;

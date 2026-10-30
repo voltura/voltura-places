@@ -5,6 +5,12 @@ const dimensions = (bytes: Buffer) => {
   expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
   return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
 };
+test("localized promo screenshots are PNGs that can be embedded in generated social cards", async () => {
+  for (const suffix of ["", "-sv"])
+    expect(dimensions(await readFile(`site/assets/app-mobile${suffix}.png`))).toEqual([390, 844]);
+  for (const suffix of ["", "-sv"])
+    expect(dimensions(await readFile(`site/assets/app-desktop${suffix}.png`))).toEqual([1000, 871]);
+});
 test("icons and localized social cards have usable dimensions and dedicated maskable assets", async () => {
   for (const [name, size] of [
     ["icon-16.png", 16],

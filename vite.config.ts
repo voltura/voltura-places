@@ -42,7 +42,7 @@ export default defineConfig({
         id: "/",
         name: "Voltura Places",
         short_name: "Places",
-        description: "Save a place. Find your way back.",
+        description: "Save GPS places with photos. Find them offline and share with groups.",
         start_url: "/",
         scope: "/",
         display: "standalone",

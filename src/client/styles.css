@@ -2540,6 +2540,15 @@ details p {
   display: grid;
   gap: 8px;
 }
+.library-options-up {
+  position: fixed;
+  top: auto;
+  right: auto;
+  bottom: var(--library-dock-bottom);
+  left: var(--library-dock-left);
+  width: var(--library-dock-width);
+  max-height: min(24rem, var(--library-dock-space));
+}
 .library-option {
   font-size: 1.0625rem;
   display: grid;

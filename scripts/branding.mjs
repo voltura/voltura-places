@@ -14,6 +14,16 @@ const font = {
 const source = await readFile(new URL("../public/icon.svg", import.meta.url), "utf8");
 const inside = source.replace(/^.*?<svg[^>]*>/s, "").replace(/<\/svg>\s*$/, "");
 const glyph = inside.replace(/<rect[^>]*\/>/, "");
+const screenshots = Object.fromEntries(
+  await Promise.all(
+    ["en", "sv"].map(async (language) => [
+      language,
+      (await readFile(`site/assets/app-mobile${language === "sv" ? "-sv" : ""}.png`)).toString(
+        "base64",
+      ),
+    ]),
+  ),
+);
 const svg = (width, height, content) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${content}</svg>`;
 const mark = (x, y, size) =>
@@ -30,13 +40,17 @@ export function socialImage(language) {
       630,
       `
     <rect width="1200" height="630" fill="#111b17"/>
-    <g fill="none" stroke="#8dd7ad" stroke-width="2" opacity=".12"><path d="M800 -80C540 130 1280 200 850 690M900 -80C640 130 1380 200 950 690M1000 -80C740 130 1480 200 1050 690M1100 -80C840 130 1580 200 1150 690"/></g>
-    ${mark(76, 64, 96)}
-    <text x="200" y="128" fill="#f5f7f4" font-family="Inter" font-size="44">voltura places</text>
-    <text x="76" y="302" fill="#f5f7f4" font-family="Inter" font-size="70" font-weight="700">${swedish ? "Spara platser." : "Save your places."}</text>
-    <text x="76" y="392" fill="#8dd7ad" font-family="Inter" font-size="70" font-weight="700">${swedish ? "Hitta tillbaka." : "Find your way back."}</text>
-    <text x="80" y="480" fill="#b3c6bb" font-family="Inter" font-size="28">GPS · ${swedish ? "Foton" : "Photos"} · Offline</text>
-    <text x="80" y="568" fill="#8dd7ad" font-family="Inter" font-size="24">voltura.se/places</text>`,
+    <defs><clipPath id="screen"><rect x="880" y="48" width="248" height="537" rx="24"/></clipPath></defs>
+    <path d="M826 0H1200V630H826Z" fill="#192720"/>
+    ${mark(64, 58, 80)}
+    <text x="164" y="111" fill="#eef5ed" font-family="Inter" font-size="36">voltura places</text>
+    <text x="64" y="262" fill="#eef5ed" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Spara en plats." : "Save a place."}</text>
+    <text x="64" y="340" fill="#8dd7ad" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Hitta tillbaka." : "Find your way back."}</text>
+    <text x="68" y="418" fill="#eef5ed" font-family="Inter" font-size="28">${swedish ? "Privata platser. Delade grupper." : "Private places. Shared groups."}</text>
+    <text x="68" y="464" fill="#b0c4b6" font-family="Inter" font-size="25">GPS · ${swedish ? "Foton" : "Photos"} · Offline</text>
+    <text x="68" y="564" fill="#8dd7ad" font-family="Inter" font-size="24">voltura.se/places</text>
+    <image x="880" y="48" width="248" height="537" clip-path="url(#screen)" href="data:image/png;base64,${screenshots[language]}"/>
+    <rect x="878" y="46" width="252" height="541" rx="26" fill="none" stroke="#344b3d" stroke-width="4"/>`,
     ),
   );
 }
@@ -50,13 +64,13 @@ export async function generateBranding() {
         svg(
           512,
           512,
-          `<rect width="512" height="512" fill="#126a50"/><g transform="translate(64 64) scale(.75)">${glyph}</g>`,
+          `<rect width="512" height="512" fill="#111b17"/><g transform="translate(64 64) scale(.75)">${glyph}</g>`,
         ),
         size,
       ),
     );
   }
-  const apple = svg(512, 512, `<rect width="512" height="512" fill="#126a50"/>${glyph}`);
+  const apple = svg(512, 512, inside.replace('rx="112"', ""));
   for (const size of [152, 167, 180])
     await writeFile(
       `public/apple-touch-icon${size === 180 ? "" : `-${size}`}.png`,

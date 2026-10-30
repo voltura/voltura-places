@@ -1,7 +1,9 @@
+import { renderPromo } from "../site/page.mjs";
 import { readFile, writeFile, mkdir, cp, rm, lstat, realpath } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { socialImage } from "./branding.mjs";
+const themeScript = await readFile("site/theme.js", "utf8");
 const content = JSON.parse(await readFile("site/content.json", "utf8"));
 const output = resolve(".artifacts/promo");
 await mkdir(resolve(".artifacts"), { recursive: true });
@@ -42,13 +44,22 @@ for (const [language, c] of Object.entries(content)) {
   const screenshot = await readFile(`site/assets/app-mobile${language === "sv" ? "-sv" : ""}.png`);
   const screenshotName = `app-${language}.${createHash("sha256").update(screenshot).digest("hex").slice(0, 16)}.png`;
   await writeFile(`.artifacts/promo/assets/${screenshotName}`, screenshot);
-  const html = `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="${c.description}"><meta name="theme-color" content="#126a50"><title>Voltura Places — ${c.title}</title><link rel="canonical" href="https://voltura.se/places/${language === "sv" ? "sv/" : ""}"><link rel="alternate" hreflang="en" href="https://voltura.se/places/"><link rel="alternate" hreflang="sv" href="https://voltura.se/places/sv/"><meta property="og:title" content="Voltura Places — ${c.title}"><meta property="og:description" content="${c.description}"><meta property="og:type" content="website"><meta property="og:site_name" content="Voltura Places"><meta property="og:url" content="${pageUrl}"><meta property="og:locale" content="${language === "sv" ? "sv_SE" : "en_GB"}"><meta property="og:image" content="${imageUrl}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${imageAlt}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Voltura Places — ${c.title}"><meta name="twitter:description" content="${c.description}"><meta name="twitter:image" content="${imageUrl}"><meta name="twitter:image:alt" content="${imageAlt}"><link rel="icon" href="${prefix}assets/icon.svg"><link rel="stylesheet" href="${prefix}assets/site.${hash}.css"></head><body>
-<header><div class="container"><a class="brand" href="https://voltura.se/"><img src="${prefix}assets/icon.svg" alt="" width="39" height="39"><span>voltura <strong>places</strong></span></a><nav><a class="nav-about" href="#how">${c.about}</a><a class="language" href="${language === "sv" ? "../" : "sv/"}" lang="${language === "sv" ? "en" : "sv"}">${language === "sv" ? "English" : "Svenska"}</a><a href="${appUrl}">${c.open} ↗</a></nav></div></header>
-<main><section class="container hero"><div class="hero-copy"><div class="eyebrow">${c.eyebrow}</div><h1>${c.title}<br><span>${c.titleSecond}</span></h1><p>${c.description}</p><div class="cta"><a class="button" href="${appUrl}">${c.open} <span>↗</span></a><a class="link" href="https://github.com/voltura/voltura-places">${c.github}</a></div><p class="free">${c.free}</p></div><div class="hero-visual"><div class="terrain"></div><figure class="phone phone-screenshot"><img src="${prefix}assets/${screenshotName}" alt="Voltura Places — ${c.example}" width="390" height="844"><figcaption>${c.example}</figcaption></figure></div></section>
-<section id="how" class="container chapter"><div class="chapter-heading"><div class="eyebrow">VOLTURA PLACES</div><h2>${c.how}</h2></div><div class="steps">${c.steps.map(([n, title, text]) => `<article class="step"><span class="step-number">${n}</span><h3>${title}</h3><p>${text}</p></article>`).join("")}</div></section>
-<section class="container chapter"><div class="outdoor"><div><div class="eyebrow">OFFLINE FIRST</div><h2>${c.offlineTitle}</h2></div><p>${c.offlineText}</p></div></section>
-<section class="container chapter split"><div><h2>${c.installTitle}</h2><p>${c.installText}</p><div class="install-steps"><span>${c.ios}</span><span>${c.android}</span></div><div class="cta"><a class="button" href="${appUrl}">${c.open} ↗</a></div></div><div id="privacy"><h2>${c.privacyTitle}</h2><p>${c.privacyText}</p><details><summary>${c.privacy}</summary><p>${c.privacyDetail}</p></details></div></section>
-<section class="container chapter"><div class="source"><h2>${c.sourceTitle}</h2><p>${c.sourceText}</p><div class="cta"><a class="button" href="https://github.com/voltura/voltura-places">${c.github} ↗</a></div></div></section></main><footer><div class="container"><span>${c.footer}</span><span class="footer-links"><a href="#privacy">${c.privacy}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></span></div></footer></body></html>`;
+  const desktop = await readFile(`site/assets/app-desktop${language === "sv" ? "-sv" : ""}.png`);
+  const desktopName = `desktop-${language}.${createHash("sha256").update(desktop).digest("hex").slice(0, 16)}.png`;
+  await writeFile(`.artifacts/promo/assets/${desktopName}`, desktop);
+  const html = renderPromo({
+    language,
+    c,
+    prefix,
+    appUrl,
+    pageUrl,
+    imageUrl,
+    imageAlt,
+    screenshotName,
+    desktopName,
+    cssName: `site.${hash}.css`,
+    themeScript,
+  });
   await writeFile(`.artifacts/promo/${language === "sv" ? "sv/" : ""}index.html`, html);
 }
 console.log("Built isolated English/Swedish promotional pages.");

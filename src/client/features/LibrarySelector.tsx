@@ -9,6 +9,7 @@ export function LibrarySelector({
   groups,
   onChange,
   open,
+  placement,
   onOpenChange,
 }: {
   value: string;
@@ -18,6 +19,7 @@ export function LibrarySelector({
   groups: { value: string; label: string }[];
   onChange: (value: string) => void;
   open: boolean;
+  placement: "selector" | "dock";
   onOpenChange: (open: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -26,12 +28,24 @@ export function LibrarySelector({
   const menuId = useId();
   useLayoutEffect(() => {
     if (!open) return;
-    const button = trigger.current!;
-    button.scrollIntoView({ block: "nearest" });
-    const dockHeight = document.querySelector(".save-dock")?.getBoundingClientRect().height ?? 0;
-    if (button.getBoundingClientRect().bottom > innerHeight - dockHeight - 160)
-      button.scrollIntoView({ block: "start" });
+    const button =
+      placement === "dock"
+        ? document.querySelector<HTMLButtonElement>("button.save-destination")!
+        : trigger.current!;
+    if (placement === "selector") {
+      button.scrollIntoView({ block: "nearest" });
+      const dockHeight = document.querySelector(".save-dock")?.getBoundingClientRect().height ?? 0;
+      if (button.getBoundingClientRect().bottom > innerHeight - dockHeight - 160)
+        button.scrollIntoView({ block: "start" });
+    }
     const sizeMenu = () => {
+      const rect = button.getBoundingClientRect();
+      if (placement === "dock") {
+        root.current?.style.setProperty("--library-dock-bottom", `${innerHeight - rect.top + 6}px`);
+        root.current?.style.setProperty("--library-dock-left", `${rect.left}px`);
+        root.current?.style.setProperty("--library-dock-width", `${rect.width}px`);
+        root.current?.style.setProperty("--library-dock-space", `${Math.max(0, rect.top - 22)}px`);
+      }
       root.current?.style.setProperty(
         "--library-menu-top",
         `${button.getBoundingClientRect().bottom}px`,
@@ -66,7 +80,7 @@ export function LibrarySelector({
       window.removeEventListener("resize", sizeMenu);
       window.removeEventListener("scroll", sizeMenu);
     };
-  }, [open, onOpenChange]);
+  }, [open, placement, onOpenChange]);
   const selected = groups.find((group) => group.value === value)?.label ?? privateLabel;
   const Icon = value !== privateValue ? Users : LockKeyhole;
   return (
@@ -76,7 +90,14 @@ export function LibrarySelector({
       onBlur={(event) => {
         // Safari clears focus before a tapped button receives its click. A null
         // destination must not unmount that option; outside presses close above.
-        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget))
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget) &&
+          !(
+            event.relatedTarget instanceof Element &&
+            event.relatedTarget.closest("button.save-destination")
+          )
+        )
           onOpenChange(false);
       }}
     >
@@ -86,7 +107,7 @@ export function LibrarySelector({
         aria-label={label}
         aria-description={selected}
         aria-controls={open ? menuId : undefined}
-        aria-expanded={open}
+        aria-expanded={open && placement === "selector"}
         onClick={() => onOpenChange(!open)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -103,7 +124,7 @@ export function LibrarySelector({
         <div
           ref={options}
           id={menuId}
-          className="library-options"
+          className={`library-options${placement === "dock" ? " library-options-up" : ""}`}
           role="group"
           aria-label={label}
           onKeyDown={(event) => {
@@ -129,7 +150,10 @@ export function LibrarySelector({
                 onClick={() => {
                   onChange(group.value);
                   onOpenChange(false);
-                  trigger.current?.focus({ preventScroll: true });
+                  (placement === "dock"
+                    ? document.querySelector<HTMLButtonElement>("button.save-destination")
+                    : trigger.current
+                  )?.focus({ preventScroll: true });
                 }}
               >
                 <OptionIcon size={22} aria-hidden="true" />
