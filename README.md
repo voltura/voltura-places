@@ -16,7 +16,7 @@ npm run setup
 npm run dev
 ```
 
-Node 24 LTS and npm 12. The complete local app runs at http://127.0.0.1:5174 with local D1. Optional `npm run dev:ui` starts Vite HMR on 5173. Local sign-in needs explicit local configuration; no real email is sent by tests.
+Node 24 LTS and npm 12. `npm run dev` runs the local API/built app with local D1 on port 5174. For visual review, run `npm run dev:ui` and always use http://127.0.0.1:5173/. It updates live with changes in this checkout and reuses an existing matching preview. If another app or checkout owns the port, startup reports a conflict instead of selecting a different port. Local sign-in needs explicit local configuration; no real email is sent by tests.
 
 The optional Wrangler database explorer is disabled because this pinned release omits its UI bundle; local D1 and the app remain available.
 

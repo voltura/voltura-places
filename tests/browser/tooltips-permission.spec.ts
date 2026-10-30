@@ -18,7 +18,7 @@ for (const theme of ["dark", "light"]) {
     );
     await page.goto("/");
     await page.getByRole("button", { name: "Save position", exact: true }).click();
-    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
     const modal = page.getByRole("dialog", { name: "Place details", exact: true });
     const copy = modal.getByRole("button", { name: "Copy coordinates", exact: true });
     await expect(copy).not.toHaveAttribute("title");
@@ -110,6 +110,6 @@ test("review does not restart GPS when focus returns to a still-pending permissi
   await expect(
     review.getByRole("button", { name: "Use this position", exact: true }),
   ).toBeEnabled();
-  await review.getByRole("button", { name: "Cancel", exact: true }).click();
+  await review.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
   await expect(page.locator(".place-card")).toHaveCount(0);
 });

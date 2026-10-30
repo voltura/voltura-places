@@ -1,14 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  Plus,
-  Search,
-  X,
-  ArrowDownUp,
-  MapPin,
-  Navigation,
-  MoreHorizontal,
-  ChevronRight,
-} from "lucide-react";
+import { Plus, Search, X, ArrowDownUp, MapPin, Navigation, MoreHorizontal } from "lucide-react";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
@@ -16,7 +7,6 @@ import { Tooltip } from "../ui/Tooltip";
 type Props = {
   canWrite: boolean;
   title?: string;
-  shared?: boolean;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -44,7 +34,6 @@ type Props = {
 export function LibraryView({
   canWrite,
   title,
-  shared = false,
   t,
   places,
   filtered,
@@ -72,14 +61,12 @@ export function LibraryView({
   return (
     <main className={`app-main${current ? "" : " library-only"}`}>
       <section className="library-pane">
-        <div className="library-title">
-          <div>
+        {places.length > 0 && (
+          <div className="library-title">
             <h1>
-              {shared && !places.length ? t("emptySharedTitle") : (title ?? t("library"))}
-              {places.length > 0 && <span className="count">{places.length}</span>}
+              {title ?? t("library")}
+              <span className="count">{places.length}</span>
             </h1>
-          </div>
-          {places.length > 0 && (
             <Tooltip text={t("manual")}>
               <button
                 className="icon-button add-manual"
@@ -90,8 +77,8 @@ export function LibraryView({
                 <Plus />
               </button>
             </Tooltip>
-          )}
-        </div>
+          </div>
+        )}
         {places.length > 0 && (
           <>
             <div className="search-row">
@@ -148,11 +135,8 @@ export function LibraryView({
         )}
         {!places.length ? (
           <div className="empty-state">
-            <p>{t(shared ? "emptySharedBody" : "emptyBody")}</p>
-            <button className="button quiet" disabled={!canWrite} onClick={() => setEditor({})}>
-              {t("addWithDetails")}
-              <ChevronRight size={17} />
-            </button>
+            <h1>{t("emptyTitle")}</h1>
+            <p>{t("emptyBody")}</p>
           </div>
         ) : !filtered.length ? (
           <div className="no-results">

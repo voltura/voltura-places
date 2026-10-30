@@ -1,5 +1,9 @@
 # Deployment and recovery
 
+## Local preview
+
+The single human-review app preview is http://127.0.0.1:5173/. Start it with `npm run dev:ui`; all changes in the same checkout appear through Vite hot reload. Repeated startup reuses a preview only when its development-only identity matches this project and checkout. Port binding is strict: a different server or checkout produces a clear conflict, never a new preview port. Switching to another checkout is an explicit stop/start of the chosen preview. Local API/D1 and browser tests use 5174; the isolated promo server uses 5175. These are separate services, not alternative app review addresses. Do not move the user's review tab between ports or clear browser data; local storage and permissions belong to each origin.
+
 ## Ownership and secrets
 
 Public source: voltura/voltura-places. App: https://places.voltura.se/. Promo: https://voltura.se/places/. The opaque Sites project ID and DB binding live in .openai/hosting.json. Never replace the Site after uncertain outcomes.

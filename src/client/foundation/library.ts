@@ -25,6 +25,8 @@ export type Workspace = {
   flight?: { mutation: Mutation; generation: number };
   reconciled: boolean;
   presetRevision?: number;
+  deviceAccounts?: string[];
+  guestPlaces?: Record<string, string | null>;
 };
 interface PlacesDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
@@ -244,56 +246,193 @@ export async function importBackup(
     }
   });
 }
+type DevicePlace = LocalRecord & { kind: "place" };
+const liveDevicePlaces = (guest: Workspace) =>
+  guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
+const valueKey = (value: unknown) => JSON.stringify(Object.entries(value as object).sort());
+const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
+function handledDevicePlaces(w: Workspace, guest: Workspace) {
+  const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
+  const places = w.records.filter((r) => r.kind === "place");
+  const values = new Set(places.map((r) => valueKey(r.value)));
+  const legacyIds = new Set(w.reconciled && !w.guestPlaces ? places.map((r) => r.id) : []);
+  for (const r of liveDevicePlaces(guest))
+    if (legacyIds.has(r.id) || values.has(valueKey(r.value))) receipts.add(r.id);
+  return receipts;
+}
+function knownAccounts(guest: Workspace, workspaces: Workspace[]) {
+  if (guest.deviceAccounts?.length) return guest.deviceAccounts;
+  return [
+    ...new Set([
+      ...workspaces
+        .filter((w) => w.key !== "guest" && !workspaceIdentity(w.key).family && w.reconciled)
+        .map((w) => w.key),
+    ]),
+  ];
+}
+export async function devicePlacePlan(key: string) {
+  if (key === "guest" || workspaceIdentity(key).family)
+    return { needed: false, ask: false, pending: 0 };
+  const guest = await readWorkspace("guest"),
+    account = await readWorkspace(key);
+  const accounts = knownAccounts(guest, await (await database()).getAll("workspaces"));
+  const handled = handledDevicePlaces(account, guest);
+  const pending = liveDevicePlaces(guest).filter((r) => !handled.has(r.id)).length;
+  return {
+    needed: !account.reconciled || pending > 0 || !guest.deviceAccounts?.includes(key),
+    ask: pending > 0 && accounts.length > 0 && accounts.at(-1) !== key,
+    pending,
+  };
+}
+export async function reconcileDevicePlaces(
+  key: string,
+  cloud: RecordState[],
+  decision: "auto" | "copy" | "skip",
+  isCurrent = () => true,
+) {
+  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
+  const plan = await devicePlacePlan(key);
+  if (decision === "auto" && plan.ask) throw new Error("accountChoiceRequired");
+  const guest = await readWorkspace("guest"),
+    account = await readWorkspace(key);
+  const handled = handledDevicePlaces(account, guest);
+  const source = liveDevicePlaces(guest).filter((r) => !handled.has(r.id));
+  const ids = new Map(
+    await Promise.all(
+      source.map(async (r) => {
+        const hash = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(JSON.stringify([key, r.id])),
+        );
+        return [
+          r.id,
+          "guest-" + [...new Uint8Array(hash)].map((n) => n.toString(16).padStart(2, "0")).join(""),
+        ] as const;
+      }),
+    ),
+  );
+  if (decision !== "skip")
+    await copyPhotos(
+      "guest",
+      key,
+      source
+        .filter(
+          (r) =>
+            !(account.reconciled ? account.records : cloud).some(
+              (c) => c.kind === "place" && (c.id === ids.get(r.id) || sameValue(c.value, r.value)),
+            ),
+        )
+        .flatMap((r) => (r.value.photoId ? [r.value.photoId] : [])),
+      isCurrent,
+    );
+  const db = await database(),
+    tx = db.transaction("workspaces", "readwrite");
+  let added = 0;
+  try {
+    const currentGuest = (await tx.store.get("guest")) ?? seed("guest");
+    const w = (await tx.store.get(key)) ?? seed(key);
+    const accounts = knownAccounts(currentGuest, await tx.store.getAll());
+    if (!isCurrent()) throw new Error("accountChanged");
+    const handledNow = handledDevicePlaces(w, currentGuest);
+    if (
+      decision === "auto" &&
+      source.some((r) => !handledNow.has(r.id)) &&
+      accounts.length > 0 &&
+      accounts.at(-1) !== key
+    )
+      throw new Error("accountChoiceRequired");
+    if (!w.reconciled) {
+      w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
+      for (const e of starters)
+        if (!w.records.some((r) => r.id === e.id))
+          w.records.push({
+            ...structuredClone(e),
+            revision: 0,
+            deleted: false,
+            generation: 0,
+            dirty: false,
+          });
+    }
+    if (w.reconciled && !w.guestPlaces) {
+      const legacyIds = new Set(w.records.filter((r) => r.kind === "place").map((r) => r.id));
+      w.guestPlaces = Object.fromEntries(
+        liveDevicePlaces(guest)
+          .filter((r) => legacyIds.has(r.id))
+          .map((r) => [r.id, r.id]),
+      );
+    }
+    w.guestPlaces ??= {};
+    const categories = new Map<string, string>();
+    for (const r of source) {
+      if (
+        !currentGuest.records.some(
+          (c) => c.id === r.id && !c.deleted && c.generation === r.generation,
+        )
+      )
+        continue;
+      if (Object.hasOwn(w.guestPlaces, r.id)) continue;
+      const existing = w.records.find(
+        (c) => c.kind === "place" && (c.id === ids.get(r.id) || sameValue(c.value, r.value)),
+      );
+      if (existing) {
+        w.guestPlaces[r.id] = existing.id;
+        continue;
+      }
+      if (decision === "skip") {
+        w.guestPlaces[r.id] = null;
+        continue;
+      }
+      const category = guest.records.find(
+        (c) => c.id === r.value.categoryId && c.kind === "category" && !c.deleted,
+      );
+      let categoryId = categories.get(r.value.categoryId);
+      if (!categoryId) {
+        const existingCategory =
+          category &&
+          w.records.find(
+            (c) => c.kind === "category" && !c.deleted && sameValue(c.value, category.value),
+          );
+        categoryId =
+          existingCategory?.id ??
+          (w.records.some((c) => c.id === category?.id) ? crypto.randomUUID() : category?.id) ??
+          "other";
+        if (category && !existingCategory) write(w, { ...category, id: categoryId });
+        categories.set(r.value.categoryId, categoryId);
+      }
+      const id = ids.get(r.id)!;
+      write(w, { id, kind: "place", value: { ...r.value, categoryId } });
+      w.guestPlaces[r.id] = id;
+      added++;
+    }
+    w.reconciled = true;
+    currentGuest.deviceAccounts = [...accounts.filter((id) => id !== key), key];
+    enforceCapacity(w);
+    if (!isCurrent()) throw new Error("accountChanged");
+    await tx.store.put(w);
+    await tx.store.put(currentGuest);
+    await tx.done;
+  } catch (error) {
+    try {
+      tx.abort();
+    } catch {}
+    await tx.done.catch(() => {});
+    throw error;
+  }
+  changed();
+  return added;
+}
 export async function reconcileAccount(
   key: string,
   cloud: RecordState[],
   merge: boolean,
   isCurrent = () => true,
 ) {
-  const guest = await readWorkspace("guest");
-  if (merge)
-    await copyPhotos(
-      "guest",
-      key,
-      guest.records.flatMap((r) =>
-        r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
-      ),
-      isCurrent,
-    );
-  return changeWorkspace(key, (w) => {
+  if ((await readWorkspace(key)).reconciled) {
     if (!isCurrent()) throw new Error("accountChanged");
-    if (w.reconciled) return;
-    w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
-    for (const e of starters)
-      if (!w.records.some((r) => r.id === e.id))
-        w.records.push({
-          ...structuredClone(e),
-          revision: 0,
-          deleted: false,
-          generation: 0,
-          dirty: false,
-        });
-    if (merge) {
-      const map = new Map<string, string>();
-      for (const r of guest.records.filter((r) => r.kind === "category" && !r.deleted)) {
-        const old = w.records.find((c) => c.id === r.id);
-        const id =
-          old && JSON.stringify(old.value) !== JSON.stringify(r.value) ? crypto.randomUUID() : r.id;
-        map.set(r.id, id);
-        if (!old || id !== r.id) write(w, { ...r, id });
-      }
-      for (const r of guest.records.filter((r) => r.kind === "place" && !r.deleted))
-        if (r.kind === "place") {
-          const id = w.records.some((c) => c.id === r.id) ? crypto.randomUUID() : r.id;
-          write(w, {
-            id,
-            kind: "place",
-            value: { ...r.value, categoryId: map.get(r.value.categoryId) ?? "other" },
-          });
-        }
-    }
-    w.reconciled = true;
-  });
+    return readWorkspace(key);
+  }
+  await reconcileDevicePlaces(key, cloud, merge ? "copy" : "skip", isCurrent);
+  return readWorkspace(key);
 }
 export const mergeSnapshot = (key: string, remote: RecordState[]) =>
   changeWorkspace(key, (w) => {

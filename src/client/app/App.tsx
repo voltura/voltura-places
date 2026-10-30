@@ -1,7 +1,8 @@
+import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUpRight,
   LocateFixed,
+  ChevronDown,
   MapPin,
   Settings2,
   Share2,
@@ -10,7 +11,6 @@ import {
   Trash2,
   Copy,
   LoaderCircle,
-  Map,
   Users,
   LockKeyhole,
   UserRound,
@@ -23,6 +23,7 @@ import { watchForUpdates } from "../foundation/updates";
 import { exportWithPhotos } from "../foundation/photo-backup";
 import { BACKUP_BYTES } from "../../shared/photos";
 import { Brand } from "../ui/Brand";
+import { MapAppChooser } from "../features/MapAppChooser";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { LibrarySelector } from "../features/LibrarySelector";
@@ -50,6 +51,7 @@ import {
   getDraft,
   flushDrafts,
   readWorkspace,
+  devicePlacePlan,
   removeAccountWorkspaces,
   copyPlaceToWorkspace,
   resolveConflict,
@@ -101,6 +103,16 @@ function loadPreferences(): Preferences {
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const retentionRequested = useRef(false);
   useEffect(() => {
     if (!retentionRequested.current) {
@@ -260,9 +272,10 @@ export function App() {
     const key = scopeRef.current;
     try {
       const w = await readWorkspace(key);
+      const plan = await devicePlacePlan(key);
       if (scopeRef.current === key) {
         setWorkspace(w);
-        setReconciling(key !== "guest" && !w.reconciled);
+        setReconciling(plan.needed);
       }
     } catch {
       setNotice({ text: t("storageFailure"), error: true });
@@ -308,9 +321,10 @@ export function App() {
     }
     const selectedKey = scopeRef.current;
     const w = await readWorkspace(selectedKey);
+    const plan = await devicePlacePlan(selectedKey);
     if (request !== accountRequest.current || scopeRef.current !== selectedKey) return;
     setWorkspace(w);
-    setReconciling(selectedKey !== "guest" && !w.reconciled);
+    setReconciling(plan.needed);
     const familyCheck = ++familyRequest.current;
     if (next.account)
       void fetchFamily(next.account.id)
@@ -520,7 +534,8 @@ export function App() {
     );
   }
   const openMaps = (p: Place) => {
-    if (prefs.provider) window.open(mapURL(prefs.provider, p), "_blank", "noopener,noreferrer");
+    if (prefs.provider && mapProviders().includes(prefs.provider))
+      window.open(mapURL(prefs.provider, p), "_blank", "noopener,noreferrer");
     else setMaps(p);
   };
   const remove = async (p: PlaceRecord, key: string) => {
@@ -709,7 +724,10 @@ export function App() {
       t={t}
       formatDate={formatDate}
       openMaps={openMaps}
-      chooseMaps={setMaps}
+      chooseMapProvider={(place, provider) => {
+        window.open(mapURL(provider, place), "_blank", "noopener,noreferrer");
+        setPrefs({ ...prefs, provider });
+      }}
       setSharePlace={setSharePlace}
       setEditor={(value) => {
         if (writeAllowed.current) setEditor(value);
@@ -794,7 +812,6 @@ export function App() {
       <LibraryView
         canWrite={canWrite}
         title={selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : undefined}
-        shared={Boolean(selectedFamily)}
         {...{
           t,
           places,
@@ -836,42 +853,71 @@ export function App() {
       />
 
       <div className="save-dock" ref={saveDock}>
-        <div className="dock-inner">
-          <div className="dock-hint">
-            <span className="status-dot" />
-            {t("emptyTip")}
-          </div>
+        <div className={`dock-inner${current ? "" : " library-only"}`}>
           <div className="save-action">
-            <button
-              className="save-destination"
-              id="save-destination"
-              aria-expanded={libraryOpen}
-              onClick={() =>
-                account.account &&
-                (familyCache.families.length > 0 || familyCache.inactive.length > 0)
-                  ? setLibraryOpen(true)
-                  : setSettings("familySharing")
-              }
-            >
-              {selectedFamily ? (
-                <Users size={18} aria-hidden="true" />
-              ) : (
-                <LockKeyhole size={18} aria-hidden="true" />
-              )}
-              <span className="save-destination-name">
-                {selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : t("privateLibrary")}
-              </span>
-            </button>
-            <div className="save-controls">
+            {!online && workspace && (
+              <div className="dock-hint" role="status">
+                {t("offlineSaved")}
+              </div>
+            )}
+            {account.account && (
               <button
-                className="button primary save-here"
-                disabled={locating || !workspace || reconciling || !canWrite}
-                onClick={saveHere}
-                aria-describedby="save-destination"
+                className="save-destination"
+                id="save-destination"
+                aria-expanded={libraryOpen}
+                onClick={() =>
+                  account.account &&
+                  (familyCache.families.length > 0 || familyCache.inactive.length > 0)
+                    ? setLibraryOpen(true)
+                    : setSettings("familySharing")
+                }
               >
-                {locating ? <LoaderCircle className="spin" size={22} /> : <LocateFixed size={24} />}{" "}
-                {t(locating ? "locating" : "saveHere")}
+                {selectedFamily ? (
+                  <Users size={18} aria-hidden="true" />
+                ) : (
+                  <LockKeyhole size={18} aria-hidden="true" />
+                )}
+                <span className="save-destination-name">
+                  {selectedFamily
+                    ? (selectedGroup?.name ?? t("familyLibrary"))
+                    : t("privateLibrary")}
+                </span>
               </button>
+            )}
+            <div className="save-controls">
+              <div className={`save-split${locating ? "" : " split-actions"}`}>
+                <button
+                  className="button primary save-here"
+                  disabled={locating || !workspace || reconciling || !canWrite}
+                  onClick={saveHere}
+                  aria-describedby={account.account ? "save-destination" : undefined}
+                >
+                  {locating ? (
+                    <LoaderCircle className="spin" size={22} />
+                  ) : (
+                    <LocateFixed size={24} />
+                  )}{" "}
+                  {t(locating ? "locating" : "saveHere")}
+                </button>
+                {!locating && (
+                  <div className="split-picker save-picker">
+                    <select
+                      aria-label={t("saveOptions")}
+                      value=""
+                      disabled={locating || !workspace || reconciling || !canWrite}
+                      onChange={(event) => {
+                        if (event.target.value === "details") setEditor({});
+                      }}
+                    >
+                      <option value="" disabled hidden>
+                        {t("saveOptions")}
+                      </option>
+                      <option value="details">{t("addWithDetails")}</option>
+                    </select>
+                    <ChevronDown size={20} aria-hidden="true" />
+                  </div>
+                )}
+              </div>
               {locating && (
                 <button
                   className="icon-button"
@@ -898,6 +944,7 @@ export function App() {
         >
           <div className="stack">
             <p>{t("accountChoiceBody")}</p>
+            <p>{t("accountChoiceOffline")}</p>
             <button
               className="button primary"
               onClick={() => {
@@ -934,8 +981,20 @@ export function App() {
           t={t}
           units={prefs.units}
           reviewGps={prefs.reviewGps}
-          onClose={() => setEditor(null)}
+          onClose={() => {
+            if (scopeRef.current === scope) setEditor(null);
+          }}
           onSave={save}
+          onDiscardPlace={async (id) => {
+            const key = scope;
+            if (scopeRef.current !== key || !writeAllowed.current)
+              throw new Error("familyAccessEnded");
+            await deleteEntity(key, id);
+            if (scopeRef.current !== key) return;
+            setSelected(null);
+            await refresh();
+            sync();
+          }}
           workspace={scope}
           updateReady={update}
           onUpdate={() =>
@@ -1075,40 +1134,22 @@ export function App() {
         </Sheet>
       )}
       {maps && (
-        <Sheet title={t("openWith")} onClose={() => setMaps(null)} closeLabel={t("close")}>
-          <p className="muted">{maps.name}</p>
-          <div className="stack">
-            {(["google", "apple", "geo"] as const).map((k) => (
-              <a
-                key={k}
-                className="button outline"
-                href={mapURL(k, maps)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  setPrefs({ ...prefs, provider: k });
-                  setMaps(null);
-                }}
-              >
-                <Map size={19} />
-                {t(k)}
-                <ArrowUpRight size={17} />
-              </a>
-            ))}
-            <button
-              className="button quiet"
-              onClick={() => void copy(`${maps.latitude}, ${maps.longitude}`)}
-            >
-              <Copy size={18} />
-              {t("copyCoordinates")}
-            </button>
-          </div>
-        </Sheet>
+        <MapAppChooser
+          place={maps}
+          t={t}
+          onClose={() => setMaps(null)}
+          onChoose={(provider) => {
+            setPrefs({ ...prefs, provider });
+            setMaps(null);
+          }}
+          copy={copy}
+        />
       )}
       {sharePlace && (
         <Sheet title={t("share")} onClose={() => setSharePlace(null)} closeLabel={t("close")}>
           <h3>{sharePlace.value.name}</h3>
           <p className="muted">{t("shareNotice")}</p>
+          <p className="muted small">{t("photoHint")}</p>
           <button className="button primary" onClick={() => void share(sharePlace)}>
             <Share2 size={19} />
             {t("share")}

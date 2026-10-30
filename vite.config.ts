@@ -2,9 +2,20 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { startupDevices, startupName } from "./scripts/branding.mjs";
+import { previewIdentity, previewIdentityPath, previewPort } from "./scripts/preview-config.mjs";
 export default defineConfig({
   plugins: [
     react(),
+    {
+      name: "places-preview-identity",
+      configureServer(server) {
+        server.middlewares.use(previewIdentityPath, (_request, response) => {
+          response.setHeader("Content-Type", "application/json");
+          response.setHeader("Cache-Control", "no-store");
+          response.end(JSON.stringify(previewIdentity));
+        });
+      },
+    },
     {
       name: "places-apple-startup-images",
       transformIndexHtml() {
@@ -70,5 +81,10 @@ export default defineConfig({
     }),
   ],
   build: { outDir: ".artifacts/client", emptyOutDir: true, sourcemap: false },
-  server: { proxy: { "/api": "http://127.0.0.1:5174" } },
+  server: {
+    host: "127.0.0.1",
+    port: previewPort,
+    strictPort: true,
+    proxy: { "/api": "http://127.0.0.1:5174" },
+  },
 });

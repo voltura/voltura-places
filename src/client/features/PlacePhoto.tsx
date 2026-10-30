@@ -93,7 +93,7 @@ export function PhotoPicker({
   };
   return (
     <fieldset className="photo-picker">
-      <legend>{t("placePhoto")}</legend>
+      <legend>{t("photo")}</legend>
       <PlacePhoto {...{ workspace, id, t }} />
       <div className="action-pair">
         <button
@@ -164,7 +164,11 @@ export function PhotoPicker({
         </button>
       )}
       {missingPosition && <p className="muted small">{t("photoNoLocation")}</p>}
-      <p className="muted small">{t(busy ? "processingPhoto" : "photoHint")}</p>
+      {busy && (
+        <p className="muted small" role="status">
+          {t("processingPhoto")}
+        </p>
+      )}
       {error && (
         <p role="alert" className="error">
           {error}

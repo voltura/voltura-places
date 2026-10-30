@@ -7,7 +7,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "dev": "node scripts/dev.mjs",
-    "dev:ui": "vite --host 127.0.0.1 --port 5173",
+    "dev:ui": "node scripts/dev-ui.mjs",
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit && node scripts/check-docs.mjs",
     "test": "vitest run",

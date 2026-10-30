@@ -1,3 +1,4 @@
+import { mapProviders } from "../foundation/map-providers";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Download,
@@ -195,11 +196,17 @@ export function Settings({
             <label className="preference-row">
               <span>{t("mapsPreference")}</span>
               <span className="preference-value" aria-hidden="true">
-                {preferences.provider ? t(preferences.provider) : t("chooseMaps")}
+                {preferences.provider && mapProviders().includes(preferences.provider)
+                  ? t(preferences.provider)
+                  : t("chooseMaps")}
               </span>
               <ChevronRight size={20} aria-hidden="true" />
               <select
-                value={preferences.provider}
+                value={
+                  preferences.provider && mapProviders().includes(preferences.provider)
+                    ? preferences.provider
+                    : ""
+                }
                 onChange={(e) =>
                   onPreferences({
                     ...preferences,
@@ -208,7 +215,7 @@ export function Settings({
                 }
               >
                 <option value="">{t("chooseMaps")}</option>
-                {(["google", "apple", "geo"] as const).map((k) => (
+                {mapProviders().map((k) => (
                   <option key={k} value={k}>
                     {t(k)}
                   </option>

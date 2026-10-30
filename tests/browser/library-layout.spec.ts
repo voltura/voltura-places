@@ -18,14 +18,62 @@ for (const [width, scale] of [
       (scale) => (document.documentElement.style.fontSize = `${scale * 100}%`),
       scale,
     );
-    await expect(page.getByRole("heading", { name: "Your places", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your places", exact: true })).toHaveCount(0);
     await expect(page.locator(".count, .search-row, .category-chips")).toHaveCount(0);
+    await expect(page.getByRole("combobox", { name: "Save options", exact: true })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Save with details", exact: true }),
+      page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
+    await expect(page.locator(".save-destination")).toHaveCount(0);
+    const emptyGeometry = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      const library = rect(".library-pane");
+      const primary = rect(".save-split");
+      const picker = rect(".save-picker");
+      const inner = rect(".dock-inner");
+      return {
+        centred: Math.abs(primary.x + primary.width / 2 - library.x - library.width / 2),
+        aligned: Math.abs(inner.x - library.x),
+        primaryWidth: primary.width,
+        libraryWidth: library.width,
+        pickerWidth: picker.width,
+        pickerHeight: picker.height,
+      };
+    });
+    expect(emptyGeometry.pickerWidth).toBeGreaterThanOrEqual(48);
+    expect(emptyGeometry.pickerHeight).toBeGreaterThanOrEqual(48);
+    await expect(page.locator(".save-details, .save-secondary-row")).toHaveCount(0);
+    expect(emptyGeometry.centred).toBeLessThanOrEqual(1);
+    expect(emptyGeometry.aligned).toBeLessThanOrEqual(1);
+    if (width < 640) expect(emptyGeometry.primaryWidth).toBe(emptyGeometry.libraryWidth);
     await expect(page.locator(".account-indicator > svg")).toBeVisible();
     await expect(page.locator(".account-indicator .status-dot")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("library-empty.png") });
+    const picker = page.getByRole("combobox", { name: "Save options", exact: true });
+    await picker.focus();
+    await picker.press("Space");
+    const detailsOption = picker.getByRole("option", { name: "Save with details", exact: true });
+    await expect(detailsOption).toBeVisible();
+    const optionBounds = (await detailsOption.boundingBox())!;
+    const dockBounds = (await page.locator(".save-dock").boundingBox())!;
+    expect(optionBounds.height).toBeGreaterThanOrEqual(48);
+    expect(optionBounds.y).toBeGreaterThanOrEqual(0);
+    expect(optionBounds.y + optionBounds.height).toBeLessThanOrEqual(dockBounds.y);
+    expect(optionBounds.x).toBeGreaterThanOrEqual(0);
+    expect(optionBounds.x + optionBounds.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath("save-options.png") });
+    await picker.press("Escape");
+    await expect(detailsOption).toBeHidden();
+    await expect(picker).toBeFocused();
+    await picker.selectOption("details");
+    const editor = page.getByRole("dialog", { name: "Add place", exact: true });
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("");
+    await page.screenshot({ path: testInfo.outputPath("add-place.png") });
+    await editor.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
+    await expect(editor).toBeHidden();
+    await expect(page.locator(".place-card")).toHaveCount(0);
+
     for (const [index, category] of [
       "parking",
       "food",
@@ -45,11 +93,15 @@ for (const [width, scale] of [
       const option = page.getByRole("combobox", { name: "Category", exact: true });
       if (await option.locator(`option[value="${category}"]`).count())
         await option.selectOption(category);
-      await page.getByRole("button", { name: "Save changes", exact: true }).click();
+      await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+      await expect(
+        page.getByRole("dialog", { name: /^(Edit place|Place saved)$/, exact: true }),
+      ).toBeHidden();
       if (width < 640)
         await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
       else await expect(page.getByRole("dialog")).toBeHidden();
     }
+    await expect(page.getByRole("heading", { name: "Your places 6", exact: true })).toBeVisible();
     await expect(page.locator(".search-row")).toBeVisible();
     const geometry = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
@@ -129,8 +181,6 @@ test("library selector keeps long group destinations explicit and private places
     }
     const page = await context.newPage();
     await page.goto("/");
-    const reconcile = page.getByRole("button", { name: "Use the account library", exact: true });
-    await reconcile.click();
     const selector = page.getByRole("button", { name: "Choose group", exact: true });
     const menu = page.getByRole("group", { name: "Choose group", exact: true });
     const longName = "Averylonggroupnamewhichwrapswithouttruncatingthelabelorbreakingthelayout";
@@ -141,10 +191,10 @@ test("library selector keeps long group destinations explicit and private places
     await expect(page.locator(".save-destination")).toHaveText(longName);
     await expect(page.locator(".save-destination > svg")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "No shared places yet", exact: true }),
+      page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Save your current location to share it with this group.", { exact: true }),
+      page.getByText("Save your current location to get started.", { exact: true }),
     ).toBeVisible();
     await expect(page.locator(".shared-library-notice p")).toHaveText("Shared with this group");
     const members = page.getByRole("button", { name: "Members \u00b7 1", exact: true });
@@ -217,7 +267,7 @@ test("library selector keeps long group destinations explicit and private places
       true,
     );
     await page.getByRole("button", { name: "Save position", exact: true }).click();
-    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
     await page
       .getByRole("dialog", { name: "Place details", exact: true })
       .getByRole("button", { name: "Close", exact: true })

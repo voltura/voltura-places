@@ -49,10 +49,10 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     const second = await create(longName);
     const page = await context.newPage();
     await page.goto("/");
-    await page.getByRole("button", { name: "Use the account library", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Save position", exact: true }).click();
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Private copy source");
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await page
       .getByRole("button", { name: "Edit place: Private copy source", exact: true })
@@ -74,7 +74,7 @@ test("copy destination is explicit and only the chosen group receives a copy", a
       expect(await content.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     }
     await page.screenshot({ path: testInfo.outputPath("copy-group-picker.png") });
-    await picker.getByRole("button", { name: "Cancel", exact: true }).click();
+    await picker.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
     expect(await records(first)).toHaveLength(0);
     expect(await records(second)).toHaveLength(0);
     await page.getByRole("button", { name: "Copy to group…", exact: true }).click();

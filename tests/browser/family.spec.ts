@@ -50,14 +50,14 @@ test("two signed-in family members share photos and offline saves while private 
   };
   try {
     await a.page.goto("/");
-    await a.page.getByRole("button", { name: "Use the account library", exact: true }).click();
+    await expect(a.page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
     await a.page.getByRole("button", { name: "Save position", exact: true }).click();
     await a.page.getByRole("textbox", { name: "Name", exact: true }).fill("Private chanterelles");
     await a.page
       .locator('input[type="file"][accept="image/*"]:not([capture])')
       .setInputFiles("tests/fixtures/photo.jpg");
     await expect(a.page.locator(".photo-picker img")).toBeVisible();
-    await a.page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await a.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await a.page.getByRole("button", { name: "Settings", exact: true }).click();
     await a.page
@@ -92,7 +92,7 @@ test("two signed-in family members share photos and offline saves while private 
       a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
     ).toBeVisible();
     await b.page.goto("/");
-    await b.page.getByRole("button", { name: "Use the account library", exact: true }).click();
+    await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
     await b.page.getByRole("button", { name: "Settings", exact: true }).click();
     await b.page
       .getByRole("combobox", { name: "Settings", exact: true })
@@ -126,7 +126,7 @@ test("two signed-in family members share photos and offline saves while private 
       .click();
     await expect(b.page.locator(".photo-picker img")).toBeVisible();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Shared chanterelles");
-    await b.page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toContainText(
       "Synced",
     );
@@ -161,7 +161,7 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page
       .getByRole("textbox", { name: "Name", exact: true })
       .fill("Offline mushroom clearing");
-    await a.page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await a.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await expect(
       a.page.getByRole("heading", { name: "Forest family 2", exact: true }),
@@ -198,14 +198,14 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("button", { name: "Mother and family", exact: true })
       .click();
     await expect(
-      b.page.getByRole("heading", { name: "No shared places yet", exact: true }),
+      b.page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
     await expect(
       b.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
     ).toHaveCount(0);
     await b.page.getByRole("button", { name: "Save position", exact: true }).click();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Family picnic");
-    await b.page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
     await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toContainText(
       "Synced",
@@ -312,8 +312,9 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await expect(b.page.getByRole("button", { name: "Save position", exact: true })).toBeDisabled();
     await expect(
-      b.page.getByRole("button", { name: /^(?:Add place|Save with details)$/, exact: true }),
+      b.page.getByRole("combobox", { name: "Save options", exact: true }),
     ).toBeDisabled();
+    await expect(b.page.getByRole("button", { name: "Add place", exact: true })).toBeDisabled();
     await expect(b.page.getByRole("button", { name: /Members/ })).toHaveCount(0);
     expect((await familyAction(b, { action: "create", name: "A different family" })).ok()).toBe(
       true,
@@ -327,7 +328,7 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("button", { name: "A different family", exact: true })
       .click();
     await expect(
-      b.page.getByRole("heading", { name: "No shared places yet", exact: true }),
+      b.page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
     await expect(b.page.locator(".library-selector-label")).toBeVisible();
     await expect(

@@ -130,7 +130,7 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
   await page
     .getByRole("textbox", { name: "Category name", exact: true })
     .fill("Averylongunbrokencategorynamewithmultiplewordsandmore");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
   expect(
     await page
       .locator(".settings-sheet .sheet-content")

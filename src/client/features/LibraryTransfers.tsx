@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
-import { importBackup, reconcileAccount } from "../foundation/library";
+import { importBackup, devicePlacePlan, reconcileDevicePlaces } from "../foundation/library";
 import { fetchSnapshot } from "../foundation/sync";
 import type { Backup } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
@@ -74,44 +74,77 @@ export function ReconcileDialog({
   t,
   onClose,
   onComplete,
-}: Common & { accountId: string }) {
+}: Omit<Common, "onComplete"> & { accountId: string; onComplete: (added: number) => void }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [checking, setChecking] = useState(true),
+    [hasPlaces, setHasPlaces] = useState(false),
+    [attempt, setAttempt] = useState(0);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
+    let current = true;
+    void (async () => {
+      try {
+        const plan = await devicePlacePlan(accountId);
+        if (!current) return;
+        setHasPlaces(plan.ask);
+        if (!plan.ask) await choose("auto", () => current);
+      } catch {
+        if (current) setError(t("storageFailure"));
+      } finally {
+        if (current) setChecking(false);
+      }
+    })();
     return () => {
+      current = false;
       active.current = false;
     };
-  }, [accountId]);
-  async function choose(merge: boolean) {
+  }, [accountId, attempt]);
+  async function choose(decision: "auto" | "copy" | "skip", isCurrent = () => active.current) {
     setBusy(true);
     setError("");
     try {
       const snapshot = await fetchSnapshot(accountId);
-      if (!active.current) return;
-      await reconcileAccount(accountId, snapshot.records, merge, () => active.current);
-      if (active.current) onComplete();
-    } catch {
-      setError(t("serviceUnavailable"));
+      if (!isCurrent()) return;
+      const added = await reconcileDevicePlaces(accountId, snapshot.records, decision, isCurrent);
+      if (isCurrent()) onComplete(added);
+    } catch (error) {
+      if (isCurrent()) {
+        if (error instanceof Error && error.message === "accountChoiceRequired") setHasPlaces(true);
+        else setError(t("serviceUnavailable"));
+      }
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
+  if (checking || (!hasPlaces && !error)) return null;
   return (
-    <Sheet title={t("reconcileTitle")} onClose={onClose} closeLabel={t("close")}>
+    <Sheet
+      title={t(hasPlaces ? "reconcileTitle" : "privateLibrary")}
+      onClose={onClose}
+      closeLabel={t("signOut")}
+    >
       <div className="stack">
-        <p className="muted">{t("reconcileBody")}</p>
-        {[true, false].map((merge) => (
+        {hasPlaces && <p className="muted">{t("reconcileBody")}</p>}
+        {(hasPlaces ? [true, false] : [false]).map((merge) => (
           <button
             key={String(merge)}
             className={`button ${merge ? "primary" : "outline"}`}
             disabled={busy}
-            onClick={() => void choose(merge)}
+            onClick={() => {
+              if (hasPlaces) void choose(merge ? "copy" : "skip");
+              else {
+                setChecking(true);
+                setError("");
+                setAttempt((value) => value + 1);
+              }
+            }}
           >
-            {t(merge ? "mergeGuest" : "cloudOnly")}
+            {t(hasPlaces ? (merge ? "mergeGuest" : "cloudOnly") : "retry")}
           </button>
         ))}
+        <p className="muted small">{t("reconcileCloseHint")}</p>
         {error && (
           <p className="error" role="alert">
             {error}
