@@ -34,7 +34,9 @@ export const en = {
   familySharing: "Family sharing",
   familyLibrary: "Family places",
   familyLibraryHint: "Shared with your family",
-  privateLibrary: "My private places",
+  privateLibrary: "Private places",
+  sharedDestination: "Shared places",
+  addWithDetails: "Add place with details",
   libraryChoice: "Library",
   familyIntro:
     "Share places with family or other groups. Each group has its own members and places. Your private places stay private.",
@@ -340,6 +342,8 @@ export const sv: Record<Message, string> = {
   familyLibrary: "Familjens platser",
   familyLibraryHint: "Delas med din familj",
   privateLibrary: "Mina privata platser",
+  sharedDestination: "Delade platser",
+  addWithDetails: "Lägg till plats med detaljer",
   libraryChoice: "Bibliotek",
   familyIntro:
     "Dela platser med familjen eller andra grupper. Varje grupp har sina egna medlemmar och platser. Dina privata platser förblir privata.",

@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   Map,
   Users,
+  UserRound,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
@@ -23,6 +24,7 @@ import { BACKUP_BYTES } from "../../shared/photos";
 import { Brand } from "../ui/Brand";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
+import { LibrarySelector } from "../features/LibrarySelector";
 import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
 import { FamilyPanel } from "../features/Family";
 import {
@@ -131,6 +133,22 @@ export function App() {
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
   const authRef = useRef(account.account?.id);
+  const saveDock = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const dock = saveDock.current!;
+    const measure = () =>
+      document.documentElement.style.setProperty(
+        "--save-dock-height",
+        `${dock.getBoundingClientRect().height}px`,
+      );
+    const observer = new ResizeObserver(measure);
+    observer.observe(dock);
+    measure();
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--save-dock-height");
+    };
+  }, []);
   const [deletePlace, setDeletePlace] = useState<{ place: PlaceRecord; scope: string } | null>(
     null,
   );
@@ -697,16 +715,21 @@ export function App() {
                   : `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
               }
             >
-              <span className="status-dot" />
-              {!account.account
-                ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
-                : t(
-                    (!navigator.onLine
-                      ? "offline"
-                      : scope === "guest"
-                        ? "localOnly"
-                        : status) as Message,
-                  )}
+              <span className="account-indicator">
+                <UserRound size={24} aria-hidden="true" />
+                {account.account && <span className="status-dot" aria-hidden="true" />}
+              </span>
+              <span className="account-label">
+                {!account.account
+                  ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+                  : t(
+                      (!navigator.onLine
+                        ? "offline"
+                        : scope === "guest"
+                          ? "localOnly"
+                          : status) as Message,
+                    )}
+              </span>
             </button>
             <button
               className="icon-button"
@@ -719,26 +742,23 @@ export function App() {
         </div>
       </header>
       {account.account && (familyCache.families.length > 0 || familyCache.inactive.length > 0) && (
-        <section className="library-switcher" aria-label={t("libraryChoice")}>
-          <button
-            className={`button ${!selectedFamily ? "primary" : "outline"}`}
-            onClick={() => switchLibrary(account.account!.id)}
-            aria-pressed={!selectedFamily}
-          >
-            {t("privateLibrary")}
-          </button>
-          {[...familyCache.families, ...familyCache.inactive].map((group) => (
-            <button
-              key={group.id}
-              className={`button ${selectedFamily === group.id ? "primary" : "outline"}`}
-              onClick={() => switchLibrary(familyKey(account.account!.id, group.id))}
-              aria-pressed={selectedFamily === group.id}
-            >
-              {group.name}
-              {!familyCache.families.some((f) => f.id === group.id) && ` · ${t("familyLocalCopy")}`}
-            </button>
-          ))}
-        </section>
+        <div className="library-switcher">
+          <LibrarySelector
+            value={scope}
+            privateValue={account.account.id}
+            privateLabel={t("privateLibrary")}
+            label={t("libraryChoice")}
+            groups={[...familyCache.families, ...familyCache.inactive].map((group) => ({
+              value: familyKey(account.account!.id, group.id),
+              label:
+                group.name +
+                (!familyCache.families.some((f) => f.id === group.id)
+                  ? ` · ${t("familyLocalCopy")}`
+                  : ""),
+            }))}
+            onChange={switchLibrary}
+          />
+        </div>
       )}
       {selectedFamily && (
         <div className="shared-library-notice">
@@ -794,33 +814,43 @@ export function App() {
         }
       />
 
-      <div className="save-dock">
+      <div className="save-dock" ref={saveDock}>
         <div className="dock-inner">
           <div className="dock-hint">
             <span className="status-dot" />
             {t("emptyTip")}
           </div>
-          <button
-            className="button primary save-here"
-            disabled={locating || !workspace || reconciling || !canWrite}
-            onClick={saveHere}
-          >
-            {locating ? <LoaderCircle className="spin" size={22} /> : <LocateFixed size={24} />}{" "}
-            {t(locating ? "locating" : "saveHere")}
-          </button>
-          {locating && (
-            <button
-              className="icon-button"
-              aria-label={t("cancelCapture")}
-              onClick={() => {
-                capture.current++;
-                stopCapture.current();
-                setLocating(false);
-              }}
-            >
-              <X />
-            </button>
-          )}
+          <div className="save-action">
+            <span className="save-destination" id="save-destination">
+              {selectedFamily
+                ? `${t(canWrite ? "sharedDestination" : "familyReadonly")} · ${selectedGroup?.name ?? t("familyLibrary")}`
+                : t("privateLibrary")}
+            </span>
+            <div className="save-controls">
+              <button
+                className="button primary save-here"
+                disabled={locating || !workspace || reconciling || !canWrite}
+                onClick={saveHere}
+                aria-describedby="save-destination"
+              >
+                {locating ? <LoaderCircle className="spin" size={22} /> : <LocateFixed size={24} />}{" "}
+                {t(locating ? "locating" : "saveHere")}
+              </button>
+              {locating && (
+                <button
+                  className="icon-button"
+                  aria-label={t("cancelCapture")}
+                  onClick={() => {
+                    capture.current++;
+                    stopCapture.current();
+                    setLocating(false);
+                  }}
+                >
+                  <X />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       {notice && <Toast {...notice} closeLabel={t("close")} onClose={() => setNotice(null)} />}

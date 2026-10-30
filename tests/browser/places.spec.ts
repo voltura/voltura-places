@@ -252,7 +252,7 @@ for (const failure of ["invalid", "throw"] as const) {
     await page.goto("/");
     await page.getByRole("button", { name: "Save position", exact: true }).click();
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Your places 0", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your places", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
   });
 }
@@ -320,7 +320,7 @@ for (const [width, height, textScale] of [
         expect(await content.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     };
     expect(await font(".save-here")).toBeGreaterThanOrEqual(20 * textScale);
-    expect(await font(".search-field input")).toBeGreaterThanOrEqual(18 * textScale);
+
     await page.getByRole("button", { name: "Spara position", exact: true }).click();
     await page
       .getByRole("textbox", { name: "Namn", exact: true })
@@ -335,6 +335,7 @@ for (const [width, height, textScale] of [
     await fits();
     await page.getByRole("button", { name: "Spara ändringar", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Stäng", exact: true }).click();
+    expect(await font(".search-field input")).toBeGreaterThanOrEqual(18 * textScale);
     expect(await font(".card-maps")).toBeGreaterThanOrEqual(18 * textScale);
     expect(await font(".card-text strong")).toBeGreaterThanOrEqual(20 * textScale);
     expect(await font(".card-text > span")).toBeGreaterThanOrEqual(16 * textScale);
@@ -422,7 +423,9 @@ test("desktop stays focused on the library and opens details only for a selected
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "No saved places", exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Use Save position to save your current location.", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("complementary")).toHaveCount(0);
   await expect(page.getByText("Works offline", { exact: true })).toHaveCount(1);
   await expect(page.locator(".detail-welcome, .trail-art, .library-title .eyebrow")).toHaveCount(0);
@@ -482,7 +485,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   await expect(review).toBeVisible();
   await expect(review.getByRole("meter")).toHaveAttribute("aria-valuenow", "4");
   await expect(review).toContainText("±20 ft");
-  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "Your places" })).toBeAttached();
   await review.getByRole("button", { name: "Use this position", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Saved on this device", exact: true }),
@@ -494,7 +497,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
-  await page.getByRole("button", { name: "Add place", exact: true }).click();
+  await page.getByRole("button", { name: /^Add place(?: with details)?$/, exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Keep my draft");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await expect(review).toBeVisible();
@@ -527,7 +530,7 @@ test("accuracy review handles denied permission and cancel without saving", asyn
     review.getByRole("button", { name: "Use this position", exact: true }),
   ).toBeDisabled();
   await review.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your places" })).toBeVisible();
 });
 test.beforeEach(async ({ context }) => {
   await context.grantPermissions(["geolocation"]);
@@ -538,7 +541,10 @@ test("camera and library inputs support a durable offline photo and removable dr
   context,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Add place", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .first()
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
   await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toHaveCount(0);
   await expect(page.locator('input[capture="environment"]')).toHaveAttribute("accept", "image/*");
@@ -610,12 +616,15 @@ test("GPS denial leaves the library intact and offers recovery", async ({ page }
   await page.goto("/");
   await page.getByRole("button", { name: "Save position", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Location access was denied");
-  await expect(page.getByRole("heading", { name: "Your places 0" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your places" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
 });
 test("an unfinished manual draft reopens after reload", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Add place", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .first()
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Unfinished draft");
   await page.waitForFunction(
     () =>
@@ -661,7 +670,10 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
-  await page.getByRole("button", { name: "Add place", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .first()
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Offline clearing");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
@@ -669,7 +681,10 @@ test("GPS quick save commits before naming and survives offline reload", async (
 });
 test("location is required and GPS places search and edit", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Add place", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .first()
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Trailhead");
   await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
@@ -759,7 +774,10 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   );
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("button", { name: "Add place", exact: true }).first().click();
+  await page
+    .getByRole("button", { name: /^Add place(?: with details)?$/, exact: true })
+    .first()
+    .click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Copy example");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();

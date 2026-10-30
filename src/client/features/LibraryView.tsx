@@ -73,69 +73,80 @@ export function LibraryView({
           <div>
             <h1>
               {title ?? t("library")}
-              <span className="count">{places.length}</span>
+              {places.length > 0 && <span className="count">{places.length}</span>}
             </h1>
           </div>
-          <button
-            className="icon-button add-manual"
-            disabled={!canWrite}
-            onClick={() => setEditor({})}
-            aria-label={t("manual")}
-            title={t("manual")}
-          >
-            <Plus />
-          </button>
+          {places.length > 0 && (
+            <button
+              className="icon-button add-manual"
+              disabled={!canWrite}
+              onClick={() => setEditor({})}
+              aria-label={t("manual")}
+              title={t("manual")}
+            >
+              <Plus />
+            </button>
+          )}
         </div>
-        <div className="search-row">
-          <div className="search-field">
-            <Search size={20} />
-            <input
-              aria-label={t("search")}
-              placeholder={t("search")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                className="icon-button"
-                aria-label={t("clearSearch")}
-                onClick={() => setSearch("")}
-              >
-                <X size={18} />
+        {places.length > 0 && (
+          <>
+            <div className="search-row">
+              <div className="search-field">
+                <Search size={20} />
+                <input
+                  aria-label={t("search")}
+                  placeholder={t("search")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && (
+                  <button
+                    className="icon-button"
+                    aria-label={t("clearSearch")}
+                    onClick={() => setSearch("")}
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+              <label className="sort-button">
+                <ArrowDownUp size={20} />
+                <select
+                  aria-label={t("sort")}
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  <option value="newest">{t("newest")}</option>
+                  <option value="name">{t("byName")}</option>
+                </select>
+              </label>
+            </div>
+            <nav className="category-chips" aria-label={t("categories")}>
+              <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
+                {t("all")}
               </button>
-            )}
-          </div>
-          <label className="sort-button">
-            <ArrowDownUp size={20} />
-            <select aria-label={t("sort")} value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="newest">{t("newest")}</option>
-              <option value="name">{t("byName")}</option>
-            </select>
-          </label>
-        </div>
-        <nav className="category-chips" aria-label={t("categories")}>
-          <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
-            {t("all")}
-          </button>
-          {categories
-            .filter((c) => places.some((p) => p.value.categoryId === c.id))
-            .map((c) => (
-              <button
-                key={c.id}
-                className={filter === c.id ? "active" : ""}
-                onClick={() => setFilter(c.id)}
-              >
-                <span className={`category-dot ${c.kind === "category" ? c.value.color : ""}`} />
-                {categoryLabel(c)}
-              </button>
-            ))}
-        </nav>
+              {categories
+                .filter((c) => places.some((p) => p.value.categoryId === c.id))
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    className={filter === c.id ? "active" : ""}
+                    onClick={() => setFilter(c.id)}
+                  >
+                    <span
+                      className={`category-dot ${c.kind === "category" ? c.value.color : ""}`}
+                    />
+                    {categoryLabel(c)}
+                  </button>
+                ))}
+            </nav>
+          </>
+        )}
         {!places.length ? (
           <div className="empty-state">
-            <h2>{t("emptyTitle")}</h2>
             <p>{t("emptyBody")}</p>
             <button className="button quiet" disabled={!canWrite} onClick={() => setEditor({})}>
-              {t("manual")}
+              {t("addWithDetails")}
               <ChevronRight size={17} />
             </button>
           </div>

@@ -2241,3 +2241,216 @@ details p {
     justify-self: end;
   }
 }
+
+/* Keep the active library and its tools compact above the first place. */
+.library-switcher {
+  display: block;
+  margin: 16px auto 0;
+  padding-inline: 20px;
+}
+.library-selector {
+  position: relative;
+  min-width: 0;
+}
+.library-selector-label {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  min-height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.library-selector-label span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.library-selector select {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.library-selector select:focus-visible {
+  outline: none;
+}
+.library-selector:has(select:focus-visible) .library-selector-label {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.account-indicator {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.account-indicator .status-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid var(--surface);
+  box-sizing: content-box;
+}
+.app-main {
+  padding-top: 20px;
+  padding-bottom: calc(var(--save-dock-height, 150px) + 24px);
+}
+.library-pane {
+  min-width: 0;
+}
+.library-title {
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.search-row {
+  margin-bottom: 16px;
+}
+.category-chips {
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+.category-chips button {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-color: var(--border);
+}
+.place-card {
+  padding: 12px;
+}
+.card-main {
+  min-height: 64px;
+  padding: 0 0 8px;
+  gap: 12px;
+}
+.place-marker {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.card-text {
+  flex: 1;
+  gap: 4px;
+}
+.card-actions {
+  margin-top: 0;
+  padding: 4px 0 0;
+  gap: 8px;
+}
+.card-maps {
+  margin-left: 0;
+  white-space: normal;
+  text-align: left;
+}
+.card-maps svg {
+  flex-shrink: 0;
+}
+.empty-state {
+  align-items: flex-start;
+  text-align: left;
+  padding: 0;
+  gap: 12px;
+}
+.empty-state > p {
+  max-width: 36rem;
+}
+.empty-state > .button {
+  margin: 0;
+  padding-left: 0;
+}
+.save-action {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+  max-width: 360px;
+}
+.save-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.save-controls .save-here {
+  flex: 1;
+  min-width: 0;
+}
+.save-destination {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+@supports (appearance: base-select) {
+  .library-selector select {
+    opacity: 1;
+    color: transparent;
+    background: transparent;
+    border: 0;
+  }
+  .library-selector select::picker-icon {
+    display: none;
+  }
+  .library-selector option {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 22px;
+    align-items: center;
+    gap: 12px;
+  }
+  .library-selector option svg {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--muted);
+  }
+  .library-selector option span {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .library-selector option::checkmark {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+}
+@media (max-width: 640px) {
+  .sync-pill {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 10px;
+  }
+  .account-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .library-switcher {
+    padding-inline: 16px;
+  }
+  .app-main {
+    padding: 20px 16px calc(var(--save-dock-height, 150px) + 24px);
+  }
+  .category-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .place-card {
+    padding: 12px;
+  }
+  .card-maps {
+    min-height: 48px;
+  }
+  .save-dock {
+    padding-inline: 16px;
+  }
+  .save-action {
+    max-width: none;
+  }
+}
