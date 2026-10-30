@@ -2,7 +2,7 @@
 
 ## Version 0.1.1 bounded bug audit — 30 October 2026
 
-The release fixes 51 distinct bugs and adverse edge cases. Parameter variants, repeated runs and viewport/browser variants are not counted as additional defects. The original target was 140; the owner set a 70-minute total limit with deployment of the validated fixes at the cutoff.
+The release fixes 52 distinct bugs and adverse edge cases. Parameter variants, repeated runs and viewport/browser variants are not counted as additional defects. The original target was 140; the owner set a 70-minute total limit with deployment of the validated fixes at the cutoff.
 
 Evidence: R = [recovery data tests](../tests/recovery.test.ts); Q = [request validation tests](../tests/requests.test.ts); A = [real workerd/D1 integration checks](../scripts/test-api.mjs); C = [account tests](../tests/account.test.ts); P = [photo tests](../tests/photos.test.ts); F = [family storage tests](../tests/family-library.test.ts); B = [browser recovery flows](../tests/browser/recovery.spec.ts); L = [location/units tests](../tests/location-review.test.ts).
 
@@ -59,8 +59,9 @@ Evidence: R = [recovery data tests](../tests/recovery.test.ts); Q = [request val
 | 49  | Deleting a place retained its matching draft, allowing stale editor restoration.                                            | R        |
 | 50  | A rejected Web Locks request escaped synchronization instead of using the durable-flight fallback.                          | R        |
 | 51  | A discarded paginated pull continued requesting subsequent pages.                                                           | R        |
+| 52  | Keyboard focus could leave the Keep cloud choice behind the fixed save bar.                                                 | B        |
 
-Validation before publication: type/document checks, 97 unit/data tests, 127 isolated workerd/D1 checks, the real-handler authentication fixture and all 100 browser flows pass. The final synchronization refinements are included in the final integrated build and second complete 100-flow browser pass. The preserved-conflict and copy-capacity recovery screenshots were visually inspected. Browser evidence uses synthetic accounts, images and GPS. Chromium and desktop WebKit checks are not physical-phone validation; real GPS, camera and native OS share sheets remain unverified. The existing family/offline fixture refreshes its emulated provider before acquisition after its lengthy sharing sequence, keeping offline durability separate from real provider latency.
+Validation before publication: type/document checks, 97 unit/data tests, 127 isolated workerd/D1 checks, the real-handler authentication fixture and all 101 browser flows pass. The final synchronization refinements are included in the final integrated build and second complete 101-flow browser pass. The preserved-conflict and copy-capacity recovery screenshots were visually inspected. Browser evidence uses synthetic accounts, images and GPS. Chromium and desktop WebKit checks are not physical-phone validation; real GPS, camera and native OS share sheets remain unverified. The existing family/offline fixture refreshes its emulated provider before acquisition after its lengthy sharing sequence, keeping offline durability separate from real provider latency.
 
 The shared human-review preview remains http://127.0.0.1:5173/. No existing preview storage was cleared. The app release uses the same Sites project and audience; no promo, mail relay, one.com, Air or sibling repository changes are included.
 

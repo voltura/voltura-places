@@ -31,6 +31,7 @@
   accent-color: var(--accent);
   scrollbar-gutter: stable;
   overflow-x: clip;
+  scroll-padding-bottom: calc(var(--save-dock-height, 150px) + 16px);
   overscroll-behavior-x: none;
 }
 :root:has(dialog[open]) {

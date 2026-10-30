@@ -606,3 +606,49 @@ test("an over-capacity import explains the library limit", async ({ page }) => {
   await page.getByRole("button", { name: "Import backup", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("library has reached its supported capacity");
 });
+
+test("keyboard focus keeps each conflict choice above the fixed save bar", async ({ page }) => {
+  await page.route("**/api/account", (route) =>
+    route.fulfill({ json: { enabled: true, providers: {}, account: null } }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+  const saved = value("Keyboard fixture");
+  await seed(page, [
+    {
+      id: "other",
+      kind: "category",
+      value: { name: "Other", color: "slate" },
+      revision: 0,
+      generation: 0,
+      dirty: false,
+      deleted: false,
+    },
+    {
+      id: "keyboard",
+      kind: "place",
+      value: saved,
+      revision: 1,
+      generation: 1,
+      dirty: true,
+      deleted: false,
+      conflict: {
+        id: "keyboard",
+        kind: "place",
+        value: { ...saved, name: "Other version" },
+        revision: 2,
+        deleted: false,
+      },
+    },
+  ]);
+  await page.getByRole("button", { name: "Keep device", exact: true }).focus();
+  for (const name of ["Keep device", "Keep cloud", "Keep both"]) {
+    const button = page.getByRole("button", { name, exact: true });
+    await expect(button).toBeFocused();
+    const bounds = (await button.boundingBox())!,
+      dock = (await page.locator(".save-dock").boundingBox())!;
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(dock.y);
+    await page.keyboard.press("Tab");
+  }
+});
