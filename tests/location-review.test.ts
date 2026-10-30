@@ -11,6 +11,7 @@ import {
   freshPosition,
   accuracyLevel,
   captureLocation,
+  refineLocation,
   type LocationReviewState,
 } from "../src/client/foundation/location-review";
 
@@ -98,6 +99,46 @@ test("returning from a system prompt resumes GPS and unavailable-first-fix retri
 });
 const fix = (accuracy: number, timestamp = Date.now()) =>
   ({ timestamp, coords: { latitude: 0, longitude: 0, accuracy } }) as GeolocationPosition;
+
+for (const ending of ["cancel", "deadline", "denied"] as const) {
+  test(`refinement retains the best valid fix and ignores callbacks after ${ending}`, () => {
+    vi.useFakeTimers();
+    let success!: PositionCallback, failure!: PositionErrorCallback;
+    const geo = {
+      watchPosition: (s: PositionCallback, e: PositionErrorCallback) => {
+        success = s;
+        failure = e;
+        return 7;
+      },
+      clearWatch: vi.fn(),
+    } as unknown as Geolocation;
+    const improved = vi.fn();
+    const stop = refineLocation(500, improved, geo);
+    try {
+      success(fix(600));
+      success(fix(500));
+      expect(improved).not.toHaveBeenCalled();
+      success(fix(25));
+      success(fix(80));
+      success(fix(25));
+      success(fix(1, Date.now() - 16000));
+      success(fix(NaN));
+      success({ ...fix(1), coords: { ...fix(1).coords, latitude: NaN } });
+      expect(improved).toHaveBeenCalledTimes(1);
+      success(fix(6));
+      expect(improved).toHaveBeenLastCalledWith(fix(6));
+      if (ending === "cancel") stop();
+      if (ending === "deadline") vi.advanceTimersByTime(60000);
+      if (ending === "denied") failure({ code: 1 } as GeolocationPositionError);
+      success(fix(1));
+      expect(improved).toHaveBeenCalledTimes(2);
+      expect(geo.clearWatch).toHaveBeenCalledWith(7);
+    } finally {
+      stop();
+      vi.useRealTimers();
+    }
+  });
+}
 
 test("quick save waits through repeated acquisition errors after approval and saves a later fix", async () => {
   vi.useFakeTimers();

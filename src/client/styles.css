@@ -94,6 +94,20 @@ button:disabled {
 }
 button,
 select,
+summary,
+label,
+a.button,
+a.icon-button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+button,
+select,
 input {
   touch-action: manipulation;
 }
@@ -745,6 +759,11 @@ hr {
 }
 .sheet-wide {
   width: min(100% - 32px, 610px);
+}
+.sheet.sheet-top {
+  margin: 20px auto auto;
+  border-radius: 26px;
+  border-bottom: 1px solid var(--border);
 }
 .sheet::backdrop {
   background: #10251dc0;
@@ -1554,10 +1573,36 @@ details p {
   min-height: 56px;
 }
 .gps-setting input {
+  appearance: none;
   width: 24px;
   height: 24px;
   flex: 0 0 24px;
-  accent-color: var(--accent);
+  display: grid;
+  place-content: center;
+  border: 2px solid var(--muted);
+  border-radius: 5px;
+  background: var(--raised);
+  cursor: pointer;
+}
+.gps-setting input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.gps-setting input:checked::before {
+  content: "";
+  width: 6px;
+  height: 12px;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+@media (forced-colors: active) {
+  .gps-setting input {
+    appearance: auto;
+  }
+  .gps-setting input:checked::before {
+    content: none;
+  }
 }
 .gps-setting small {
   display: block;

@@ -6,12 +6,14 @@ export function Sheet({
   children,
   closeLabel = "Close",
   wide = false,
+  topAligned = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   closeLabel?: string;
   wide?: boolean;
+  topAligned?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -22,7 +24,7 @@ export function Sheet({
   return (
     <dialog
       ref={ref}
-      className={`sheet ${wide ? "sheet-wide" : ""}`}
+      className={`sheet ${wide ? "sheet-wide" : ""} ${topAligned ? "sheet-top" : ""}`}
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();

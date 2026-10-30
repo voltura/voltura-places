@@ -1,5 +1,135 @@
 import { test, expect } from "@playwright/test";
 
+for (const provider of ["Google Maps", "Apple Maps"]) {
+  test(`${provider} opens separately from the picker and remembered provider`, async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 8 });
+    // Keep this fixture local: verify browser navigation without contacting maps.
+    await context.route(/https:\/\/(www\.google\.com\/maps|maps\.apple\.com\/)/, (route) =>
+      route.fulfill({ contentType: "text/html", body: "<title>Map fixture</title>" }),
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "Save position", exact: true }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    const appURL = page.url();
+    const openMaps = page
+      .locator(".details-content")
+      .getByRole("button", { name: "Open maps", exact: true });
+    await openMaps.click();
+    const picker = page.getByRole("dialog", { name: "Open with…", exact: true });
+    const link = picker.getByRole("link", { name: provider, exact: true });
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    const destination = await link.getAttribute("href");
+    for (const source of ["picker", "remembered"]) {
+      const opened = context.waitForEvent("page");
+      if (source === "picker") await link.click();
+      else await openMaps.click();
+      const maps = await opened;
+      await expect(maps).toHaveURL(destination!);
+      await maps.waitForLoadState("domcontentloaded");
+      expect(await maps.evaluate(() => window.opener === null && document.referrer === "")).toBe(
+        true,
+      );
+      await expect(page).toHaveURL(appURL);
+      await expect(openMaps).toBeVisible();
+      await maps.close();
+    }
+  });
+}
+
+test("saved-place editor refines only better GPS fixes and saves the matching coordinates", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    let callback!: PositionCallback;
+    const watches = new Set<number>();
+    let next = 0;
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (success: PositionCallback) => {
+          callback = success;
+          const id = ++next;
+          watches.add(id);
+          if (id === 1)
+            success({
+              timestamp: Date.now(),
+              coords: { latitude: 0, longitude: 0, accuracy: 500 },
+            } as GeolocationPosition);
+          return id;
+        },
+        clearWatch: (id: number) => watches.delete(id),
+      },
+    });
+    Object.assign(window, {
+      emitFix: (accuracy: number, latitude: number) =>
+        callback({
+          timestamp: Date.now(),
+          coords: { latitude, longitude: 0, accuracy },
+        } as GeolocationPosition),
+      activeWatches: () => watches.size,
+    });
+  });
+  const emit = (accuracy: number, latitude: number) =>
+    page.evaluate(
+      ([a, lat]) =>
+        (window as unknown as { emitFix: (a: number, lat: number) => void }).emitFix(a, lat),
+      [accuracy, latitude],
+    );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Saved on this device", exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("status")).toContainText("±500 m");
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as unknown as { activeWatches: () => number }).activeWatches()),
+    )
+    .toBe(1);
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Refined position");
+  await emit(25, 1);
+  await expect(dialog.getByRole("status")).toContainText("±25 m");
+  await emit(100, 2);
+  await expect(dialog.getByRole("status")).toContainText("±25 m");
+  await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
+    "Refined position",
+  );
+  await page.screenshot({ path: testInfo.outputPath("gps-refinement.png") });
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await emit(1, 3); // A browser may deliver a queued callback after clearWatch.
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as unknown as { activeWatches: () => number }).activeWatches()),
+    )
+    .toBe(0);
+  const saved = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("voltura-places");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise<{
+        records: { kind: string; value: { latitude: number; accuracy: number } }[];
+      }>((resolve, reject) => {
+        const request = db.transaction("workspaces").objectStore("workspaces").get("guest");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+  expect(saved.records.find((r) => r.kind === "place")?.value).toMatchObject({
+    latitude: 1,
+    accuracy: 25,
+  });
+});
+
 test("quick save recovers from initial unavailable positions without enabling accuracy review", async ({
   page,
 }) => {

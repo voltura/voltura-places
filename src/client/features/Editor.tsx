@@ -7,7 +7,7 @@ import type { Message } from "../foundation/i18n";
 import { z } from "zod";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { LocationReview } from "./LocationReview";
-import { captureLocation } from "../foundation/location-review";
+import { captureLocation, refineLocation } from "../foundation/location-review";
 import { PhotoPicker } from "./PlacePhoto";
 const draftSchema = z.object({
   id: z.string(),
@@ -64,7 +64,24 @@ export function Editor({
     [ready, setReady] = useState(false);
   const id = useRef(entity?.id ?? draftId ?? crypto.randomUUID());
   const stopCapture = useRef(() => {});
-  useEffect(() => () => stopCapture.current(), []);
+  const stopRefinement = useRef(() => {});
+  useEffect(
+    () => () => {
+      stopCapture.current();
+      stopRefinement.current();
+    },
+    [],
+  );
+  const selectPosition = (p: GeolocationPosition) => {
+    setLat(String(p.coords.latitude));
+    setLng(String(p.coords.longitude));
+    setAccuracy(p.coords.accuracy);
+    setCapturedAt(new Date(p.timestamp).toISOString());
+  };
+  const startRefinement = (accuracy: number) => {
+    stopRefinement.current();
+    stopRefinement.current = refineLocation(accuracy, selectPosition);
+  };
   const latest = useRef<Record<string, unknown>>({});
   latest.current = {
     name,
@@ -101,6 +118,21 @@ export function Editor({
     };
   }, [workspace]);
   useEffect(() => {
+    // Only a just-captured place may refine automatically. An existing place
+    // or restored photo selection must retain its explicitly selected location.
+    if (
+      ready &&
+      fresh &&
+      initial?.accuracy != null &&
+      latest.current.latitude === String(initial.latitude) &&
+      latest.current.longitude === String(initial.longitude) &&
+      latest.current.accuracy === initial.accuracy
+    ) {
+      startRefinement(initial.accuracy);
+    }
+    return () => stopRefinement.current();
+  }, [ready, workspace]);
+  useEffect(() => {
     if (ready) void setDraft(workspace, latest.current).catch(() => {});
   }, [name, categoryId, latitude, longitude, photoId, accuracy, capturedAt, workspace, ready]);
   const save = async () => {
@@ -124,6 +156,8 @@ export function Editor({
       return;
     }
     setBusy(true);
+    stopCapture.current();
+    stopRefinement.current();
     try {
       await onSave({ id: id.current, kind: "place", value: parsed.data as Place });
       await setDraft(workspace, null);
@@ -142,6 +176,7 @@ export function Editor({
   };
   const dismiss = () => {
     stopCapture.current();
+    stopRefinement.current();
     void setDraft(workspace, null)
       .then(onClose)
       .catch(() => setError(t("storageFailure")));
@@ -194,6 +229,7 @@ export function Editor({
             className="button outline"
             disabled={locating}
             onClick={() => {
+              stopRefinement.current();
               if (reviewGps) {
                 setGpsReview(true);
                 return;
@@ -207,10 +243,8 @@ export function Editor({
               stopCapture.current();
               stopCapture.current = captureLocation(
                 (p) => {
-                  setLat(String(p.coords.latitude));
-                  setLng(String(p.coords.longitude));
-                  setAccuracy(p.coords.accuracy);
-                  setCapturedAt(new Date(p.timestamp).toISOString());
+                  selectPosition(p);
+                  startRefinement(p.coords.accuracy);
                   setLocating(false);
                 },
                 (error) => {
@@ -224,7 +258,7 @@ export function Editor({
           </button>
           {latitude && longitude && <p className="success-note">{t("locationSet")}</p>}
           {accuracy != null && (
-            <p className="muted small">
+            <p className="muted small" role="status">
               <MapPin size={15} /> {t("accuracy")}: {formatAccuracy(accuracy, units)}
             </p>
           )}
@@ -235,6 +269,9 @@ export function Editor({
             onChange={setPhoto}
             onBusy={setPhotoBusy}
             onPosition={(position) => {
+              stopCapture.current();
+              stopRefinement.current();
+              setLocating(false);
               setLat(String(position.latitude));
               setLng(String(position.longitude));
               setAccuracy(null);
@@ -265,10 +302,8 @@ export function Editor({
           t={t}
           onClose={() => setGpsReview(false)}
           onConfirm={(position) => {
-            setLat(String(position.coords.latitude));
-            setLng(String(position.coords.longitude));
-            setAccuracy(position.coords.accuracy);
-            setCapturedAt(new Date(position.timestamp).toISOString());
+            selectPosition(position);
+            startRefinement(position.coords.accuracy);
             setError("");
             setGpsReview(false);
           }}

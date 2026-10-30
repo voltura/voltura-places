@@ -491,7 +491,7 @@ export function App() {
     );
   }
   const openMaps = (p: Place) => {
-    if (prefs.provider) location.assign(mapURL(prefs.provider, p));
+    if (prefs.provider) window.open(mapURL(prefs.provider, p), "_blank", "noopener,noreferrer");
     else setMaps(p);
   };
   const remove = async (p: PlaceRecord) => {
@@ -1012,6 +1012,8 @@ export function App() {
                 key={k}
                 className="button outline"
                 href={mapURL(k, maps)}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => {
                   setPrefs({ ...prefs, provider: k });
                   setMaps(null);

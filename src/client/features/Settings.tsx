@@ -59,7 +59,7 @@ export function Settings({
 }) {
   const [tab, setTab] = useState(initial);
   return (
-    <Sheet title={t("settings")} onClose={onClose} closeLabel={t("close")} wide>
+    <Sheet title={t("settings")} onClose={onClose} closeLabel={t("close")} wide topAligned>
       <nav className="settings-tabs" aria-label={t("settings")}>
         {(["preferences", "categories", "backup", "account", "familySharing"] as const).map((k) => (
           <button key={k} aria-current={tab === k ? "page" : undefined} onClick={() => setTab(k)}>

@@ -21,6 +21,22 @@ export const validPosition = (position: GeolocationPosition) => {
 export const accuracyLevel = (metres: number) =>
   metres <= 10 ? 4 : metres <= 20 ? 3 : metres <= 50 ? 2 : 1;
 
+// Keep coordinates and their reported accuracy together; never replace the
+// selected fix with a worse (or equally accurate) reading.
+export function refineLocation(
+  accuracy: number,
+  onImprovement: (position: GeolocationPosition) => void,
+  geo = navigator.geolocation,
+) {
+  let best = accuracy;
+  return watchLocation((state) => {
+    if (state.position && state.position.coords.accuracy < best) {
+      best = state.position.coords.accuracy;
+      onImprovement(state.position);
+    }
+  }, geo);
+}
+
 export function watchLocation(
   onState: (state: LocationReviewState) => void,
   geo = navigator.geolocation,
