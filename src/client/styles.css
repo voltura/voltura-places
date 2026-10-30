@@ -970,6 +970,29 @@ details p {
 .account-summary strong {
   color: var(--accent);
 }
+.account-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-cloud {
+  position: relative;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.account-summary > .account-cloud {
+  color: var(--accent);
+}
+.account-cloud-slash {
+  position: absolute;
+  inset: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
 .account-actions {
   display: flex;
   flex-wrap: wrap;

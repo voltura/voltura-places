@@ -148,13 +148,18 @@ export function AccountPanel({
   );
   return (
     <section className="stack">
-      <div className="section-icon">
-        <Cloud />
-      </div>
       <h3>{t("account")}</h3>
       {!state.account && (
         <>
-          <p className="notice">{t("notSignedIn")}</p>
+          <p className="notice account-status">
+            <span className="account-cloud" aria-hidden="true">
+              <Cloud />
+              <svg className="account-cloud-slash" viewBox="0 0 24 24">
+                <path d="M5 19 19 5" />
+              </svg>
+            </span>
+            {t("notSignedIn")}
+          </p>
           <p className="muted">{t("accountIntro")}</p>
         </>
       )}
@@ -162,7 +167,7 @@ export function AccountPanel({
       {state.account && (
         <>
           <div className="account-summary">
-            <span className="status-dot" />
+            <Cloud className="account-cloud" aria-hidden="true" />
             <div>
               <strong>{t("signedIn")}</strong>
               <span>{[...new Set(state.account.methods.map((m) => m.label))].join(" · ")}</span>

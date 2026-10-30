@@ -603,14 +603,14 @@ test("sign-out retains sign-in providers and rejects a late account response", a
   await page.getByText("Sign-in methods", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Link ChatGPT", exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Continue with ChatGPT", exact: true }),
+    page.getByRole("button", { name: "Sign in with ChatGPT", exact: true }),
   ).toBeHidden();
   holdNext = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await oldRequested;
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "G Continue with Google", exact: true }),
+    page.getByRole("button", { name: "G Sign in with Google", exact: true }),
   ).toBeEnabled();
   await releaseOld!();
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeHidden();

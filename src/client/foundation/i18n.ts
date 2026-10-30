@@ -226,8 +226,8 @@ export const en = {
   linkChatGPT: "Link ChatGPT",
   accountIntro:
     "Your places work without an account. Sign in to back them up and use them on your phone and PC.",
-  continueGoogle: "Continue with Google",
-  continueChatGPT: "Continue with ChatGPT",
+  continueGoogle: "Sign in with Google",
+  continueChatGPT: "Sign in with ChatGPT",
   email: "Email address",
   sendCode: "Email a sign-in code",
   code: "Six-digit code",
@@ -533,8 +533,8 @@ export const sv: Record<Message, string> = {
   linkChatGPT: "Koppla ChatGPT",
   accountIntro:
     "Dina platser fungerar utan konto. Logga in för säkerhetskopiering och åtkomst på telefon och dator.",
-  continueGoogle: "Fortsätt med Google",
-  continueChatGPT: "Fortsätt med ChatGPT",
+  continueGoogle: "Logga in med Google",
+  continueChatGPT: "Logga in med ChatGPT",
   email: "E-postadress",
   sendCode: "Skicka en inloggningskod",
   code: "Sexsiffrig kod",

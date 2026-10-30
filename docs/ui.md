@@ -32,7 +32,7 @@ The page suppresses horizontal overscroll so a sideways drag cannot move the lib
 
 Toasts belong to the active modal when one is open, so copy confirmations/errors remain visible and accessible above its backdrop. Closing the modal returns remaining feedback to the page.
 
-Account settings explicitly say Signed in or Not signed in. A signed-in account shows each distinct identity label once, explains automatic sync, and keeps Sync now/Sign out together. Optional linking lives under Sign-in methods and uses Link labels; Continue labels are reserved for signing in.
+Account settings explicitly say Signed in or Not signed in. A signed-in account shows each distinct identity label once, explains automatic sync, and keeps Sync now/Sign out together. Optional linking lives under Sign-in methods and uses Link labels; Sign in with Google / ChatGPT labels are reserved for signing in (Logga in med Google / ChatGPT in Swedish). The cloud icon sits inside the account status box, to the left of the status and identity; the signed-out cloud has an inset diagonal slash from bottom left to top right.
 
 Installed launches open the library. Service-worker updates wait for acceptance and preserve drafts/pending data. Private APIs are never HTTP-cached. Promo has no service worker. Physical-device/daylight checks remain distinct from emulation.
 
