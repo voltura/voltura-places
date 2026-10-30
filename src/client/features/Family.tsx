@@ -1,9 +1,11 @@
+import { shareOrCopy, supportsNativeShare } from "../foundation/sharing";
 import { useEffect, useRef, useState } from "react";
-import { Users, Copy, UserPlus } from "lucide-react";
+import { Users, Copy, Check, Share, Share2, UserPlus } from "lucide-react";
 import { z } from "zod";
 import { api, type Account } from "../foundation/sync";
 import { type FamilyCache } from "../foundation/family";
 import { familyStateSchema, type Family } from "../../shared/families";
+import { Sheet } from "../ui/Sheet";
 import { type Message } from "../foundation/i18n";
 const knownError = (error: unknown): Message =>
   error instanceof Error &&
@@ -45,18 +47,47 @@ export function FamilyPanel({
 }: Props) {
   const actionPending = useRef(false),
     pollVersion = useRef(0);
-  const codeDisplay = useRef<HTMLDivElement>(null),
-    participantsHeading = useRef<HTMLHeadingElement>(null),
-    requestDisplay = useRef<HTMLDivElement>(null),
-    groupHeading = useRef<HTMLHeadingElement>(null);
+  const participantsHeading = useRef<HTMLHeadingElement>(null),
+    requestDisplay = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<Message | null>(null),
-    [copied, setCopied] = useState(false);
+    [copied, setCopied] = useState(false),
+    [inviteOpen, setInviteOpen] = useState(false);
   const [inviteCode, setInviteCode] = useState<{ code: string; expiresAt: number } | null>(null),
     [joinCode, setJoinCode] = useState(""),
     [pending, setPending] = useState<{ expiresAt: number } | null>(null),
     [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  const invitationMessage = inviteCode
+    ? t("familyShareMessage").replace("{code}", inviteCode.code)
+    : "";
+  const invitationData = { text: invitationMessage };
+  const canShareInvitation = supportsNativeShare(invitationData);
+  // Device detection affects only the icon; sharing always uses capabilities.
+  const ShareIcon = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? Share : Share2;
+  const copyInvitationCode = async () => {
+    if (!inviteCode) return;
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(inviteCode.code);
+      setCopied(true);
+    } catch {
+      setError("familyCopyFailed");
+    }
+  };
+  const shareInvitation = async () => {
+    setError(null);
+    try {
+      if ((await shareOrCopy(invitationData, invitationMessage)) === "copied") setCopied(true);
+    } catch {
+      setError("familyShareFailed");
+    }
+  };
   const [selectedGroup, setSelectedGroup] = useState(preferredGroup ?? cache.families[0]?.id ?? "");
   const family = cache.families.find((f) => f.id === selectedGroup) ?? cache.families[0] ?? null;
   const waiting = useRef(false),
@@ -69,17 +100,14 @@ export function FamilyPanel({
   };
   useEffect(() => {
     setInviteCode(null);
+    setInviteOpen(false);
     setCopied(false);
-    groupHeading.current?.scrollIntoView({ block: "start" });
   }, [family?.id]);
   useEffect(() => {
     if (!focusParticipants) return;
     const frame = requestAnimationFrame(() => participantsHeading.current?.focus());
     return () => cancelAnimationFrame(frame);
   }, [focusParticipants, family?.id]);
-  useEffect(() => {
-    if (inviteCode) codeDisplay.current?.scrollIntoView({ block: "center" });
-  }, [inviteCode?.code]);
   const requestIds = family?.requests.map((r) => r.id).join(",") ?? "";
   useEffect(() => {
     if (requestIds) requestDisplay.current?.scrollIntoView({ block: "start" });
@@ -173,8 +201,10 @@ export function FamilyPanel({
       onChanged(response.families);
       if ((body as { action: string }).action === "create" && response.familyId)
         setSelectedGroup(response.familyId);
+      return true;
     } catch (e) {
       setError(knownError(e));
+      return false;
     } finally {
       actionPending.current = false;
       setBusy(false);
@@ -182,7 +212,7 @@ export function FamilyPanel({
   };
   const joinForms = (
     <div className="stack">
-      {pending && pending.expiresAt > now && (
+      {pending && (pending.expiresAt === 0 || pending.expiresAt > now) && (
         <p className="notice" role="status">
           {t("familyRequestSent")}
         </p>
@@ -238,7 +268,7 @@ export function FamilyPanel({
         </div>
         <h3>{t("familySharing")}</h3>
       </div>
-      <p className="muted">{t("familyIntro")}</p>
+      {!family && <p className="muted">{t("familyIntro")}</p>}
       {!account ? (
         <button className="button primary" onClick={onSignIn}>
           {t("familySignIn")}
@@ -261,8 +291,8 @@ export function FamilyPanel({
               </select>
             </label>
           )}
-          <h4 ref={groupHeading}>{family.name}</h4>
-          <p className="notice">{t("familySharedNotice")}</p>
+          <h3 className="family-group-name">{family.name}</h3>
+          <p className="muted">{t("familySharedNotice")}</p>
           <button className="button primary" onClick={() => onOpen(family.id)}>
             {t("openFamilyLibrary")}
           </button>
@@ -274,11 +304,15 @@ export function FamilyPanel({
               <li key={member.id}>
                 <div>
                   <strong>{member.label}</strong>
-                  {member.id === family.ownerId && (
-                    <span className="muted small">{t("familyOwner")}</span>
-                  )}
-                  {member.id === account.id && (
-                    <span className="muted small">{t("familyYou")}</span>
+                  {(member.id === family.ownerId || member.id === account.id) && (
+                    <span className="muted small">
+                      {[
+                        member.id === family.ownerId ? t("familyOwner") : null,
+                        member.id === account.id ? t("familyYou") : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   )}
                 </div>
                 {family.ownerId === account.id && member.id !== account.id && (
@@ -311,7 +345,7 @@ export function FamilyPanel({
           {family.ownerId === account.id ? (
             <>
               {(family.requests ?? []).length > 0 && (
-                <div className="stack notice" ref={requestDisplay}>
+                <div className="stack family-requests" ref={requestDisplay}>
                   <h4>{t("familyRequests")}</h4>
                   <p>{t("familyApproveNotice")}</p>
                   {family.requests.map((member) => (
@@ -319,12 +353,13 @@ export function FamilyPanel({
                       <strong>{member.label}</strong>
                       <button
                         className="button primary"
+                        aria-label={`${t("familyApprove")} · ${member.label}`}
                         disabled={busy}
                         onClick={() =>
                           void codeAction({ action: "code-approve", member: member.id })
                         }
                       >
-                        {t("familyApprove")} · {member.label}
+                        {t("familyApprove")}
                       </button>
                       <button
                         className="button outline"
@@ -339,57 +374,106 @@ export function FamilyPanel({
                   ))}
                 </div>
               )}
-              <p className="muted small">{t("familyCodeNotice")}</p>
               <button
                 className="button outline"
                 disabled={busy || family.members.length >= 10}
-                onClick={() => void createCode()}
+                onClick={() => {
+                  setError(null);
+                  setInviteOpen(true);
+                  if (
+                    !inviteCode ||
+                    (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())
+                  )
+                    void createCode();
+                }}
               >
                 <UserPlus size={20} />
                 {t("familyCreateCode")}
               </button>
-              {inviteCode && (
-                <div className="notice stack" ref={codeDisplay}>
-                  <label>
-                    {t("familyInvitationCode")}
-                    <input
-                      className="family-invite-code"
-                      readOnly
-                      value={inviteCode.code}
-                      onFocus={(e) => e.target.select()}
-                    />
-                  </label>
-                  <p role="status">
-                    {inviteCode.expiresAt > now
-                      ? `${t("familyCodeExpires")} ${new Intl.DateTimeFormat(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" }).format(inviteCode.expiresAt)}`
-                      : t("familyCodeExpired")}
-                  </p>
-                  <button
-                    className="button outline"
-                    disabled={inviteCode.expiresAt <= now}
-                    onClick={() =>
-                      void navigator.clipboard
-                        .writeText(inviteCode.code)
-                        .then(() => setCopied(true))
-                        .catch(() => setError("familyCopyFailed"))
-                    }
-                  >
-                    <Copy size={20} />
-                    {t("familyCopyCode")}
-                  </button>
-                  {copied && <p role="status">{t("copied")}</p>}
-                </div>
+              {inviteOpen && (
+                <Sheet
+                  title={t("familyCreateCode")}
+                  closeLabel={t("close")}
+                  onClose={() => {
+                    setInviteOpen(false);
+                    setCopied(false);
+                    setError(null);
+                  }}
+                >
+                  <div className="stack family-invitation" aria-busy={busy}>
+                    {busy && !inviteCode && <p role="status">{t("familyCreatingCode")}</p>}
+                    {inviteCode && (
+                      <>
+                        <div className="stack family-code-field">
+                          <span id="invitation-code-label">{t("familyInvitationCode")}</span>
+                          <button
+                            className="family-invite-code"
+                            aria-label={t("familyCopyCode")}
+                            disabled={busy}
+                            onClick={() => void copyInvitationCode()}
+                          >
+                            <span className="family-code-value" data-copied={copied}>
+                              <span className="family-code-digits" aria-hidden={copied}>
+                                {inviteCode.code}
+                              </span>
+                              {copied && (
+                                <span className="family-code-feedback" aria-hidden="true">
+                                  {t("copied")}
+                                </span>
+                              )}
+                            </span>
+                            <span className="family-code-copy" aria-hidden="true">
+                              {copied ? <Check size={22} /> : <Copy size={22} />}
+                            </span>
+                          </button>
+                          <span className="sr-only" role="status">
+                            {copied ? t("copied") : ""}
+                          </span>
+                        </div>
+                        <p className="muted">{t("familyCodeNotice")}</p>
+                        <button
+                          className="button primary"
+                          disabled={busy}
+                          onClick={() => void shareInvitation()}
+                        >
+                          {canShareInvitation ? <ShareIcon size={20} /> : <Copy size={20} />}
+                          {t(canShareInvitation ? "familyShareCode" : "familyCopyInvitation")}
+                        </button>
+                      </>
+                    )}
+                    {!busy &&
+                      (!inviteCode ||
+                        (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= now)) && (
+                        <button
+                          className="button outline"
+                          disabled={busy}
+                          onClick={() => void createCode()}
+                        >
+                          {t(inviteCode ? "familyNewCode" : "familyRetryCode")}
+                        </button>
+                      )}
+                    {inviteCode && (
+                      <button
+                        className="button quiet"
+                        disabled={busy}
+                        onClick={async () => {
+                          if (await action({ action: "revoke" })) {
+                            setInviteCode(null);
+                            setInviteOpen(false);
+                          }
+                        }}
+                      >
+                        {t("familyRevokeInvite")}
+                      </button>
+                    )}
+                    {error && (
+                      <p role="alert" className="error">
+                        {t(error === "serviceUnavailable" ? "familyCodeFailed" : error)}
+                      </p>
+                    )}
+                  </div>
+                </Sheet>
               )}
-              <button
-                className="button quiet"
-                disabled={busy}
-                onClick={() => {
-                  setInviteCode(null);
-                  void action({ action: "revoke" });
-                }}
-              >
-                {t("familyRevokeInvite")}
-              </button>
               <details>
                 <summary>{t("familyDelete")}</summary>
                 <p className="muted small">{t("familyDeleteConfirm")}</p>
@@ -435,11 +519,17 @@ export function FamilyPanel({
       )}
       {account && family && (
         <details>
+          <summary>{t("familyHelp")}</summary>
+          <p className="muted">{t("familySyncHelp")}</p>
+        </details>
+      )}
+      {account && family && (
+        <details>
           <summary>{t("familyAnotherGroup")}</summary>
           {joinForms}
         </details>
       )}
-      {error && (
+      {error && !inviteOpen && (
         <p role="alert" className="error">
           {t(error)}
         </p>

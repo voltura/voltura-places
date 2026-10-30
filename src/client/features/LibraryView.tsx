@@ -1,5 +1,6 @@
+import { CategoryIcon } from "./CategoryAppearance";
 import type { ReactNode } from "react";
-import { Plus, Search, X, ArrowDownUp, MapPin, Navigation, MoreHorizontal } from "lucide-react";
+import { Plus, Search, X, ArrowDownUp, Navigation, MoreHorizontal } from "lucide-react";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
@@ -124,9 +125,7 @@ export function LibraryView({
                     className={filter === c.id ? "active" : ""}
                     onClick={() => setFilter(c.id)}
                   >
-                    <span
-                      className={`category-dot ${c.kind === "category" ? c.value.color : ""}`}
-                    />
+                    <CategoryIcon record={c} size={18} />
                     {categoryLabel(c)}
                   </button>
                 ))}
@@ -158,7 +157,7 @@ export function LibraryView({
               <article key={p.id} className={`place-card ${selected === p.id ? "selected" : ""}`}>
                 <button className="card-main" onClick={() => setSelected(p.id)}>
                   <span className={`place-marker ${categoryColor(p.value.categoryId)}`}>
-                    <MapPin size={24} />
+                    <CategoryIcon record={categoryFor(p.value.categoryId)} size={24} />
                   </span>
                   <span className="card-text">
                     <strong>{p.value.name}</strong>

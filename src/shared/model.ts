@@ -2,10 +2,38 @@ import { z } from "zod";
 import { decodePhoto, PHOTO_QUOTA } from "./photos";
 
 export const idSchema = z.string().regex(/^[a-zA-Z0-9-]{1,80}$/);
+export const categoryIcons = [
+  "pin",
+  "car",
+  "utensils",
+  "trees",
+  "house",
+  "mushroom",
+  "coffee",
+  "tent",
+  "fish",
+  "camera",
+  "heart",
+  "star",
+  "dog",
+  "bike",
+  "boat",
+  "shopping",
+  "flag",
+  "flower",
+  "mountain",
+  "waves",
+  "book",
+  "music",
+  "plane",
+  "wrench",
+] as const;
+export const categoryColors = ["green", "blue", "amber", "purple", "rose", "slate"] as const;
 export const categorySchema = z
   .object({
     name: z.string().trim().min(1).max(60),
-    color: z.enum(["green", "blue", "amber", "purple", "slate"]),
+    color: z.enum(categoryColors),
+    icon: z.enum(categoryIcons).optional(),
     builtIn: z.string().max(30).optional(),
   })
   .strict();

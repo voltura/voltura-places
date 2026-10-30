@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { previewOrigin } from "./preview-config.mjs";
 const children = [];
 const run = (args) =>
   new Promise((resolve, reject) => {
@@ -20,6 +21,12 @@ const p = spawn(
     "5174",
     "--inspector-port",
     "0",
+    "--local-upstream",
+    new URL(previewOrigin).host,
+    "--upstream-protocol",
+    "http",
+    "--var",
+    `AUTH_ORIGIN:${previewOrigin}`,
   ],
   // This pinned Wrangler release omits its optional explorer UI bundle.
   { stdio: "inherit", env: { ...process.env, X_LOCAL_EXPLORER: "false" } },

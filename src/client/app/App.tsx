@@ -1,3 +1,5 @@
+import { shareOrCopy } from "../foundation/sharing";
+import { categoryAppearance, CategoryAppearancePicker } from "../features/CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -65,6 +67,7 @@ import {
   placeSchema,
   shareURL,
   validateBackup,
+  type Category,
   type Backup,
   type Entity,
   type LocalRecord,
@@ -198,6 +201,7 @@ export function App() {
       entity?: LocalRecord;
       name: string;
       color: string;
+      icon: NonNullable<Category["icon"]>;
     } | null>(null),
     [backup, setBackup] = useState<Backup | null>(null);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
@@ -567,12 +571,9 @@ export function App() {
     const cat = categoryFor(p.value.categoryId),
       url = shareURL(p.value, cat ? categoryLabel(cat) : t("other"), location.origin);
     try {
-      if (navigator.share) await navigator.share({ title: p.value.name, text: p.value.name, url });
-      else {
-        await navigator.clipboard.writeText(url);
-        notify("shareReady");
-      }
-      setSharePlace(null);
+      const result = await shareOrCopy({ title: p.value.name, text: p.value.name, url }, url);
+      if (result === "copied") notify("shareReady");
+      if (result !== "dismissed") setSharePlace(null);
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) await copy(url);
     }
@@ -710,7 +711,7 @@ export function App() {
     );
   const categoryColor = (id: string) => {
     const c = categoryFor(id);
-    return c?.kind === "category" ? c.value.color : "slate";
+    return categoryAppearance(c).color;
   };
   const renderDetails = (record: PlaceRecord) => (
     <PlaceDetails
@@ -1057,7 +1058,7 @@ export function App() {
             setCategoryEdit({
               entity,
               name: entity ? categoryLabel(entity) : "",
-              color: entity?.kind === "category" ? entity.value.color : "green",
+              ...categoryAppearance(entity),
             })
           }
           onDeleteCategory={(r) => {
@@ -1096,6 +1097,7 @@ export function App() {
               const parsed = categorySchema.safeParse({
                 name: categoryEdit.name,
                 color: categoryEdit.color,
+                icon: categoryEdit.icon,
               });
               if (!parsed.success) return;
               void save({
@@ -1116,19 +1118,12 @@ export function App() {
                 onChange={(e) => setCategoryEdit({ ...categoryEdit, name: e.target.value })}
               />
             </label>
-            <label>
-              {t("color")}
-              <select
-                value={categoryEdit.color}
-                onChange={(e) => setCategoryEdit({ ...categoryEdit, color: e.target.value })}
-              >
-                {(["green", "blue", "amber", "purple", "slate"] as const).map((k) => (
-                  <option key={k} value={k}>
-                    {t(k)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <CategoryAppearancePicker
+              icon={categoryEdit.icon}
+              color={categoryEdit.color}
+              t={t}
+              onChange={(change) => setCategoryEdit({ ...categoryEdit, ...change })}
+            />
             <button className="button primary">{t("save")}</button>
           </form>
         </Sheet>

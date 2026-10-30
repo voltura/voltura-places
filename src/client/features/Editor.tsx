@@ -1,3 +1,4 @@
+import { CategoryIcon } from "./CategoryAppearance";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LocateFixed, LoaderCircle, MapPin } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
@@ -284,12 +285,14 @@ export function Editor({
             <label className="preference-row">
               <span>{t("category")}</span>
               <span className="preference-value" aria-hidden="true">
+                <CategoryIcon record={selectedCategory} />
                 {selectedCategory ? categoryLabel(selectedCategory) : t("other")}
               </span>
               <ChevronDown size={20} aria-hidden="true" />
               <select value={categoryId} onChange={(e) => setCategory(e.target.value)}>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
+                    <CategoryIcon record={c} />
                     {categoryLabel(c)}
                   </option>
                 ))}
@@ -381,9 +384,9 @@ export function Editor({
               </button>
             </div>
           )}
-          {locationUpdated && (
+          {locationUpdated && !fresh && (
             <p role="status" className="small muted editor-location-feedback">
-              {t(fresh ? "locationUpdated" : "editorLocationUpdated")}
+              {t("editorLocationUpdated")}
             </p>
           )}
           <PhotoPicker

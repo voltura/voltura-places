@@ -4,7 +4,7 @@ import type { Environment } from "./types";
 
 export async function pendingRequest(env: Environment, account: string) {
   return env.DB.prepare(
-    "SELECT c.expires_at AS expiresAt FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.account_id=? AND c.expires_at>?",
+    "SELECT c.expires_at AS expiresAt FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.account_id=? AND (c.expires_at=0 OR c.expires_at>?)",
   )
     .bind(account, Date.now())
     .first();
@@ -12,7 +12,7 @@ export async function pendingRequest(env: Environment, account: string) {
 export async function codeRequests(env: Environment, family: string) {
   return (
     await env.DB.prepare(
-      "SELECT r.account_id AS id,COALESCE((SELECT MIN(label) FROM places_identities i WHERE i.account_id=r.account_id),'Member') AS label FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.family_id=? AND c.expires_at>? ORDER BY r.created_at,r.account_id LIMIT 5",
+      "SELECT r.account_id AS id,COALESCE((SELECT MIN(label) FROM places_identities i WHERE i.account_id=r.account_id),'Member') AS label FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.family_id=? AND (c.expires_at=0 OR c.expires_at>?) ORDER BY r.created_at,r.account_id LIMIT 5",
     )
       .bind(family, Date.now())
       .all<{ id: string; label: string }>()
@@ -55,7 +55,7 @@ export async function handleFamilyCode(
     if (!b.code) throw new WorkspaceError(422, "invalidFamilyCode");
     const hash = await digest(`family-code:${b.code}`);
     const result = await env.DB.prepare(
-      "INSERT INTO places_family_requests(account_id,family_id,code_hash,created_at) SELECT ?,c.family_id,c.code_hash,? FROM places_family_codes c WHERE c.code_hash=? AND c.expires_at>? AND (SELECT COUNT(*) FROM places_family_requests WHERE family_id=c.family_id)<5 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=? AND family_id=c.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=?)<20 ON CONFLICT(account_id) DO UPDATE SET family_id=excluded.family_id,code_hash=excluded.code_hash,created_at=excluded.created_at",
+      "INSERT INTO places_family_requests(account_id,family_id,code_hash,created_at) SELECT ?,c.family_id,c.code_hash,? FROM places_family_codes c WHERE c.code_hash=? AND (c.expires_at=0 OR c.expires_at>?) AND (SELECT COUNT(*) FROM places_family_requests WHERE family_id=c.family_id)<5 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=? AND family_id=c.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=?)<20 ON CONFLICT(account_id) DO UPDATE SET family_id=excluded.family_id,code_hash=excluded.code_hash,created_at=excluded.created_at",
     )
       .bind(account, now, hash, now, account, account)
       .run();
@@ -65,7 +65,9 @@ export async function handleFamilyCode(
   if (!family || family.ownerId !== account) throw new WorkspaceError(403, "familyOwnerOnly");
   if (b.action === "code-create") {
     await limit(env, account, request, "create");
-    await env.DB.prepare("DELETE FROM places_family_codes WHERE expires_at<=?").bind(now).run();
+    await env.DB.prepare("DELETE FROM places_family_codes WHERE expires_at>0 AND expires_at<=?")
+      .bind(now)
+      .run();
     for (let attempt = 0; attempt < 20; attempt++) {
       let random: number;
       do {
@@ -73,7 +75,8 @@ export async function handleFamilyCode(
       } while (random >= 4294960000);
       const code = String(random % 10000).padStart(4, "0"),
         hash = await digest(`family-code:${code}`),
-        expiresAt = now + 10 * 60000;
+        // Zero denotes an invitation without a time limit; legacy timed codes retain their expiry.
+        expiresAt = 0;
       try {
         const results = await env.DB.batch([
           env.DB.prepare(
@@ -110,7 +113,7 @@ export async function handleFamilyCode(
   if (b.action === "code-approve") {
     const results = await env.DB.batch([
       env.DB.prepare(
-        "INSERT OR IGNORE INTO places_family_members(family_id,account_id,joined_at) SELECT r.family_id,r.account_id,? FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash JOIN places_families f ON f.id=r.family_id WHERE r.account_id=? AND r.family_id=? AND c.expires_at>? AND f.owner_id=? AND (SELECT COUNT(*) FROM places_family_members WHERE family_id=r.family_id)<10 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=r.account_id AND family_id=r.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=r.account_id)<20",
+        "INSERT OR IGNORE INTO places_family_members(family_id,account_id,joined_at) SELECT r.family_id,r.account_id,? FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash JOIN places_families f ON f.id=r.family_id WHERE r.account_id=? AND r.family_id=? AND (c.expires_at=0 OR c.expires_at>?) AND f.owner_id=? AND (SELECT COUNT(*) FROM places_family_members WHERE family_id=r.family_id)<10 AND NOT EXISTS(SELECT 1 FROM places_family_members WHERE account_id=r.account_id AND family_id=r.family_id) AND (SELECT COUNT(*) FROM places_family_members WHERE account_id=r.account_id)<20",
       ).bind(now, b.member, family.id, now, account),
       env.DB.prepare(
         "DELETE FROM places_family_codes WHERE family_id=? AND EXISTS(SELECT 1 FROM places_families WHERE id=? AND owner_id=?) AND EXISTS(SELECT 1 FROM places_family_members WHERE family_id=? AND account_id=?) AND EXISTS(SELECT 1 FROM places_family_requests WHERE family_id=? AND account_id=? AND code_hash=places_family_codes.code_hash)",

@@ -70,7 +70,7 @@ test("editor location update reports progress, cancellation, success and bounded
   await page.evaluate(() =>
     (window as unknown as { sendEditorFix: (accuracy: number) => void }).sendEditorFix(25),
   );
-  await expect(editor.getByText("Location updated")).toBeVisible();
+  await expect(editor.locator(".editor-location-feedback")).toHaveCount(0);
   await expect(editor.locator(".editor-location [role=status]")).toContainText("±25 m");
   await expect(cancel).toHaveCount(0);
   await update.click();

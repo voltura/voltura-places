@@ -749,6 +749,7 @@ hr {
 }
 .split-actions .split-picker select {
   width: 100%;
+  min-width: 0;
   min-height: 48px;
   appearance: none;
   border: 1px solid var(--accent);
@@ -1933,12 +1934,26 @@ details p {
   gap: 16px;
 }
 .family-members li {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
+  padding: 8px 0;
   display: grid;
   gap: 12px;
   overflow-wrap: anywhere;
+}
+.family-group-name {
+  -webkit-user-select: text;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.family-panel > #family-participants,
+.family-requests {
+  margin-top: 8px;
+}
+.family-panel p,
+.family-invitation p {
+  font-size: 1rem;
+  line-height: 1.5;
 }
 .family-members li > div:first-child {
   display: grid;
@@ -1947,13 +1962,61 @@ details p {
 .family-panel input[readonly] {
   font-size: 1rem;
 }
-.sheet .sheet-content input.family-invite-code[readonly] {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-align: center;
+.family-code-field {
+  gap: 8px;
+}
+.family-invite-code {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  width: 100%;
   min-height: 80px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--text);
+}
+.family-code-value {
+  position: relative;
+  min-width: 0;
+}
+.family-code-value[data-copied="true"] .family-code-digits {
+  visibility: hidden;
+}
+.family-code-feedback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.family-code-digits,
+.family-code-feedback {
+  line-height: 1.5;
+  font-size: clamp(1.5rem, 8vw, 2rem);
+  font-weight: 700;
+}
+.family-code-digits {
+  display: block;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
   font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.family-code-copy {
+  position: absolute;
+  inset-inline-end: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+}
+.family-invitation {
+  gap: 12px;
 }
 
 /* Settings keeps its existing top anchor while only its body scrolls. */
@@ -2869,4 +2932,112 @@ button.save-destination > svg {
   min-height: 48px;
   color: var(--muted);
   font-weight: 500;
+}
+
+.rose {
+  --marker: #b43e65;
+  --marker-bg: #fce8ef;
+}
+:root[data-theme="dark"] .rose {
+  --marker: #f5abc3;
+  --marker-bg: #492c39;
+}
+.category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--marker);
+  vertical-align: middle;
+}
+.category-icon svg {
+  flex-shrink: 0;
+}
+.preference-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-sheet .category-list > div {
+  grid-template-columns: 24px minmax(0, 1fr) 48px 48px;
+}
+.category-appearance-picker fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.category-appearance-picker legend {
+  font-size: 1.0625rem;
+  margin-bottom: 8px;
+}
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.color-swatch {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+}
+.color-swatch > span:first-child {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--marker);
+}
+.color-swatch[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--raised);
+}
+.swatch-check {
+  position: absolute;
+  color: var(--marker-bg);
+}
+.category-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+  gap: 4px;
+}
+.category-icon-grid button {
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+.category-icon-grid button:hover {
+  background: var(--raised);
+}
+.category-icon-grid button[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--accent-soft);
+}
+select option .category-icon {
+  display: none;
+}
+@supports (appearance: base-select) {
+  select option .category-icon {
+    display: inline-flex;
+    margin-right: 8px;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

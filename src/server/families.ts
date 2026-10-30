@@ -36,7 +36,7 @@ async function allDetails(env: Environment, account: string) {
       .bind(account)
       .all<{ familyId: string; id: string; label: string }>(),
     env.DB.prepare(
-      "SELECT r.family_id AS familyId,r.account_id AS id,COALESCE((SELECT MIN(label) FROM places_identities i WHERE i.account_id=r.account_id),'Member') AS label FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash JOIN places_families f ON f.id=r.family_id WHERE f.owner_id=? AND c.expires_at>? AND r.family_id IN (SELECT family_id FROM places_family_members WHERE account_id=?) ORDER BY r.created_at,r.account_id",
+      "SELECT r.family_id AS familyId,r.account_id AS id,COALESCE((SELECT MIN(label) FROM places_identities i WHERE i.account_id=r.account_id),'Member') AS label FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash JOIN places_families f ON f.id=r.family_id WHERE f.owner_id=? AND (c.expires_at=0 OR c.expires_at>?) AND r.family_id IN (SELECT family_id FROM places_family_members WHERE account_id=?) ORDER BY r.created_at,r.account_id",
     )
       .bind(account, Date.now(), account)
       .all<{ familyId: string; id: string; label: string }>(),

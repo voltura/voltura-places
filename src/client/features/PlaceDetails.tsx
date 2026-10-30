@@ -1,5 +1,6 @@
+import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
-import { MapPin, Navigation, ChevronDown, Share2, Pencil, Copy } from "lucide-react";
+import { Navigation, ChevronDown, Share2, Pencil, Copy } from "lucide-react";
 import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
@@ -48,7 +49,7 @@ export function PlaceDetails({
       <h2>{record.value.name}</h2>
       <div className="details-header">
         <span className={`detail-marker ${categoryColor(record.value.categoryId)}`}>
-          <MapPin size={16} aria-hidden="true" />
+          <CategoryIcon record={categoryFor(record.value.categoryId)} size={20} />
         </span>
         <span className="details-category">
           {categoryFor(record.value.categoryId)

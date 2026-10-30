@@ -1,3 +1,4 @@
+import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -306,9 +307,7 @@ export function Settings({
           <div className="category-list">
             {categories.map((c) => (
               <div key={c.id}>
-                <span
-                  className={`category-dot ${c.value && "color" in c.value ? c.value.color : "slate"}`}
-                />
+                <CategoryIcon record={c} />
                 <span>{categoryLabel(c)}</span>
                 <button
                   className="icon-button"

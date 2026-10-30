@@ -74,7 +74,10 @@ export function LibrarySelector({
       ref={root}
       className="library-selector"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) onOpenChange(false);
+        // Safari clears focus before a tapped button receives its click. A null
+        // destination must not unmount that option; outside presses close above.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget))
+          onOpenChange(false);
       }}
     >
       <button

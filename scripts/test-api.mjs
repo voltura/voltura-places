@@ -582,12 +582,7 @@ try {
     const result = await familyCall(codeOwner, { action: "code-create" });
     check(result.status === 200, "Owner can generate a short code");
     const data = await result.json();
-    check(
-      /^\d{4}$/.test(data.code) &&
-        data.expiresAt > Date.now() &&
-        data.expiresAt <= Date.now() + 600000,
-      "Four-digit codes expire within ten minutes",
-    );
+    check(/^\d{4}$/.test(data.code) && data.expiresAt === 0, "Four-digit codes have no time limit");
     return data.code;
   };
   const code = await generateCode();
@@ -599,10 +594,14 @@ try {
     (await familyCall(codeGuest, { action: "code-request", code })).status === 200,
     "Entering a code creates a request",
   );
+  await db
+    .prepare("UPDATE places_family_requests SET created_at=created_at-? WHERE account_id=?")
+    .bind(7 * 86400000, codeGuest.account)
+    .run();
   const pendingState = await (await familyCall(codeGuest)).json();
   check(
-    pendingState.families.length === 0 && pendingState.pendingRequest.expiresAt > Date.now(),
-    "A request does not grant membership or reveal family details",
+    pendingState.families.length === 0 && pendingState.pendingRequest.expiresAt === 0,
+    "A week-old request stays pending without granting membership or revealing family details",
   );
   check(
     (await request("/api/v1/sync", { ...codeGuest, headers: { "X-Places-Family": codeFamily.id } }))
@@ -657,7 +656,7 @@ try {
   const expiryGuest = await login("expiry-code-guest");
   await familyCall(expiryGuest, { action: "code-request", code: expiringCode });
   await db
-    .prepare("UPDATE places_family_codes SET expires_at=0 WHERE family_id=?")
+    .prepare("UPDATE places_family_codes SET expires_at=1 WHERE family_id=?")
     .bind(codeFamily.id)
     .run();
   check(
