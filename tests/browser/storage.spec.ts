@@ -26,17 +26,11 @@ for (const mode of ["granted", "already", "denied", "unsupported", "error"] as c
       page.evaluate(() => (window as unknown as { retentionRequests: number }).retentionRequests);
     await expect.poll(requests).toBe(mode === "already" || mode === "unsupported" ? 0 : 1);
     await page.getByRole("button", { name: "Settings", exact: true }).click();
-    await page.getByRole("button", { name: "Backup & restore", exact: true }).click();
-    const dialog = page.waitForEvent("dialog");
-    const click = page
-      .getByRole("button", { name: "Keep offline data on this device", exact: true })
-      .click();
-    const result = await dialog;
-    expect(result.message()).toContain(
+    await page.getByRole("combobox", { name: "Settings", exact: true }).selectOption("backup");
+    await page.getByRole("button", { name: "Keep data on this device", exact: true }).click();
+    await expect(page.locator(".offline-storage [role='status']")).toContainText(
       mode === "granted" || mode === "already" ? "enabled" : "did not grant",
     );
-    await result.dismiss();
-    await click;
     expect(await requests()).toBe(mode === "already" || mode === "unsupported" ? 0 : 2);
     if (mode === "granted")
       await page.screenshot({ path: test.info().outputPath("offline-retention.png") });

@@ -1,6 +1,6 @@
 # UI contract
 
-Offline-data retention is requested automatically at launch. Settings → Backup offers Keep offline data on this device / Behåll offlinedata på den här enheten to retry and reports whether the browser grants it. Backups and account sync remain the recovery options.
+Offline-data retention is requested automatically at launch. Settings → Backup offers a visible Keep data on this device / Behåll data på den här enheten button to retry, with inline status reporting whether the browser grants it. Help explains that clearing browser data can still remove saved places. Export/Import have equal widths with a 12px gap on wider screens and stack on narrow phones; a separate note by Export identifies backup files as unencrypted. Backups and account sync remain the recovery options.
 
 Active group libraries show a Participants button with the current member count. It opens Family sharing for that group. The participant list shows all members, marks the owner and the signed-in user, and refreshes while open. Only the owner sees removal controls for other members; removal requires a confirmation naming the selected person. Removing someone ends cloud access to that group while preserving downloaded copies and membership in other groups.
 
@@ -10,11 +10,13 @@ Family sharing lives in Settings. Sign in, name/create a family library, then cr
 
 Dark is the default for a new installation; existing saved theme choices are preserved. Light/System and English/Swedish are device preferences. Semantic CSS tokens, readable typography and restrained surfaces distinguish Places from Music's styling. Primary targets are at least 56px; regular targets at least 48px.
 
-The GPS review checkbox uses the active theme's green surface and muted outline when unchecked, with an accent fill and contrasting tick when checked. Keyboard focus stays visible; forced-colour modes use the native checkbox.
+The GPS review preference uses a labelled, right-aligned switch with an explicit refinement description below. Its persisted value and keyboard access follow the native checkbox; forced-colour modes retain the native control. Install Places and Privacy use matching 48px disclosure rows and chevrons. Check for updates remains outlined. A compact footer contains About Voltura Places and Source on GitHub links with wrapping labels and 48px targets. Licensing copy stays outside the in-app footer.
 
-Phone typography prioritizes reading outdoors: normal text and action labels are 18px, Save position and place names 20px, supporting information 16px, and field/tab labels 17px at the default browser size. Use rem units so these sizes can scale. Search and form fields are at least 18px. Paired actions stack on phones; settings tabs use a wrapping grid that becomes one column when space or enlarged text requires it. Preserve browser zoom, scrolling and complete labels rather than shrinking text to fit.
+Phone typography prioritizes reading outdoors: normal text and action labels are 18px, Save position and place names 20px, supporting information 16px, and field/tab labels 17px at the default browser size. Use rem units so these sizes can scale. Search and form fields are at least 18px. Paired actions stack on phones; settings navigation uses a single tab row only while its full labels fit, otherwise a full-width native section selector. Preserve browser zoom, scrolling and complete labels rather than shrinking text to fit.
 
 Visual depth stays restrained: a static ambient background, softly graded surfaces and primary actions, consistent highlights/shadows and distinct category tints in both themes. Cards separate identity from map actions with a quiet divider. Keep readable text on solid surfaces; no decorative animation, marketing panels or artificial startup delays.
+
+Position details adapt to the card's available width. A small pin and category precede the full wrapping name. The mobile sheet uses a generic Place details title so long names appear only once. Coordinates have an adjacent 48px copy target. Saved date and accuracy, and the two map actions, share rows when space permits and stack in narrower cards. Share/Edit retain labels in equal-width columns. Content determines height without shrinking controls; buttons are at least 48px high, section gaps are compact, and padding is 16px in narrow cards or 24px in wider cards.
 
 Share `https://places.voltura.se/?lang=sv` to open directly in Swedish, overriding browser language and previous preferences. `?lang=en` opens English. The choice is persisted normally, and the language parameter is consumed after launch so a later Settings change remains effective. Other query parameters and shared-place fragments are preserved; unknown language values are ignored.
 
@@ -22,7 +24,7 @@ All promotional-site app links carry the displayed page language: Swedish `/plac
 
 Save position stays in a safe-area bottom dock. Tap requests fresh high-accuracy GPS, shows progress and permits cancel. After local commit it opens a non-blocking editor. Defaults use localized date/time and last-used category (Other initially). Closing keeps the saved place. Editor drafts persist separately.
 
-Cards expose name/category/date and Open maps. Search/category/sort use ordinary controls and scrolling. Desktop adds a details pane; mobile uses a sheet. Edit/share/delete are secondary. Destructive actions require confirmation. Core flows do not depend on gestures/hover/animation/map canvas.
+Cards expose name/category/date and Open maps. Search/category/sort use ordinary controls and scrolling. Desktop adds a details pane; mobile uses a sheet. Edit/share/delete are secondary. Destructive actions require confirmation. Place deletion uses a themed modal sheet naming the selected place with Cancel focused initially and an explicit Delete action. Escape, close and backdrop dismiss without deleting; account/library changes discard the pending confirmation. Core flows do not depend on gestures/hover/animation/map canvas.
 
 Keep the application functional and quiet: no slogans, decorative empty-library illustration, exploration copy, or unselected details welcome panel. An empty library gives one short Save position instruction. Show Works offline once in the save dock. Desktop uses a centred library until a selected place needs the details column. Product promotion belongs on the separate promotional site.
 
@@ -30,7 +32,7 @@ First map opening asks for a provider and remembers it. Map links open a new tab
 
 Modal sheets keep their header/close button visible and scroll only their inner content. Scrollbars stay inside the rounded panel, follow the theme, and do not scroll the background page. Normal page scrolling resumes when every sheet is closed.
 
-Settings stays anchored 20px from the top on desktop and phones so switching sections does not move its header. Button, select, disclosure and form-control labels cannot be text-selected; text inputs and textareas retain selection and copying.
+Settings stays anchored 20px from the top on desktop and phones so switching sections does not move its header. Its compact header preserves a 48px close target; the body has 16px phone / 24px desktop padding and scrolls within the viewport with bottom safe-area clearance. When navigation uses a dropdown, the selected section serves as the sole section heading: a 56px minimum row with a 22px outline icon, semibold wrapping label, 12px gaps and an outline down chevron. Its full row opens navigation, with matching option icons and a right-aligned selected checkmark in customizable native pickers. Content begins 16px below, without a repeated heading or decorative family icon. Tab navigation retains separate section headings, including the family heading. Signed-out visitors see a concise privacy description and a full-width Sign in to share action of at least 48px. Button, select, disclosure and form-control labels cannot be text-selected; text inputs and textareas retain selection and copying.
 
 The page suppresses horizontal overscroll so a sideways drag cannot move the library. Settings content scrolls vertically and contains its gestures; pinch zoom remains available. The primary GPS button is labelled Save position in English and Spara position in Swedish, including the empty-library instruction.
 
@@ -61,3 +63,8 @@ Each editor offers Take photo (rear-camera capture hint), Choose photo (normal i
 Visible tabs check for updates every minute and on foreground/reconnection, with a manual Check for updates action in Preferences. Prompts appear above Settings or inside the editor. Accepting an update flushes drafts before all controlled tabs reload. Older clients need one refresh to receive this update-checking behavior.
 
 First use offers Sign in or create account and Continue without an account. Choosing either dismisses the offer persistently; closing it selects guest use. Signing in creates an account through the normal verified provider flow when needed, without another registration form. Guest users always have a visible Sign in action in the header. Existing signed-in users do not see the first-use choice. Guest saving, offline use and backups remain available.
+
+Categories keeps New category above the list without repeating the navigation label. Rows are at least 60px and grow for wrapping names; fixed colour dots and 48px edit/delete columns keep every pencil aligned, including Other's empty delete slot. Deletion confirmation explains that places move to Other.
+All dropdowns use app-coloured selected, hover and keyboard-focus states, with themed pickers in browsers supporting customizable native selects; other browsers retain their native picker. Grouped preference rows use a thin inset keyboard-focus indicator following the group corners.
+
+Appearance, Language, Preferred map app and Distance units share a compact outlined group with subtle dividers. Each row shows its label, wrapping current value and a right chevron; the entire row opens the native select, retaining keyboard and screen-reader access. Rows grow for long translations and enlarged text.

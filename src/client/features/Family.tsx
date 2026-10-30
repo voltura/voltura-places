@@ -232,10 +232,12 @@ export function FamilyPanel({
   );
   return (
     <section className="stack family-panel">
-      <div className="section-icon">
-        <Users />
+      <div className="family-heading">
+        <div className="section-icon" aria-hidden="true">
+          <Users />
+        </div>
+        <h3>{t("familySharing")}</h3>
       </div>
-      <h3>{t("familySharing")}</h3>
       <p className="muted">{t("familyIntro")}</p>
       {!account ? (
         <button className="button primary" onClick={onSignIn}>

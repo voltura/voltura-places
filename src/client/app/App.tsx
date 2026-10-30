@@ -131,6 +131,10 @@ export function App() {
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
   const authRef = useRef(account.account?.id);
+  const [deletePlace, setDeletePlace] = useState<{ place: PlaceRecord; scope: string } | null>(
+    null,
+  );
+  useEffect(() => setDeletePlace(null), [scope, account.account?.id]);
   useEffect(() => {
     if (account.account) completeAccountChoice();
   }, [account.account?.id]);
@@ -494,14 +498,15 @@ export function App() {
     if (prefs.provider) window.open(mapURL(prefs.provider, p), "_blank", "noopener,noreferrer");
     else setMaps(p);
   };
-  const remove = async (p: PlaceRecord) => {
-    if (!writeAllowed.current) {
+  const remove = async (p: PlaceRecord, key: string) => {
+    setDeletePlace(null);
+    if (scopeRef.current !== key || !writeAllowed.current) {
       notify("familyAccessEnded", true);
       return;
     }
-    if (!confirm(`${t("deletePlace")}\n\n${t("deletePlaceBody")}`)) return;
     try {
-      await deleteEntity(scope, p.id);
+      await deleteEntity(key, p.id);
+      if (scopeRef.current !== key) return;
       setSelected(null);
       setMenu(null);
       await refresh();
@@ -1169,7 +1174,7 @@ export function App() {
             <button
               className="button danger"
               disabled={!canWrite}
-              onClick={() => void remove(menu)}
+              onClick={() => setDeletePlace({ place: menu, scope })}
             >
               <Trash2 size={18} />
               {t("delete")}
@@ -1178,8 +1183,39 @@ export function App() {
         </Sheet>
       )}
       {current && mobile && !editor && !menu && !sharePlace && !settings && !maps && (
-        <Sheet title={current.value.name} onClose={() => setSelected(null)} closeLabel={t("close")}>
+        <Sheet title={t("placeDetails")} onClose={() => setSelected(null)} closeLabel={t("close")}>
           {renderDetails(current)}
+        </Sheet>
+      )}
+      {deletePlace && deletePlace.scope === scope && (
+        <Sheet
+          title={t("deletePlace")}
+          closeLabel={t("cancel")}
+          onClose={() => setDeletePlace(null)}
+        >
+          <div className="stack">
+            <p>
+              <strong>{deletePlace.place.value.name}</strong>
+            </p>
+            <p>{t("deletePlaceBody")}</p>
+            <div className="action-pair">
+              <button
+                className="button outline"
+                data-initial-focus
+                onClick={() => setDeletePlace(null)}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                className="button danger"
+                disabled={!canWrite}
+                onClick={() => void remove(deletePlace.place, deletePlace.scope)}
+              >
+                <Trash2 size={18} />
+                {t("delete")}
+              </button>
+            </div>
+          </div>
         </Sheet>
       )}
       {gpsReview && (

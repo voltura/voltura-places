@@ -61,9 +61,8 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await a.page.getByRole("button", { name: "Settings", exact: true }).click();
     await a.page
-      .getByRole("navigation", { name: "Settings", exact: true })
-      .getByRole("button", { name: "Family sharing", exact: true })
-      .click();
+      .getByRole("combobox", { name: "Settings", exact: true })
+      .selectOption("familySharing");
     await a.page.getByRole("textbox", { name: "Group name", exact: true }).fill("Forest family");
     await a.page.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(
@@ -89,7 +88,9 @@ test("two signed-in family members share photos and offline saves while private 
     await b.page.goto("/");
     await b.page.getByRole("button", { name: "Use the account library", exact: true }).click();
     await b.page.getByRole("button", { name: "Settings", exact: true }).click();
-    await b.page.getByRole("button", { name: "Family sharing", exact: true }).click();
+    await b.page
+      .getByRole("combobox", { name: "Settings", exact: true })
+      .selectOption("familySharing");
     await b.page.getByRole("textbox", { name: "Invitation code", exact: true }).fill(code);
     await b.page.getByRole("button", { name: "Request to join", exact: true }).click();
     await expect(b.page.getByRole("status")).toContainText("Request sent");
@@ -98,7 +99,9 @@ test("two signed-in family members share photos and offline saves while private 
       b.page.getByRole("button", { name: "Edit place: Private chanterelles", exact: true }),
     ).toHaveCount(0);
     await a.page.getByRole("button", { name: "Settings", exact: true }).click();
-    await a.page.getByRole("button", { name: "Family sharing", exact: true }).click();
+    await a.page
+      .getByRole("combobox", { name: "Settings", exact: true })
+      .selectOption("familySharing");
     await a.page
       .getByRole("button", { name: "Approve · family-1@example.invalid", exact: true })
       .click();

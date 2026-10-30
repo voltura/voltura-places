@@ -7,6 +7,7 @@ export function Sheet({
   closeLabel = "Close",
   wide = false,
   topAligned = false,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
@@ -14,17 +15,19 @@ export function Sheet({
   closeLabel?: string;
   wide?: boolean;
   topAligned?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
+    dialog.querySelector<HTMLElement>("[data-initial-focus]")?.focus();
     return () => dialog.close();
   }, []);
   return (
     <dialog
       ref={ref}
-      className={`sheet ${wide ? "sheet-wide" : ""} ${topAligned ? "sheet-top" : ""}`}
+      className={`sheet ${wide ? "sheet-wide" : ""} ${topAligned ? "sheet-top" : ""} ${className}`}
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();

@@ -348,9 +348,8 @@ for (const [width, height, textScale] of [
       "Utseende och språk",
     ]) {
       await page
-        .getByRole("navigation", { name: "Inställningar", exact: true })
-        .getByRole("button", { name: tab, exact: true })
-        .click();
+        .getByRole("combobox", { name: "Inställningar", exact: true })
+        .selectOption({ label: tab });
       await fits();
       expect(
         await page
@@ -468,7 +467,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  const toggle = page.getByRole("checkbox", {
+  const toggle = page.getByRole("switch", {
     name: "Review GPS accuracy before saving",
     exact: false,
   });
@@ -785,3 +784,132 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
     .poll(() => page.locator("html").evaluate((element) => getComputedStyle(element).overflow))
     .not.toBe("hidden");
 });
+
+for (const theme of ["dark", "light"]) {
+  test(`place deletion uses a ${theme} themed confirmation with safe cancellation`, async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem(
+        "places-preferences",
+        JSON.stringify({ language: "en", theme, provider: "" }),
+      );
+    }, theme);
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 8 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Save position", exact: true }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+    const card = page.locator(".place-card");
+    const open = async () => {
+      await card.getByRole("button", { name: /^Edit place:/ }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+    };
+    await open();
+    const confirmation = page.getByRole("dialog", { name: "Delete this place?", exact: true });
+    const cancel = confirmation
+      .locator(".sheet-content")
+      .getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeFocused();
+    await expect(confirmation).toContainText(
+      "This removes the place from this library and its synced devices.",
+    );
+    await page.screenshot({ path: `.artifacts/delete-confirmation-${theme}.png` });
+    await cancel.click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(card).toHaveCount(1);
+    await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(confirmation).toHaveCount(0);
+    await expect(card).toHaveCount(1);
+    await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+    await confirmation.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(card).toHaveCount(0);
+    await page.reload();
+    await expect(card).toHaveCount(0);
+  });
+}
+
+for (const [width, scale] of [
+  [320, 1],
+  [375, 1],
+  [430, 1],
+  [375, 2],
+  [1280, 1],
+]) {
+  test(`position details adapt at ${width}px with ${scale * 100}% text`, async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: -58.912058, longitude: -117.944706, accuracy: 16 });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Save position", exact: true }).click();
+    const name =
+      "A long location name beside the old forest trail ".repeat(2) +
+      "UnbrokenLocationName".repeat(3);
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    if (scale !== 1)
+      await page.evaluate((scale) => {
+        document.documentElement.style.fontSize = `${scale * 100}%`;
+      }, scale);
+    const details = page.locator(".details-content:visible");
+    await expect(details.getByRole("heading", { name, exact: true })).toBeVisible();
+    const measurements = await details.evaluate((el) => {
+      const rect = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+      return {
+        fits: el.scrollWidth <= el.clientWidth + 1,
+        buttons: Array.from(el.querySelectorAll("button")).map((button) => ({
+          height: button.getBoundingClientRect().height,
+          fits: button.scrollWidth <= button.clientWidth + 1,
+        })),
+        share: rect(".details-secondary-actions button:first-child").width,
+        edit: rect(".details-secondary-actions button:last-child").width,
+        nameBottom: rect("h2").bottom,
+        coordinatesTop: rect(".details-coordinates").top,
+        mapColumns: getComputedStyle(
+          el.querySelector(".details-map-actions")!,
+        ).gridTemplateColumns.split(" ").length,
+        padding: getComputedStyle(el).paddingLeft,
+      };
+    });
+    expect(measurements.fits).toBe(true);
+    for (const button of measurements.buttons) {
+      expect(button.height).toBeGreaterThanOrEqual(48);
+      expect(button.fits).toBe(true);
+    }
+    expect(measurements.share).toBeCloseTo(measurements.edit, 0);
+    expect(measurements.coordinatesTop).toBeGreaterThanOrEqual(measurements.nameBottom);
+    if (width <= 375) expect(measurements.mapColumns).toBe(1);
+    if (width === 430) expect(measurements.mapColumns).toBe(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: `.artifacts/position-card-${width}-${scale}.png`,
+      fullPage: true,
+    });
+    if (width === 1280) {
+      await page.locator(".detail-pane").evaluate((el) => {
+        el.style.width = "330px";
+      });
+      expect(
+        await details
+          .locator(".details-map-actions")
+          .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length),
+      ).toBe(1);
+      expect(await details.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    }
+    if (width === 430) {
+      await details.getByRole("button", { name: "Edit place", exact: true }).click();
+      await page.getByRole("textbox", { name: "Name", exact: true }).fill("Svamp");
+      await page.getByRole("button", { name: "Save changes", exact: true }).click();
+      await expect(details.getByRole("heading", { name: "Svamp", exact: true })).toBeVisible();
+      await page.screenshot({ path: ".artifacts/position-card-compact.png", fullPage: true });
+    }
+  });
+}

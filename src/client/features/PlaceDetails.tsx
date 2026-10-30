@@ -37,19 +37,31 @@ export function PlaceDetails({
 }) {
   return (
     <div className="details-content">
-      <div className={`detail-marker ${categoryColor(record.value.categoryId)}`}>
-        <MapPin size={38} />
+      <div className="details-header">
+        <span className={`detail-marker ${categoryColor(record.value.categoryId)}`}>
+          <MapPin size={20} aria-hidden="true" />
+        </span>
+        <span className="eyebrow">
+          {categoryFor(record.value.categoryId)
+            ? categoryLabel(categoryFor(record.value.categoryId)!)
+            : t("other")}
+        </span>
       </div>
-      <span className="eyebrow">
-        {categoryFor(record.value.categoryId)
-          ? categoryLabel(categoryFor(record.value.categoryId)!)
-          : t("other")}
-      </span>
       <h2>{record.value.name}</h2>
       <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
-      <p className="coordinate-display">
-        {record.value.latitude.toFixed(6)}, {record.value.longitude.toFixed(6)}
-      </p>
+      <div className="details-coordinates">
+        <p className="coordinate-display">
+          {record.value.latitude.toFixed(6)}, {record.value.longitude.toFixed(6)}
+        </p>
+        <button
+          className="icon-button"
+          aria-label={t("copyCoordinates")}
+          title={t("copyCoordinates")}
+          onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
+        >
+          <Copy size={20} />
+        </button>
+      </div>
       <dl>
         <div>
           <dt>{t("captured")}</dt>
@@ -62,15 +74,17 @@ export function PlaceDetails({
           </div>
         )}
       </dl>
-      <button className="button primary" onClick={() => openMaps(record.value)}>
-        <Navigation size={20} />
-        {t("openMaps")}
-        <ArrowUpRight size={18} />
-      </button>
-      <button className="button quiet" onClick={() => chooseMaps(record.value)}>
-        {t("openWith")}
-      </button>
-      <div className="action-pair">
+      <div className="details-map-actions">
+        <button className="button primary" onClick={() => openMaps(record.value)}>
+          <Navigation size={20} />
+          {t("openMaps")}
+          <ArrowUpRight size={18} />
+        </button>
+        <button className="button outline" onClick={() => chooseMaps(record.value)}>
+          {t("openWith")}
+        </button>
+      </div>
+      <div className="details-secondary-actions">
         <button className="button outline" onClick={() => setSharePlace(record)}>
           <Share2 size={18} />
           {t("share")}
@@ -84,13 +98,6 @@ export function PlaceDetails({
           {t("edit")}
         </button>
       </div>
-      <button
-        className="button quiet"
-        onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
-      >
-        <Copy size={17} />
-        {t("copyCoordinates")}
-      </button>
     </div>
   );
 }

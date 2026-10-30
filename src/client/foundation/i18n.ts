@@ -37,8 +37,8 @@ export const en = {
   privateLibrary: "My private places",
   libraryChoice: "Library",
   familyIntro:
-    "Share places with different groups. Each group has its own members and places. Your private places stay private.",
-  familySignIn: "Sign in to share with family",
+    "Share places with family or other groups. Each group has its own members and places. Your private places stay private.",
+  familySignIn: "Sign in to share",
   familySharedNotice:
     "All members can add, edit and delete this group's places and photos. Changes sync when online. Each group can have up to 10 people.",
   familyOwner: "Owner",
@@ -116,7 +116,7 @@ export const en = {
   distanceUnits: "Distance units",
   metres: "Metres (m)",
   feet: "Feet (ft)",
-  reviewGpsHint: "Keep refining the position and confirm when satisfied. Off uses quick save.",
+  reviewGpsHint: "Refine the position before confirming. Turn off to save immediately.",
   reviewLocation: "Check your location",
   gpsReviewIntro:
     "Give GPS a few seconds. Confirm when the estimated accuracy is good enough for this spot.",
@@ -152,6 +152,7 @@ export const en = {
   done: "Done",
   delete: "Delete",
   deletePlace: "Delete this place?",
+  placeDetails: "Place details",
   deletePlaceBody: "This removes the place from this library and its synced devices.",
   share: "Share place",
   shareNotice:
@@ -271,7 +272,10 @@ export const en = {
   privacyText:
     "GPS is requested only when you save. Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data.",
   recoveryText:
-    "Browser data can be cleared or evicted. Use an account or export backups for recovery. Local copies are not encrypted by this app.",
+    "Your browser may remove locally saved places. Export a backup or use account sync to help prevent data loss.",
+  backupEncryption: "Backup files are not encrypted.",
+  persistHelp:
+    "Ask your browser to protect locally saved places from automatic removal. Clearing browser data can still remove them.",
   install: "Install Places",
   installIOS: "On iPhone: use Safari’s Share menu, then Add to Home Screen.",
   installOther: "Use your browser’s Install app or Add to home screen menu.",
@@ -289,7 +293,7 @@ export const en = {
   working: "Working…",
   cancelCapture: "Cancel locating",
   noMethods: "Sign-in is not configured yet.",
-  persist: "Keep offline data on this device",
+  persist: "Keep data on this device",
   persistGranted: "Persistent storage is enabled where supported. Backups are still recommended.",
   persistNotGranted:
     "This browser did not grant persistent storage. Keep backups or use account sync.",
@@ -338,8 +342,8 @@ export const sv: Record<Message, string> = {
   privateLibrary: "Mina privata platser",
   libraryChoice: "Bibliotek",
   familyIntro:
-    "Dela platser i olika grupper. Varje grupp har sina egna medlemmar och platser. Dina privata platser förblir privata.",
-  familySignIn: "Logga in för att dela med familjen",
+    "Dela platser med familjen eller andra grupper. Varje grupp har sina egna medlemmar och platser. Dina privata platser förblir privata.",
+  familySignIn: "Logga in för att dela",
   familySharedNotice:
     "Alla medlemmar kan lägga till, ändra och ta bort gruppens platser och foton. Ändringar synkas när ni är online. Varje grupp kan ha upp till 10 personer.",
   familyOwner: "Ägare",
@@ -419,7 +423,7 @@ export const sv: Record<Message, string> = {
   distanceUnits: "Avståndsenhet",
   metres: "Meter (m)",
   feet: "Fot (ft)",
-  reviewGpsHint: "Förfina positionen och bekräfta när du är nöjd. Av ger snabbsparning.",
+  reviewGpsHint: "Förfina positionen före bekräftelse. Stäng av för att spara direkt.",
   reviewLocation: "Kontrollera din position",
   gpsReviewIntro:
     "Ge GPS några sekunder. Bekräfta när den uppskattade noggrannheten räcker för platsen.",
@@ -455,6 +459,7 @@ export const sv: Record<Message, string> = {
   done: "Klart",
   delete: "Ta bort",
   deletePlace: "Ta bort platsen?",
+  placeDetails: "Platsinformation",
   deletePlaceBody: "Platsen tas bort från detta bibliotek och dess synkroniserade enheter.",
   share: "Dela plats",
   shareNotice:
@@ -577,7 +582,10 @@ export const sv: Record<Message, string> = {
   privacyText:
     "GPS begärs bara när du sparar. Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata.",
   recoveryText:
-    "Webbläsardata kan raderas eller rensas. Använd konto eller exporter för återställning. Appen krypterar inte lokala kopior.",
+    "Webbläsaren kan ta bort lokalt sparade platser. Exportera en säkerhetskopia eller använd kontosynkronisering för att minska risken att förlora data.",
+  backupEncryption: "Säkerhetskopior är inte krypterade.",
+  persistHelp:
+    "Be webbläsaren skydda lokalt sparade platser från automatisk rensning. Om du rensar webbläsardata kan de ändå tas bort.",
   install: "Installera Places",
   installIOS: "På iPhone: använd Safaris delningsmeny och välj Lägg till på hemskärmen.",
   installOther: "Använd webbläsarens Installera app eller Lägg till på hemskärmen.",
@@ -595,7 +603,7 @@ export const sv: Record<Message, string> = {
   working: "Arbetar…",
   cancelCapture: "Avbryt positionering",
   noMethods: "Inloggning är ännu inte konfigurerad.",
-  persist: "Behåll offlinedata på den här enheten",
+  persist: "Behåll data på den här enheten",
   persistGranted:
     "Beständig lagring är aktiverad där den stöds. Säkerhetskopior rekommenderas ändå.",
   persistNotGranted:

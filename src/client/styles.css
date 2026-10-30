@@ -631,55 +631,113 @@ hr {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 26px;
-  min-height: 525px;
+  container-type: inline-size;
   margin-top: 2px;
   overflow: hidden;
 }
 .details-content {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 32px;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+.details-content > * {
+  flex-shrink: 0;
+  min-width: 0;
+}
+.details-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.details-header .eyebrow {
+  overflow-wrap: anywhere;
 }
 .detail-marker {
-  width: 80px;
-  height: 86px;
-  border-radius: 25px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 10px;
   background: var(--marker-bg);
   color: var(--marker);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
 }
 .details-content h2 {
-  font-size: 28px;
+  font-size: 1.5625rem;
   overflow-wrap: anywhere;
+}
+.details-coordinates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+}
+.details-coordinates .icon-button {
+  width: 48px;
+  height: 48px;
 }
 .coordinate-display {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 13px;
+  font-size: 1rem;
   color: var(--muted);
   letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
 }
 .details-content dl {
-  margin: 2px 0 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  font-size: 13px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 10px 16px;
+  font-size: 1rem;
 }
 .details-content dl > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
 }
 .details-content dt {
   color: var(--muted);
 }
 .details-content dd {
   margin: 0;
-  text-align: right;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.details-map-actions,
+.details-secondary-actions {
+  display: grid;
+  gap: 8px;
+}
+.details-map-actions {
+  grid-template-columns: 1fr;
+}
+.details-secondary-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.details-content .button {
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 8px;
+  font-size: 1.125rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+@container (min-width: 24rem) {
+  .details-map-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (min-width: 480px) {
+  .details-content {
+    padding: 24px;
+  }
 }
 .action-pair {
   display: flex;
@@ -689,9 +747,6 @@ hr {
   flex: 1;
   font-size: 13px;
   padding: 12px;
-}
-.details-content .button.primary {
-  margin-top: 4px;
 }
 .mobile-details {
   display: none;
@@ -823,8 +878,9 @@ hr {
 .sheet-content > .button {
   width: 100%;
 }
-.sheet-content .details-content {
+.sheet-content:has(> .details-content) {
   padding: 0;
+  container-type: inline-size;
 }
 .sheet-content .details-content h2 {
   font-size: 25px;
@@ -1189,9 +1245,6 @@ details p {
     gap: 28px;
     padding: 34px 24px 140px;
   }
-  .details-content {
-    padding: 24px;
-  }
   .dock-inner {
     max-width: 100%;
   }
@@ -1418,14 +1471,6 @@ details p {
   }
   .update-banner .button {
     flex: 1;
-  }
-  .details-content {
-    padding: 0;
-  }
-  .detail-marker {
-    width: 68px;
-    height: 74px;
-    border-radius: 21px;
   }
   .details-content .action-pair .button {
     font-size: 1.125rem;
@@ -1742,4 +1787,457 @@ details p {
   text-align: center;
   min-height: 80px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Settings keeps its existing top anchor while only its body scrolls. */
+.sheet.settings-sheet {
+  max-height: calc(100dvh - 40px - env(safe-area-inset-bottom));
+  padding-bottom: 0;
+}
+.settings-sheet .sheet-head {
+  padding: 8px 24px;
+}
+.settings-sheet .sheet-content {
+  padding: 24px;
+}
+.settings-navigation {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  margin-bottom: 16px;
+}
+.settings-navigation .settings-tabs {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  overflow: visible;
+  margin: 0;
+}
+.settings-navigation .settings-tabs button {
+  flex: 1 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-size: 0.875rem;
+  min-height: 48px;
+  padding: 8px 13px;
+}
+.settings-navigation[data-compact="true"] .settings-tabs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.settings-navigation select[hidden] {
+  display: none;
+}
+.settings-sheet .family-panel {
+  gap: 16px;
+}
+.family-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.family-heading .section-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 14px;
+}
+.family-heading h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.family-panel > .button {
+  width: 100%;
+  min-height: 48px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .settings-sheet .sheet-head {
+    padding: 8px 16px;
+  }
+  .settings-sheet .sheet-content {
+    padding: 16px;
+  }
+  .settings-navigation .settings-tabs button {
+    font-size: 1.0625rem;
+  }
+}
+.backup-panel,
+.backup-files,
+.offline-storage {
+  gap: 16px;
+}
+.backup-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.backup-actions .button,
+.offline-storage .button {
+  min-height: 48px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.backup-actions svg {
+  flex-shrink: 0;
+}
+.backup-panel .offline-storage {
+  margin-top: 8px;
+}
+.offline-storage [role="status"]:empty {
+  display: none;
+}
+.settings-navigation select {
+  color-scheme: inherit;
+  accent-color: var(--accent);
+}
+.settings-navigation select:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+@supports (appearance: base-select) {
+  select,
+  select::picker(select) {
+    appearance: base-select;
+  }
+  select::picker(select) {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 4px;
+    box-shadow: 0 12px 32px #0004;
+    max-height: min(24rem, 60dvh);
+    overflow-y: auto;
+  }
+  select option {
+    min-height: 48px;
+    padding: 12px;
+    border-radius: 9px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+  select option:checked,
+  select option:hover,
+  select option:focus,
+  select option:focus-visible {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  select option::checkmark {
+    color: var(--accent);
+  }
+}
+@media (max-width: 480px) {
+  .backup-actions {
+    grid-template-columns: 1fr;
+  }
+}
+.settings-sheet .category-list > div {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) 48px 48px;
+  gap: 8px;
+  min-height: 60px;
+  padding-block: 6px;
+  font-size: 1rem;
+}
+.settings-sheet .category-list > div > span:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+.settings-sheet .category-list .category-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+.category-delete-slot {
+  width: 48px;
+}
+.settings-sheet .category-list .icon-button {
+  width: 48px;
+  height: 48px;
+}
+.preferences-panel {
+  gap: 16px;
+}
+.sheet-content .gps-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 4px 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.gps-setting > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gps-setting small {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+}
+.gps-setting input[role="switch"] {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+}
+.gps-setting input[role="switch"]::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 0;
+  width: 48px;
+  height: 28px;
+  border: 1px solid var(--muted);
+  border-radius: 20px;
+  background: var(--raised);
+  transform: none;
+}
+.gps-setting input[role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 13px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.gps-setting input[role="switch"]:checked::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.gps-setting input[role="switch"]:checked::after {
+  left: 23px;
+  background: var(--on-accent);
+}
+.preferences-disclosures {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.preferences-disclosures details {
+  border: 0;
+  padding: 0;
+}
+.preferences-disclosures details + details {
+  border-top: 1px solid var(--border);
+}
+.preferences-disclosures summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px;
+  list-style: none;
+  font-size: 1rem;
+}
+.preferences-disclosures summary::-webkit-details-marker {
+  display: none;
+}
+.preferences-disclosures summary svg {
+  flex-shrink: 0;
+}
+.preferences-disclosures details[open] summary svg {
+  transform: rotate(90deg);
+}
+.preferences-disclosures details p {
+  padding: 0 12px 12px;
+  margin: 0;
+}
+.preferences-disclosures summary:focus-visible {
+  outline-offset: -3px;
+}
+.preferences-footer {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  font-size: 0.875rem;
+}
+.preferences-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 16px;
+}
+.preferences-links a {
+  min-height: 48px;
+  min-width: 0;
+  font-size: 0.875rem;
+  justify-content: center;
+  padding-block: 10px;
+  overflow-wrap: anywhere;
+}
+.preferences-links svg {
+  flex-shrink: 0;
+}
+@media (forced-colors: active) {
+  .gps-setting input[role="switch"] {
+    appearance: auto;
+  }
+  .gps-setting input[role="switch"]::before,
+  .gps-setting input[role="switch"]::after {
+    content: none;
+  }
+}
+.preferences-options {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(130deg, var(--surface-top), var(--surface-bottom));
+}
+.sheet-content .preference-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.preference-row + .preference-row {
+  border-top: 1px solid var(--border);
+}
+.preference-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.preference-value {
+  text-align: right;
+  font-weight: normal;
+}
+.sheet-content .preference-row select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  opacity: 0;
+  cursor: pointer;
+}
+.preference-row:has(select:focus-visible) {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.preference-row:first-child {
+  border-radius: 13px 13px 0 0;
+}
+.preference-row:last-child {
+  border-radius: 0 0 13px 13px;
+}
+.preference-row select:focus-visible {
+  outline: none;
+}
+.preference-row:hover {
+  background: var(--raised);
+}
+@supports (appearance: base-select) {
+  .sheet-content .preference-row select {
+    opacity: 1;
+    color: transparent;
+    background: transparent;
+    border: 0;
+  }
+  .preference-row select::picker-icon {
+    display: none;
+  }
+  select option {
+    color: var(--text);
+  }
+}
+@media (max-width: 640px) {
+  .sheet-content .preference-row {
+    font-size: 1.0625rem;
+  }
+}
+.settings-section-selector {
+  position: relative;
+}
+.settings-section-selector[hidden] {
+  display: none;
+}
+.settings-section-label {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.settings-section-label span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.settings-section-label svg {
+  color: var(--muted);
+}
+.settings-section-selector select {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.settings-section-selector:has(select:focus-visible) .settings-section-label {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.settings-section-selector select:focus-visible {
+  outline: none;
+}
+.settings-navigation[data-compact="true"] ~ .stack > h3:first-child,
+.settings-navigation[data-compact="true"] ~ .family-panel > .family-heading {
+  display: none;
+}
+@supports (appearance: base-select) {
+  .settings-section-selector select {
+    opacity: 1;
+    color: transparent;
+    background: transparent;
+    border-color: transparent;
+  }
+  .settings-section-selector select::picker-icon {
+    display: none;
+  }
+  .settings-section-selector option {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 22px;
+    gap: 12px;
+    align-items: center;
+    min-height: 56px;
+    font-weight: 600;
+  }
+  .settings-section-selector option svg {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--muted);
+  }
+  .settings-section-selector option span {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .settings-section-selector option::checkmark {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
 }
