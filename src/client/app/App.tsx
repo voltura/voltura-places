@@ -11,6 +11,7 @@ import {
   Copy,
   LoaderCircle,
   Map,
+  Users,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
@@ -727,9 +728,15 @@ export function App() {
         </section>
       )}
       {selectedFamily && (
-        <p className="shared-library-notice">
-          {t(canWrite ? "familyLibraryHint" : "familyReadonly")}
-        </p>
+        <div className="shared-library-notice">
+          <p>{t(canWrite ? "familyLibraryHint" : "familyReadonly")}</p>
+          {canWrite && selectedGroup && (
+            <button className="button outline" onClick={() => setSettings("participants")}>
+              <Users size={20} />
+              {t("familyParticipants")} · {selectedGroup.members.length}
+            </button>
+          )}
+        </div>
       )}
       <LibraryView
         canWrite={canWrite}
@@ -861,7 +868,7 @@ export function App() {
       )}
       {settings && (
         <Settings
-          initial={settings}
+          initial={settings === "participants" ? "familySharing" : settings}
           familyPanel={
             <FamilyPanel
               key={account.account?.id ?? "guest"}
@@ -870,6 +877,7 @@ export function App() {
               t={t}
               onChanged={familyChanged}
               preferredGroup={selectedFamily ?? undefined}
+              focusParticipants={settings === "participants"}
               onOpen={(groupId) => {
                 if (account.account) switchLibrary(familyKey(account.account.id, groupId));
               }}

@@ -187,7 +187,42 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await a.page.getByRole("button", { name: "Forest family", exact: true }).click();
     await b.page.getByRole("button", { name: "Forest family", exact: true }).click();
-    expect((await familyAction(a, { action: "remove", member: b.account })).ok()).toBe(true);
+    await b.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+    await expect(
+      b.page.getByRole("list", { name: "Participants · 2/10" }).getByRole("listitem"),
+    ).toHaveCount(2);
+    await expect(b.page.getByRole("button", { name: /Remove member/ })).toHaveCount(0);
+    await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+    await a.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+    const participants = a.page.getByRole("list", { name: "Participants · 2/10" });
+    await expect(participants.getByText("Owner", { exact: true })).toBeVisible();
+    await expect(participants.getByText("You", { exact: true })).toBeVisible();
+    await a.page.screenshot({ path: testInfo.outputPath("group-participants.png") });
+    const remove = a.page.getByRole("button", {
+      name: "Remove member · family-1@example.invalid",
+      exact: true,
+    });
+    a.page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain("family-1@example.invalid");
+      await dialog.dismiss();
+    });
+    await remove.click();
+    await expect(participants.getByRole("listitem")).toHaveCount(2);
+    a.page.once("dialog", (dialog) => dialog.accept());
+    await remove.click();
+    await expect(
+      a.page.getByRole("list", { name: "Participants · 1/10" }).getByRole("listitem"),
+    ).toHaveCount(1);
+    await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+    await a.page.getByRole("button", { name: "Mother and family", exact: true }).click();
+    await a.page.getByRole("button", { name: "Participants · 2", exact: true }).click();
+    await expect(
+      a.page.getByRole("heading", { name: "Mother and family", exact: true }),
+    ).toBeVisible();
+    await expect(
+      a.page.getByRole("list", { name: "Participants · 2/10" }).getByRole("listitem"),
+    ).toHaveCount(2);
+    await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
     await b.page.clock.fastForward(30000);
     await expect(
       b.page.getByText(
@@ -197,6 +232,7 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await expect(b.page.getByRole("button", { name: "Save here", exact: true })).toBeDisabled();
     await expect(b.page.getByRole("button", { name: "Add place", exact: true })).toBeDisabled();
+    await expect(b.page.getByRole("button", { name: /Participants/ })).toHaveCount(0);
     expect((await familyAction(b, { action: "create", name: "A different family" })).ok()).toBe(
       true,
     );

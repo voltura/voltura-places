@@ -1623,6 +1623,14 @@ details p {
   padding: 0 20px;
   color: var(--muted);
   font-size: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shared-library-notice p {
+  margin: 0;
 }
 .library-title > div {
   min-width: 0;

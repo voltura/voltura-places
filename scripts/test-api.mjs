@@ -384,10 +384,36 @@ try {
     "Leaving revokes cloud writes",
   );
   await joinGroup(b);
+  check(
+    (await familyCall(b, { action: "remove", member: a.account })).status === 403,
+    "Members cannot remove the owner",
+  );
+  check(
+    (await familyCall(c, { action: "remove", member: b.account, familyId: family.id })).status ===
+      403,
+    "Outsiders cannot remove participants",
+  );
+  check(
+    (await familyCall(a, { action: "remove", member: a.account })).status === 422,
+    "Owner cannot remove themselves",
+  );
   await familyCall(a, { action: "remove", member: b.account });
   check(
     (await request("/api/v1/sync", familyAuth(b))).status === 403,
     "Owner removal revokes member access",
+  );
+  check(
+    (await request(`/api/v1/photos/${photoId}`, familyAuth(b))).status === 403,
+    "Removed members cannot read shared photos",
+  );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...familyAuth(b),
+        body: { ...sharedMutation, mutationId: crypto.randomUUID(), baseRevision: 2 },
+      })
+    ).status === 403,
+    "Removed members cannot write shared records",
   );
   const capped = (await (await familyCall(a, { action: "code-create" })).json()).code;
   await familyCall(c, { action: "code-request", code: capped });

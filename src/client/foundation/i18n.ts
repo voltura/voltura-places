@@ -42,6 +42,8 @@ export const en = {
   familySharedNotice:
     "All members can add, edit and delete this group's places and photos. Changes sync when online. Each group can have up to 10 people.",
   familyOwner: "Owner",
+  familyParticipants: "Participants",
+  familyYou: "You",
   familyName: "Group name",
   familyCreate: "Create group",
   openFamilyLibrary: "Open shared library",
@@ -341,6 +343,8 @@ export const sv: Record<Message, string> = {
   familySharedNotice:
     "Alla medlemmar kan lägga till, ändra och ta bort gruppens platser och foton. Ändringar synkas när ni är online. Varje grupp kan ha upp till 10 personer.",
   familyOwner: "Ägare",
+  familyParticipants: "Deltagare",
+  familyYou: "Du",
   familyName: "Gruppens namn",
   familyCreate: "Skapa grupp",
   openFamilyLibrary: "Öppna gemensamt bibliotek",

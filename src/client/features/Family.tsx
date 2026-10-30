@@ -30,6 +30,7 @@ type Props = {
   onSignIn: () => void;
   onExport: (id: string) => void;
   preferredGroup?: string;
+  focusParticipants?: boolean;
 };
 export function FamilyPanel({
   account,
@@ -40,10 +41,12 @@ export function FamilyPanel({
   onSignIn,
   onExport,
   preferredGroup,
+  focusParticipants = false,
 }: Props) {
   const actionPending = useRef(false),
     pollVersion = useRef(0);
   const codeDisplay = useRef<HTMLDivElement>(null),
+    participantsHeading = useRef<HTMLHeadingElement>(null),
     requestDisplay = useRef<HTMLDivElement>(null),
     groupHeading = useRef<HTMLHeadingElement>(null);
   const [name, setName] = useState(""),
@@ -69,6 +72,11 @@ export function FamilyPanel({
     setCopied(false);
     groupHeading.current?.scrollIntoView({ block: "start" });
   }, [family?.id]);
+  useEffect(() => {
+    if (!focusParticipants) return;
+    const frame = requestAnimationFrame(() => participantsHeading.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusParticipants, family?.id]);
   useEffect(() => {
     if (inviteCode) codeDisplay.current?.scrollIntoView({ block: "center" });
   }, [inviteCode?.code]);
@@ -256,13 +264,19 @@ export function FamilyPanel({
           <button className="button primary" onClick={() => onOpen(family.id)}>
             {t("openFamilyLibrary")}
           </button>
-          <ul className="family-members">
+          <h4 id="family-participants" ref={participantsHeading} tabIndex={-1}>
+            {t("familyParticipants")} · {family.members.length}/10
+          </h4>
+          <ul className="family-members" aria-labelledby="family-participants">
             {family.members.map((member) => (
               <li key={member.id}>
                 <div>
                   <strong>{member.label}</strong>
                   {member.id === family.ownerId && (
                     <span className="muted small">{t("familyOwner")}</span>
+                  )}
+                  {member.id === account.id && (
+                    <span className="muted small">{t("familyYou")}</span>
                   )}
                 </div>
                 {family.ownerId === account.id && member.id !== account.id && (
@@ -281,11 +295,11 @@ export function FamilyPanel({
                       className="button danger"
                       disabled={busy}
                       onClick={() => {
-                        if (confirm(t("familyRemoveConfirm")))
+                        if (confirm(`${member.label}\n\n${t("familyRemoveConfirm")}`))
                           void action({ action: "remove", member: member.id });
                       }}
                     >
-                      {t("familyRemoveMember")}
+                      {t("familyRemoveMember")} · {member.label}
                     </button>
                   </div>
                 )}
