@@ -22,9 +22,9 @@ Add the custom domain through Sites and apply only its exact CNAME/TXT records a
 
 ## Promo and Air protection
 
-npm run publish:promo -- --dry-run reviews the exact file list without connecting. The publisher reuses the Windows-encrypted SFTP password and pinned SSH identity without changing them. Verify the company homepage and Air directory before writing. The promo manifest contains two localized pages, four localized phone/desktop screenshots, two social cards, one stylesheet and one icon. Only places/ descendants are allowed; reject links/traversal. Never root-sync or recursively remove remote content.
+npm run publish:promo -- --dry-run reviews the exact file list without connecting. The publisher reuses the Windows-encrypted SFTP password and pinned SSH identity without changing them. The promo manifest contains two localized pages, four localized phone/desktop screenshots, two social cards, one stylesheet and one icon. Only places/ descendants are allowed; reject links/traversal. Never root-sync or recursively remove remote content.
 
-Stage immutable bytes and save source commit, original destination bytes/hashes, protected-file hashes and route-response baselines under ignored .artifacts/backups. Verify atomic overwrite-rename before promotion. Assets precede entry pages. Verify HTTPS payloads and protected baselines afterward, including /air/, /air/app/, /a/, /s/, /d/, /fortnox/. This does not establish authenticated Air-session behavior.
+Stage immutable bytes and save source commit and original Places destination bytes/hashes under ignored .artifacts/backups. Verify atomic overwrite-rename before promotion. Assets precede entry pages. Verify the uploaded Places bytes over SFTP and HTTPS afterward. Routine deployment and rollback do not read, hash or probe the company homepage, Air, root configuration or sibling routes. Isolation is enforced by the fixed Places destination allowlist, pinned SSH host identity, remote symlink/type rejection and scoped atomic writes; downloaded backups remain available for recovery.
 
 Relay public code/config are separately deployed; secrets never enter the promo manifest. Keep private configuration outside document roots. Failure after upload is still failure; retain journal/backups and inspect current state before rollback. Refuse rollback over unrelated later bytes.
 

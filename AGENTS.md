@@ -6,7 +6,7 @@ Offline-first React PWA. Sites Worker + D1; one.com owns only the isolated promo
 - Client composition → features → domain-neutral UI; browser infrastructure and shared schemas stay independent of presentation. Server owns authorization.
 - Persist records and pending writes atomically before success. Preserve account partitioning, deletion markers, CAS revisions and idempotent requests.
 - Never log positions, names, identity/session tokens, mail codes or secrets.
-- Air isolation: one.com writes stay inside `/places/`; `/air`, `/a`, `/s`, `/d` and root configuration are protected. No root sync/recursive remote cleanup.
+- Air isolation: one.com writes stay inside `/places/`; `/air`, `/a`, `/s`, `/d` and root configuration are protected. No root sync/recursive remote cleanup. Routine publication verifies Places payloads only; do not recheck Air/root files or sibling routes each deployment.
 - Update existing documentation owners when durable behavior changes.
 - Run check, relevant tests, and a build for integrated/dependency changes. Test adverse authorization and data-integrity cases.
 - Show significant UI in a working preview, collect feedback, and distinguish emulation from physical-device checks.

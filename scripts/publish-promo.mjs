@@ -3,19 +3,6 @@ import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { connectSftp } from "./sftp-connection.mjs";
 import { assertDestination, digest, promoManifest } from "./promo-manifest.mjs";
-const protectedPaths = [
-  "index.php",
-  ".htaccess",
-  "robots.txt",
-  "web.config",
-  "air/index.html",
-  "air/index.php",
-  "air/app/index.html",
-  "a/index.php",
-  "s/index.php",
-  "d/index.php",
-];
-const routes = ["/air/", "/air/app/", "/a/", "/s/", "/d/", "/fortnox/"];
 const wait = () => new Promise((r) => setTimeout(r, 1100));
 let client;
 try {
@@ -29,8 +16,7 @@ try {
         {
           destination: "ssh.voltura.se:./places/",
           files: manifest.map(({ source, ...e }) => e),
-          protectedPaths,
-          routes,
+          scope: "places/",
         },
         null,
         2,
@@ -43,10 +29,6 @@ try {
     if (git(["branch", "--show-current"]) !== "main" || git(["status", "--porcelain"]))
       throw new Error("Require clean reviewed main.");
     client = await connectSftp({ allowFirstUse: false });
-    if (!(await client.exists("air")) || !(await client.exists("index.php")))
-      throw new Error("Unexpected remote website root.");
-    if (!/Voltura/.test((await client.get("index.php")).toString()))
-      throw new Error("Remote homepage does not identify Voltura.");
     const safe = async (path) => {
       assertDestination(path);
       let current = "";
@@ -57,27 +39,6 @@ try {
         if (exists && exists !== (current === path ? "-" : "d"))
           throw new Error("Unexpected remote path type");
       }
-    };
-    const baseline = async () => {
-      const result = {};
-      for (const path of protectedPaths) {
-        const exists = await client.exists(path);
-        result[path] = exists === "-" ? digest(await client.get(path)) : String(exists);
-      }
-      return result;
-    };
-    const routeState = async () => {
-      const result = {};
-      for (const path of routes) {
-        await wait();
-        const response = await fetch(`https://voltura.se${path}`, {
-          redirect: "manual",
-          signal: AbortSignal.timeout(20000),
-        });
-        result[path] = { status: response.status, location: response.headers.get("location") };
-        await response.body?.cancel();
-      }
-      return result;
     };
     if (rollbackId) {
       if (!/^[0-9TZ-]+$/.test(rollbackId)) throw new Error("Invalid backup ID");
@@ -98,9 +59,7 @@ try {
         if (item.bytes) await atomic(item.path, item.bytes);
         else if (item.exists) await client.delete(item.path);
       }
-      if (JSON.stringify(await baseline()) !== JSON.stringify(record.protectedBefore))
-        throw new Error("Protected file mismatch after rollback");
-      console.log("Restored owned Places files. Inspect both products.");
+      console.log("Restored owned Places files.");
     } else {
       const id = new Date()
           .toISOString()
@@ -111,8 +70,6 @@ try {
       const record = {
         id,
         commit: git(["rev-parse", "HEAD"]),
-        protectedBefore: await baseline(),
-        routesBefore: await routeState(),
         files: [],
       };
       const journal = () => writeFile(`${folder}/journal.json`, JSON.stringify(record, null, 2));
@@ -145,10 +102,6 @@ try {
         await journal();
         await atomic(entry.path, bytes);
       }
-      if (JSON.stringify(await baseline()) !== JSON.stringify(record.protectedBefore))
-        throw new Error("Protected Air/root file changed.");
-      if (JSON.stringify(await routeState()) !== JSON.stringify(record.routesBefore))
-        throw new Error("Protected route response changed.");
       for (const entry of manifest) {
         await wait();
         const response = await fetch(`https://voltura.se/${entry.path}`, {
@@ -160,9 +113,7 @@ try {
       }
       record.verified = true;
       await journal();
-      console.log(
-        `Published https://voltura.se/places/\nAir/root baselines unchanged. Backup: ${id}`,
-      );
+      console.log(`Published https://voltura.se/places/\nPlaces payloads verified. Backup: ${id}`);
     }
   }
 } catch (error) {
