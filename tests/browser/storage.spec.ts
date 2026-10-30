@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 for (const mode of ["granted", "already", "denied", "unsupported", "error"] as const) {
   test(`offline retention requests permission automatically and tolerates ${mode}`, async ({

@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "./fixtures";
 import { readFile } from "node:fs/promises";
 
 const value = (name: string, categoryId = "other", capturedAt = "2026-10-30T10:00:00Z") => ({
@@ -298,7 +298,7 @@ test("an open editor preserves a cloud edit that arrives before Save", async ({
   );
   await page.goto("/");
   await page.locator(".card-main").click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit place", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("My editor name");
   cloud = { ...cloud, value: value("Other device's name"), revision: 2 };
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));

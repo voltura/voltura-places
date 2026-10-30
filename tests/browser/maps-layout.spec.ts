@@ -1,10 +1,12 @@
-import { test, expect, chromium, webkit, devices } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect, chromium, webkit, devices } from "./fixtures";
 
 for (const engine of [webkit, chromium]) {
   test(`${engine.name()} keeps the details map dropdown inside the phone content margins`, async () => {
     const browser = await engine.launch();
     try {
       const context = await browser.newContext({ ...devices["iPhone 13"], locale: "en-US" });
+      await mockMapTiles(context);
       await context.addInitScript(() => {
         localStorage.setItem("places-account-choice", "done");
         Object.defineProperty(navigator, "geolocation", {
@@ -30,9 +32,12 @@ for (const engine of [webkit, chromium]) {
       await page.getByRole("button", { name: "Done", exact: true }).click();
       const details = page.locator(".details-content:visible");
       await expect(details).toBeVisible();
+      await expect(details.getByRole("heading", { name: "Place", exact: true })).toBeVisible();
+      await expect(details.locator(".metadata-date")).not.toBeEmpty();
       for (const [width, scale] of [
         [320, 1],
         [390, 1],
+        [375, 1],
         [430, 1],
         [375, 2],
       ]) {
@@ -60,6 +65,13 @@ for (const engine of [webkit, chromium]) {
         expect(bounds.overflow).toBeLessThanOrEqual(1);
         expect(bounds.leftOffset).toBeCloseTo(0, 0);
         expect(bounds.rightOffset).toBeCloseTo(0, 0);
+        if (width === 375 && scale === 1) {
+          const sheet = page.getByRole("dialog", { name: "Place details", exact: true });
+          const head = (await sheet.locator(".sheet-head").boundingBox())!;
+          const name = (await details.locator("h2").boundingBox())!;
+          expect(name.y - head.y - head.height).toBeCloseTo(8, 0);
+          await page.screenshot({ path: `.artifacts/details-name-${engine.name()}.png` });
+        }
       }
     } finally {
       await browser.close();

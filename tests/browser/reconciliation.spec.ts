@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 const title = "Add device places to this account?";
 const identity = { id: "reconciliation-fixture", methods: [] };

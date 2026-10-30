@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect } from "./fixtures";
 
 test("copy destination is explicit and only the chosen group receives a copy", async ({
   browser,
@@ -11,6 +12,7 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     permissions: ["geolocation"],
     geolocation: { latitude: 0, longitude: 0, accuracy: 6 },
   });
+  await mockMapTiles(context);
   await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
   const response = await context.request.post("/api/account/connect", {
     headers: {

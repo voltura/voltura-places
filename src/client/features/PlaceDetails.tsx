@@ -1,12 +1,15 @@
 import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
-import { Navigation, ChevronDown, Share2, Pencil, Copy } from "lucide-react";
+import { placeDetailsName } from "../foundation/place-labels";
+import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info, Maximize } from "lucide-react";
+import { lazy, Suspense, useId, useState } from "react";
 import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 import { Tooltip } from "../ui/Tooltip";
 export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
+const PlacesMap = lazy(() => import("./PlacesMap"));
 export function PlaceDetails({
   canWrite,
   record,
@@ -18,6 +21,8 @@ export function PlaceDetails({
   t,
   formatDate,
   openMaps,
+  navigate,
+  expandMap,
   chooseMapProvider,
   setSharePlace,
   setEditor,
@@ -33,11 +38,15 @@ export function PlaceDetails({
   t: (key: Message) => string;
   formatDate: (date: string) => string;
   openMaps: (place: Place) => void;
+  navigate: (place: Place) => void;
+  expandMap: (record: PlaceRecord) => void;
   chooseMapProvider: (place: Place, provider: "google" | "apple" | "geo") => void;
   setSharePlace: (place: PlaceRecord) => void;
   setEditor: (value: { entity: Entity }) => void;
   copy: (text: string) => Promise<void>;
 }) {
+  const [accuracyHelp, setAccuracyHelp] = useState(false);
+  const accuracyHelpId = useId();
   const coordinates = [record.value.latitude, record.value.longitude].map((value) =>
     Number(value.toFixed(6)),
   );
@@ -46,7 +55,7 @@ export function PlaceDetails({
   );
   return (
     <div className="details-content">
-      <h2>{record.value.name}</h2>
+      <h2>{placeDetailsName(record.value)}</h2>
       <div className="details-header">
         <span className={`detail-marker ${categoryColor(record.value.categoryId)}`}>
           <CategoryIcon record={categoryFor(record.value.categoryId)} size={20} />
@@ -58,37 +67,9 @@ export function PlaceDetails({
         </span>
       </div>
       <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
-      <div className="details-coordinates">
-        <p className="coordinate-display">
-          {coordinates.map((value) => value.toFixed(decimals)).join(", ")}
-        </p>
-        <Tooltip text={t("copyCoordinates")}>
-          <button
-            className="icon-button"
-            aria-label={t("copyCoordinates")}
-            onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
-          >
-            <Copy size={20} />
-          </button>
-        </Tooltip>
-      </div>
-      <dl>
-        <div>
-          <dt>{t("captured")}</dt>
-          <span aria-hidden="true">·</span>
-          <dd>{formatDate(record.value.capturedAt)}</dd>
-        </div>
-        {record.value.accuracy !== null && (
-          <div>
-            <dt>{t("accuracy")}</dt>
-            <span aria-hidden="true">·</span>
-            <dd>{formatAccuracy(record.value.accuracy, units)}</dd>
-          </div>
-        )}
-      </dl>
       <div className="details-map-actions split-actions">
         <button className="button primary" onClick={() => openMaps(record.value)}>
-          <Navigation size={20} />
+          <Map size={20} />
           {t("openMaps")}
         </button>
         <div className="details-map-picker split-picker">
@@ -113,10 +94,14 @@ export function PlaceDetails({
           <ChevronDown size={20} aria-hidden="true" />
         </div>
       </div>
+      <button className="button outline navigate-place" onClick={() => navigate(record.value)}>
+        <Route size={20} />
+        {t("navigate")}
+      </button>
       <div className="details-secondary-actions">
         <button className="button outline" onClick={() => setSharePlace(record)}>
           <Share2 size={18} />
-          {t("share")}
+          {t("shareAction")}
         </button>
         <button
           className="button outline"
@@ -124,7 +109,84 @@ export function PlaceDetails({
           onClick={() => setEditor({ entity: record })}
         >
           <Pencil size={18} />
-          {t("edit")}
+          {t("editAction")}
+        </button>
+      </div>
+      <dl className="details-metadata">
+        <div>
+          <dt>{t("coordinates")}</dt>
+          <dd className="details-coordinates">
+            <p className="coordinate-display">
+              {coordinates.map((value) => value.toFixed(decimals)).join(", ")}
+            </p>
+            <Tooltip text={t("copyCoordinates")}>
+              <button
+                className="icon-button"
+                aria-label={t("copyCoordinates")}
+                onClick={() => void copy(`${record.value.latitude}, ${record.value.longitude}`)}
+              >
+                <Copy size={20} />
+              </button>
+            </Tooltip>
+          </dd>
+        </div>
+        <div>
+          <dt>{t("captured")}</dt>
+          <dd className="metadata-date">{formatDate(record.value.capturedAt)}</dd>
+        </div>
+        {record.value.accuracy !== null && (
+          <div>
+            <dt>{t("accuracy")}</dt>
+            <dd className="metadata-accuracy">
+              <span className={record.value.accuracy >= 500 ? "accuracy-imprecise" : undefined}>
+                {record.value.accuracy >= 500 && (
+                  <span className="accuracy-dot" aria-hidden="true" />
+                )}
+                {formatAccuracy(record.value.accuracy, units)}
+              </span>
+              <button
+                className="icon-button"
+                aria-label={t("accuracyInfo")}
+                aria-expanded={accuracyHelp}
+                aria-controls={accuracyHelpId}
+                onClick={() => setAccuracyHelp(!accuracyHelp)}
+              >
+                <Info size={20} />
+              </button>
+            </dd>
+          </div>
+        )}
+      </dl>
+      {record.value.accuracy !== null && (
+        <p id={accuracyHelpId} className="accuracy-help" hidden={!accuracyHelp}>
+          {t("accuracyExplanation")}
+        </p>
+      )}
+      <div className="details-map-preview">
+        <Suspense
+          fallback={
+            <div className="map-preview-loading" role="status">
+              {t("working")}
+            </div>
+          }
+        >
+          <PlacesMap
+            key={`${workspace}:${record.id}`}
+            preview
+            places={[record]}
+            fitKey={`${record.value.latitude},${record.value.longitude}`}
+            selected={null}
+            onSelect={() => {}}
+            categoryColor={categoryColor}
+            t={t}
+          />
+        </Suspense>
+        <button
+          className="icon-button map-preview-expand"
+          aria-label={t("expandMap")}
+          onClick={() => expandMap(record)}
+        >
+          <Maximize size={20} />
         </button>
       </div>
     </div>

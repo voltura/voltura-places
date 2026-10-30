@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test("just-saved place stays editable and discard deletes only after confirmation", async ({
   page,
@@ -21,7 +21,7 @@ test("just-saved place stays editable and discard deletes only after confirmatio
   await expect(saved).toHaveCount(0);
   await page.reload();
   await page.locator("article .card-main").first().click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit place", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Edit place", exact: true });
   await expect(edit.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
     "Saved fixture",

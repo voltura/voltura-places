@@ -1,6 +1,6 @@
 import { mapProviders, type MapProvider } from "../foundation/map-providers";
 import { ArrowUpRight, Copy, Map } from "lucide-react";
-import { mapURL, type Place } from "../../shared/model";
+import { mapURL, directionsURL, type MapAction, type Place } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { Sheet } from "../ui/Sheet";
 
@@ -48,12 +48,14 @@ function MapAppIcon({ provider }: { provider: Provider }) {
 
 export function MapAppChooser({
   place,
+  action = "show",
   t,
   onClose,
   onChoose,
   copy,
 }: {
   place: Place;
+  action?: MapAction;
   t: (key: Message) => string;
   onClose: () => void;
   onChoose: (provider: Provider) => void;
@@ -68,20 +70,26 @@ export function MapAppChooser({
       className="map-app-sheet"
     >
       <div className="map-app-list">
-        {mapProviders().map((provider) => (
-          <a
-            key={provider}
-            className="map-app-row"
-            href={mapURL(provider, place)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onChoose(provider)}
-          >
-            <MapAppIcon provider={provider} />
-            <span>{t(provider)}</span>
-            <ArrowUpRight className="map-app-external" size={16} aria-hidden="true" />
-          </a>
-        ))}
+        {mapProviders()
+          .filter((provider) => action === "show" || provider !== "geo")
+          .map((provider) => (
+            <a
+              key={provider}
+              className="map-app-row"
+              href={
+                action === "navigate" && provider !== "geo"
+                  ? directionsURL(provider, place)
+                  : mapURL(provider, place)
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => onChoose(provider)}
+            >
+              <MapAppIcon provider={provider} />
+              <span>{t(provider)}</span>
+              <ArrowUpRight className="map-app-external" size={16} aria-hidden="true" />
+            </a>
+          ))}
       </div>
       <button
         className="button quiet map-copy"

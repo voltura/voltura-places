@@ -505,9 +505,11 @@ hr {
   gap: 8px;
   overflow-x: auto;
   padding: 0 1px 12px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-width: none;
   margin-bottom: 12px;
+}
+.category-chips::-webkit-scrollbar {
+  display: none;
 }
 .category-chips button {
   min-height: 48px;
@@ -810,6 +812,7 @@ hr {
 }
 .details-secondary-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 .details-content .button {
   min-width: 0;
@@ -967,6 +970,15 @@ hr {
 .sheet-content:has(> .details-content) {
   padding: 0;
   container-type: inline-size;
+}
+.sheet-content > .details-content {
+  padding-top: 8px;
+}
+.sheet:has(> .sheet-content > .details-content) > .sheet-head {
+  padding: 8px 16px;
+}
+.sheet:has(> .sheet-content > .details-content) > .sheet-head > div {
+  min-width: 0;
 }
 .sheet-content .details-content h2 {
   font-size: 1.5625rem;
@@ -1323,7 +1335,7 @@ details p {
     padding-top: 65px;
   }
   .detail-pane {
-    min-height: 580px;
+    min-height: 0;
   }
   .empty-state {
     padding-top: 22px;
@@ -2596,13 +2608,13 @@ details p {
 }
 .library-title {
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .search-row {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .category-chips {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   padding-bottom: 4px;
 }
 .category-chips button {
@@ -2611,11 +2623,11 @@ details p {
   border-color: var(--border);
 }
 .place-card {
-  padding: 12px;
+  padding: 10px 12px 6px;
 }
 .card-main {
-  min-height: 64px;
-  padding: 0 0 8px;
+  min-height: 56px;
+  padding: 0 0 4px;
   gap: 12px;
 }
 .place-marker {
@@ -2629,7 +2641,8 @@ details p {
 }
 .card-actions {
   margin-top: 0;
-  padding: 4px 0 0;
+  padding: 0;
+  border-top: 0;
   gap: 8px;
 }
 .card-maps {
@@ -2749,7 +2762,7 @@ button.save-destination > svg {
     padding-inline: 16px;
   }
   .app-main {
-    padding: 20px 16px calc(var(--save-dock-height, 150px) + 24px);
+    padding: 12px 16px calc(var(--save-dock-height, 150px) + 24px);
   }
   .category-chips {
     flex-wrap: nowrap;
@@ -2757,7 +2770,7 @@ button.save-destination > svg {
     overscroll-behavior-x: contain;
   }
   .place-card {
-    padding: 12px;
+    padding: 10px 12px 6px;
   }
   .card-maps {
     min-height: 48px;
@@ -3050,4 +3063,297 @@ select option .category-icon {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+.library-view-switch {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+.library-view-switch button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.library-view-switch button svg {
+  flex-shrink: 0;
+}
+.library-view-switch button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.navigate-place {
+  width: 100%;
+  margin-top: 0;
+}
+.map-view .library-pane {
+  min-width: 0;
+}
+.app-main.map-view {
+  max-width: 1240px;
+}
+.map-frame {
+  position: relative;
+}
+.map-show-all {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  min-height: 48px;
+  width: auto;
+  padding: 8px 12px;
+  font-size: 1rem;
+  box-shadow: 0 2px 6px #0003;
+}
+.places-map.leaflet-container {
+  height: clamp(360px, 65dvh, 720px);
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  isolation: isolate;
+  z-index: 0;
+  background: var(--raised);
+  font-family: inherit;
+}
+.places-map.leaflet-container .leaflet-control-zoom a {
+  width: 48px;
+  height: 48px;
+  line-height: 48px;
+  background: var(--surface);
+  color: var(--text);
+}
+.places-map.leaflet-container .leaflet-control-zoom a:hover {
+  background: var(--accent-soft);
+}
+.places-map.leaflet-container .leaflet-control-attribution {
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 4px 8px;
+}
+.places-map.leaflet-container .leaflet-control-attribution a {
+  color: var(--accent);
+}
+.places-map .places-map-pin {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+.places-map-dot {
+  color: var(--marker);
+  background: var(--marker-bg);
+  display: block;
+  width: 27px;
+  height: 27px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 3px solid currentColor;
+  box-shadow: 0 2px 5px #0005;
+}
+.places-map-dot::after {
+  content: "";
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin: 7px;
+  background: currentColor;
+}
+.places-map-pin.is-selected .places-map-dot {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+.places-map .places-map-cluster {
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  border: 3px solid var(--accent);
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px #0004;
+}
+.places-map .places-map-cluster > span {
+  display: block;
+  line-height: 1;
+  text-align: center;
+}
+.map-warning {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  font-size: 1rem;
+}
+.details-content .accuracy-imprecise {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #896219;
+}
+.details-map-preview {
+  position: relative;
+  margin-top: 0;
+}
+.places-map-preview .places-map.leaflet-container,
+.map-preview-loading {
+  height: 180px;
+  min-height: 0;
+  border-radius: 14px;
+}
+.map-preview-loading {
+  display: grid;
+  place-items: center;
+  background: var(--raised);
+}
+.map-preview-expand {
+  position: absolute;
+  bottom: 34px;
+  right: 8px;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.places-map-preview .map-warning {
+  margin: 0 0 8px;
+}
+:root[data-theme="dark"] .details-content .accuracy-imprecise {
+  color: #e7c17d;
+}
+.details-content .details-metadata {
+  margin-top: 0;
+  gap: 0;
+  border-top: 1px solid var(--card-divider);
+  font-size: 1rem;
+}
+.details-content .details-metadata > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0;
+}
+.details-content .details-metadata > div + div {
+  border-top: 1px solid var(--card-divider);
+}
+.details-metadata dt,
+.details-content .details-metadata dd {
+  font-size: inherit;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.details-metadata .details-coordinates,
+.details-metadata .metadata-accuracy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+}
+.details-metadata .coordinate-display {
+  margin: 0;
+  font-family: inherit;
+  letter-spacing: normal;
+  font-size: inherit;
+}
+.details-metadata .metadata-date {
+  padding: 4px 56px 4px 0;
+}
+.details-metadata .accuracy-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+.details-metadata .icon-button {
+  color: var(--muted);
+}
+.accuracy-help {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+@container (max-width: 18rem) {
+  .details-content .details-metadata > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-block: 8px;
+  }
+}
+@media (min-width: 1000px) {
+  .app-main.map-view:not(.library-only) {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: 28px;
+  }
+  .app-main.map-view:not(.library-only) ~ .save-dock .dock-inner {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: 28px;
+  }
+}
+@media (max-width: 700px) {
+  .header-inner {
+    padding: 8px 16px;
+  }
+  .brand {
+    font-size: 1.125rem;
+    gap: 8px;
+  }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .brand-mark > svg:first-child {
+    width: 23px;
+    height: 23px;
+  }
+  .brand-check {
+    left: 11px;
+    top: 8px;
+  }
+  .app-main {
+    padding-top: 12px;
+  }
+  .library-title h1 {
+    font-size: 1.75rem;
+  }
+  .search-field {
+    min-height: 48px;
+  }
+  .search-field input {
+    height: 3rem;
+    min-height: 48px;
+    padding-block: 8px;
+  }
+  .sort-button {
+    min-height: 48px;
+    width: 50px;
+  }
+  .category-chips button {
+    padding-block: 7px;
+  }
 }

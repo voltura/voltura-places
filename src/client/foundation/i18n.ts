@@ -1,4 +1,20 @@
 export const en = {
+  libraryView: "Library view",
+  listView: "List",
+  mapView: "Map",
+  mapPreview: "Map preview",
+  expandMap: "Expand map",
+  mapPreviewUnavailable: "Background map unavailable. The saved location is still shown.",
+  navigate: "Navigate",
+  showAllPlaces: "Show all",
+  mapPlaces: "places on map",
+  mapPlace: "place on map",
+  choosePlace: "Choose place",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  mapInstructions: "Select a pin for details. Use + and − to zoom, or arrow keys to move the map.",
+  mapBackgroundUnavailable:
+    "Background map unavailable. Saved pins and details are still available. Reconnect to load the map.",
   signIn: "Sign in",
   signInOrCreate: "Sign in or create account",
   continueGuest: "Continue without an account",
@@ -160,6 +176,9 @@ export const en = {
   latitude: "Latitude",
   longitude: "Longitude",
   accuracy: "Accuracy",
+  accuracyInfo: "About location accuracy",
+  accuracyExplanation:
+    "Your saved position may be anywhere within this estimated radius. A larger value means a less precise location.",
   captured: "Saved",
   manual: "Add place",
   useCurrentLocation: "Use current location",
@@ -171,6 +190,7 @@ export const en = {
   chooseLocation: "Choose a photo location or use your current location to save this place.",
   add: "Add place",
   edit: "Edit place",
+  editAction: "Edit",
   photo: "Photo (optional)",
   discardChanges: "Discard changes?",
   discardChangesHint: "Your unsaved edits will be lost.",
@@ -185,6 +205,7 @@ export const en = {
   placeDetails: "Place details",
   deletePlaceBody: "This removes the place from this library and its synced devices.",
   share: "Share place",
+  shareAction: "Share",
   shareNotice:
     "Anyone with this link can see this location. The shared copy does not expire and cannot be revoked.",
   shareReady: "Link copied. Send it to someone you trust.",
@@ -329,7 +350,7 @@ export const en = {
     "This clears the local account copy and pending edits. Export first. The cloud copy is retained.",
   privacy: "Privacy",
   privacyText:
-    "GPS is requested only when you save. Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data.",
+    "GPS is requested only when you save. Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data. Viewing maps, including place previews, loads background tiles from OpenStreetMap, which receives the viewed area, your IP address and the Places origin. Saved names, photos and group identities are not sent to the tile provider. Navigate shares the destination with your chosen map service.",
   recoveryText:
     "Your browser may remove locally saved places. Export a backup or use account sync to help prevent data loss.",
   backupEncryption: "Backup files are not encrypted.",
@@ -363,6 +384,24 @@ export const en = {
 export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
+  libraryView: "Biblioteksvy",
+  listView: "Lista",
+  mapView: "Karta",
+  mapPreview: "Kartförhandsvisning",
+  expandMap: "Visa större karta",
+  mapPreviewUnavailable:
+    "Bakgrundskartan är inte tillgänglig. Den sparade platsen visas fortfarande.",
+  navigate: "Navigera",
+  showAllPlaces: "Visa alla",
+  mapPlaces: "platser på kartan",
+  mapPlace: "plats på kartan",
+  choosePlace: "Välj plats",
+  zoomIn: "Zooma in",
+  zoomOut: "Zooma ut",
+  mapInstructions:
+    "Välj en markör för information. Använd + och − för att zooma eller piltangenterna för att flytta kartan.",
+  mapBackgroundUnavailable:
+    "Bakgrundskartan är inte tillgänglig. Sparade markörer och platsinformation finns kvar. Anslut till internet för att ladda kartan.",
   signIn: "Logga in",
   signInOrCreate: "Logga in eller skapa konto",
   continueGuest: "Fortsätt utan konto",
@@ -521,6 +560,9 @@ export const sv: Record<Message, string> = {
   latitude: "Latitud",
   longitude: "Longitud",
   accuracy: "Noggrannhet",
+  accuracyInfo: "Om platsens noggrannhet",
+  accuracyExplanation:
+    "Din sparade position kan ligga var som helst inom den uppskattade radien. Ett större värde betyder en mindre exakt position.",
   captured: "Sparad",
   manual: "Lägg till plats",
   useCurrentLocation: "Använd nuvarande plats",
@@ -532,6 +574,7 @@ export const sv: Record<Message, string> = {
   chooseLocation: "Välj bildens plats eller använd din nuvarande plats för att spara.",
   add: "Lägg till plats",
   edit: "Redigera plats",
+  editAction: "Redigera",
   placeSaved: "Platsen har sparats",
   locationUpdated: "Positionen har uppdaterats",
   discardPlace: "Kasta platsen",
@@ -550,6 +593,7 @@ export const sv: Record<Message, string> = {
   placeDetails: "Platsinformation",
   deletePlaceBody: "Platsen tas bort från detta bibliotek och dess synkroniserade enheter.",
   share: "Dela plats",
+  shareAction: "Dela",
   shareNotice:
     "Alla med länken kan se platsen. Den delade kopian upphör inte och kan inte återkallas.",
   shareReady: "Länken är kopierad. Skicka den till någon du litar på.",
@@ -698,7 +742,7 @@ export const sv: Record<Message, string> = {
     "Rensar den lokala kontokopian och väntande ändringar. Exportera först. Molnkopian behålls.",
   privacy: "Integritet",
   privacyText:
-    "GPS begärs bara när du sparar. Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata.",
+    "GPS begärs bara när du sparar. Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata. Kartor, även förhandsvisningar av platser, laddar bakgrundskartor från OpenStreetMap, som får information om området du visar, din IP-adress och Places webbursprung. Sparade namn, foton och gruppidentiteter skickas inte till kartleverantören. Navigera delar målet med din valda karttjänst.",
   recoveryText:
     "Webbläsaren kan ta bort lokalt sparade platser. Exportera en säkerhetskopia eller använd kontosynkronisering för att minska risken att förlora data.",
   backupEncryption: "Säkerhetskopior är inte krypterade.",

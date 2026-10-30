@@ -1,4 +1,5 @@
-import { test, expect, chromium, webkit, devices } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect, chromium, webkit, devices } from "./fixtures";
 
 for (const engine of [chromium, webkit]) {
   test(`${engine.name()} bottom group picker opens upward without scrolling`, async ({}, testInfo) => {
@@ -8,6 +9,7 @@ for (const engine of [chromium, webkit]) {
       baseURL: "http://127.0.0.1:5174",
       locale: "en-US",
     });
+    await mockMapTiles(context);
     await context.addInitScript(() => {
       localStorage.setItem("places-account-choice", "done");
       localStorage.setItem(

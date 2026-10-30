@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test("editor location update reports progress, cancellation, success and bounded failures", async ({
   page,

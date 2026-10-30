@@ -63,6 +63,8 @@ import {
 import {
   categorySchema,
   mapURL,
+  directionsURL,
+  type MapAction,
   parseShare,
   placeSchema,
   shareURL,
@@ -194,13 +196,19 @@ export function App() {
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest"),
     [selected, setSelected] = useState<string | null>(null);
+  const [libraryView, setLibraryView] = useState<"list" | "map">("list");
+  const [mapFocus, setMapFocus] = useState<{
+    workspace: string;
+    id: string;
+    request: number;
+  } | null>(null);
   const [editor, setEditor] = useState<{
       entity?: Entity;
       fresh?: boolean;
       draftId?: string;
     } | null>(null),
     [settings, setSettings] = useState<string | null>(null),
-    [maps, setMaps] = useState<Place | null>(null);
+    [maps, setMaps] = useState<{ place: Place; action: MapAction } | null>(null);
   const [categoryEdit, setCategoryEdit] = useState<{
       entity?: LocalRecord;
       name: string;
@@ -315,6 +323,8 @@ export function App() {
     if (workspaceIdentity(scopeRef.current).account !== key) {
       scopeRef.current = key;
       setScope(key);
+      setMapFocus(null);
+      setWorkspace(null);
       setFamilyCache(cachedFamily(next.account?.id));
       setStatus(key === "guest" ? "localOnly" : "pending");
       setSelected(null);
@@ -580,7 +590,12 @@ export function App() {
   const openMaps = (p: Place) => {
     if (prefs.provider && mapProviders().includes(prefs.provider))
       window.open(mapURL(prefs.provider, p), "_blank", "noopener,noreferrer");
-    else setMaps(p);
+    else setMaps({ place: p, action: "show" });
+  };
+  const navigate = (p: Place) => {
+    if (prefs.provider === "google" || prefs.provider === "apple")
+      window.open(directionsURL(prefs.provider, p), "_blank", "noopener,noreferrer");
+    else setMaps({ place: p, action: "navigate" });
   };
   const remove = async (p: PlaceRecord, key: string) => {
     setDeletePlace(null);
@@ -664,6 +679,7 @@ export function App() {
     setWorkspace(null);
     scopeRef.current = "guest";
     setScope("guest");
+    setMapFocus(null);
     setSelected(null);
     setEditor(null);
     setMaps(null);
@@ -695,6 +711,7 @@ export function App() {
     if (!authRef.current || workspaceIdentity(key).account !== authRef.current) return;
     scopeRef.current = key;
     setScope(key);
+    setMapFocus(null);
     setReconciling(false);
     setWorkspace(null);
     setSelected(null);
@@ -769,6 +786,18 @@ export function App() {
       t={t}
       formatDate={formatDate}
       openMaps={openMaps}
+      navigate={navigate}
+      expandMap={(place) => {
+        setSearch("");
+        setFilter("all");
+        setLibraryView("map");
+        setMapFocus((previous) => ({
+          workspace: scope,
+          id: place.id,
+          request: (previous?.request ?? 0) + 1,
+        }));
+        if (mobile) setSelected(null);
+      }}
       chooseMapProvider={(place, provider) => {
         window.open(mapURL(provider, place), "_blank", "noopener,noreferrer");
         setPrefs({ ...prefs, provider });
@@ -856,6 +885,11 @@ export function App() {
         </div>
       )}
       <LibraryView
+        view={libraryView}
+        setView={setLibraryView}
+        showDetails={!mobile}
+        mapFocus={mapFocus}
+        workspace={scope}
         canWrite={canWrite}
         title={selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : undefined}
         {...{
@@ -1202,7 +1236,8 @@ export function App() {
       )}
       {maps && (
         <MapAppChooser
-          place={maps}
+          place={maps.place}
+          action={maps.action}
           t={t}
           onClose={() => setMaps(null)}
           onChoose={(provider) => {
@@ -1362,7 +1397,7 @@ export function App() {
                 }}
               >
                 <Pencil size={18} />
-                {t("edit")}
+                {t("editAction")}
               </button>
               <button
                 className="button outline"
@@ -1372,7 +1407,7 @@ export function App() {
                 }}
               >
                 <Share2 size={18} />
-                {t("share")}
+                {t("shareAction")}
               </button>
               {account.account && !selectedFamily && familyCache.families.length > 0 && (
                 <button

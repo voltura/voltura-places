@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect } from "./fixtures";
 
 for (const [width, scale] of [
   [320, 1],
@@ -153,6 +154,7 @@ test("library selector keeps long group destinations explicit and private places
     permissions: ["geolocation"],
     geolocation: { latitude: 0, longitude: 0, accuracy: 6 },
   });
+  await mockMapTiles(context);
   await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
   const response = await context.request.post("/api/account/connect", {
     headers: {

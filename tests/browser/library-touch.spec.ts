@@ -1,4 +1,5 @@
-import { test, expect, chromium, webkit, devices } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect, chromium, webkit, devices } from "./fixtures";
 
 for (const engine of [chromium, webkit]) {
   test(`${engine.name()} touch switches from a group to private and retains the destination`, async () => {
@@ -9,6 +10,7 @@ for (const engine of [chromium, webkit]) {
       baseURL: origin,
       locale: "en-US",
     });
+    await mockMapTiles(context);
     await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
     const response = await context.request.post("/api/account/connect", {
       headers: {

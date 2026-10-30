@@ -1,5 +1,33 @@
 # Verification
 
+## Integrated publication validation — 31 October 2026
+
+The owner approved the shared preview and requested committing/publishing all pending changes: map view and navigation, compact library/details, metadata, accuracy circles and generated details headings. The existing 22px phone sheet top clearance is deliberately retained following owner feedback. Type/document checks, formatting of all 34 changed/new files, production build, 101 unit/data tests, 127 real workerd/D1 authorization/CAS/recovery checks, the real-handler authentication fixture and all 116 browser flows pass. Browser checks use synthetic GPS and map tiles; physical-device and installed map-app validation remain open. Earlier local/unpublished entries below record development observations. No promo, relay, one.com or sibling repository changes are included.
+
+Details heading follow-up — 31 October 2026 (local, unpublished): reduced sheet content's top inset to 8px and omitted the generated timestamp from recognised default English/Swedish names in the details heading only. Custom names, stored names and Saved timestamps remain intact. Check, production build, two name-format unit cases and eight relevant browser flows pass. WebKit and Chromium assert the short Place heading, retained Saved date and 8px gap at 375px; existing long-name/200% text layouts pass. The synthetic Chromium screenshot was visually inspected. Shared 5173 preview is reused; direct in-app-browser inspection was unavailable during this follow-up. Physical-phone feedback remains pending.
+
+## Compact details and map accuracy — 30 October 2026
+
+Local, unpublished: type/documentation checks, production build and 15 focused browser flows pass. Coverage includes 320/375/390/430px phones, desktop, long/unbroken names, 200% text, equal Share/Edit columns, 48px controls and WebKit/Chromium dropdown margins. The 375×667 fixture verifies a header no taller than 66px, 12px action gaps, map beginning before 550px, fixed header during body scrolling, and a visible 183m circle fitted inside the preview. Preview expansion, failed tiles and accuracy information remain covered. Synthetic-tile screenshots were visually inspected; the existing shared 5173 preview was reused and opened for feedback. Physical-phone checks and owner feedback remain pending. No publication was performed.
+
+## Details metadata rows — 30 October 2026
+
+Coordinates, Saved and Accuracy now follow Share/Edit and precede the map preview in aligned label/value rows with subtle dividers. Copy remains a 48px action; the accuracy info action toggles an inline explanation and amber low-precision values use a small dot. Narrow containers stack labels above values. Checks cover 320–1280px details, doubled text size, full coordinate copying, unknown-accuracy omission, and the information toggle. Production build and TypeScript/documentation checks pass; validation uses browser emulation, not physical devices. No publication was performed.
+
+## Details map preview — 30 October 2026
+
+Details now show a compact map preview and a 48px expand action. Phone and desktop tests verify the saved location, 180px height, attribution, one visible preview, filter clearing and centring on expansion; tile failure retains details/navigation/expand actions. All browser contexts that display maps intercept synthetic tiles. Validation passed: TypeScript/docs, production build, 101 unit/data tests, and 115 browser scenarios (112 passed in the full run; three fixture assumptions were corrected and all four affected/paired scenarios passed on targeted rerun). The fixture updates scope copy-feedback assertions to the toast, inspect the provider select before its phone sheet is dismissed, and refresh the emulated GPS after the sharing test's clock reset. Shared preview feedback was requested. Physical devices and installed map-app handoff remain unverified. No publication was performed.
+
+## Compact library/map layout — 30 October 2026
+
+The phone-first spacing revision passed TypeScript/documentation checks, the production build, all 101 unit/data tests, and 56 relevant browser scenarios. Geometry coverage includes first content within 360px on a 390px guest-library viewport, map controls inside the canvas, a taller phone map, the map bottom above the measured save dock at maximum scroll, desktop map width, content-sized details, and amber ±500m accuracy. Existing 320px, enlarged-text, long-name, details and map-provider layouts remain covered. The map resize observer preserves its geographic centre when details change the available width. Generated-name date recognition is tested in English and Swedish without rewriting stored names. Shared preview: http://127.0.0.1:5173/. Screenshots use synthetic tiles; these are browser/emulator checks, not physical-device validation. No publication was performed.
+
+## Map view and directions — 30 October 2026
+
+Map view was checked against the built Worker with its production CSP and synthetic intercepted tiles. Coverage includes shared list/map filters, saved details, duplicate-coordinate picking, 5,000-place clustering, local updates/deletion markers, tile failures/offline access, private/active/read-only group isolation, account transitions, and Google/Apple directions with exact destination precision and protected external handoff. Chromium and WebKit geometry checks cover centred cluster labels and 48px zoom controls, including keyboard activation. Required OpenStreetMap attribution stays visible in a compact single line.
+
+Validation: TypeScript/documentation check, production build, 99 unit/data tests, 127 real workerd/D1 authorization/integrity checks, and the relevant map/library/details/family browser scenarios. The shared human-review preview is http://127.0.0.1:5173/; feedback about off-centre cluster counts was incorporated. Automated map tiles are fixtures rather than real-provider traffic. Browser/device emulation does not verify physical iPhone/Android gestures or installed Google/Apple Maps handoff. No publication was performed.
+
 ## Version 0.1.1 bounded bug audit — 30 October 2026
 
 The release fixes 52 distinct bugs and adverse edge cases. Parameter variants, repeated runs and viewport/browser variants are not counted as additional defects. The original target was 140; the owner set a 70-minute total limit with deployment of the validated fixes at the cutoff.

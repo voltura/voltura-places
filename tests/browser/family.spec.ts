@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { mockMapTiles } from "./fixtures";
+import { test, expect } from "./fixtures";
 test("two signed-in family members share photos and offline saves while private places stay private", async ({
   browser,
 }, testInfo) => {
@@ -17,6 +18,7 @@ test("two signed-in family members share photos and offline saves while private 
   );
   const actors = [];
   for (const [index, context] of contexts.entries()) {
+    await mockMapTiles(context);
     await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
     const response = await context.request.post("/api/account/connect", {
       headers: {
@@ -279,10 +281,7 @@ test("two signed-in family members share photos and offline saves while private 
     await b.page
       .getByRole("button", { name: "Edit place: Private chanterelles", exact: true })
       .click();
-    await b.page
-      .getByRole("dialog")
-      .getByRole("button", { name: "Edit place", exact: true })
-      .click();
+    await b.page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
     await expect(b.page.locator(".photo-picker img")).toBeVisible();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Shared chanterelles");
     await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
@@ -367,6 +366,7 @@ test("two signed-in family members share photos and offline saves while private 
     ).toHaveCount(0);
     // Match the real device timestamp used by Chromium's geolocation fixture.
     await b.page.clock.setSystemTime(new Date());
+    await b.context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 6 });
     await b.page.getByRole("button", { name: "Save position", exact: true }).click();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Family picnic");
     await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();

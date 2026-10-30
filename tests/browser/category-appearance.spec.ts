@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 for (const theme of ["dark", "light"])
   test(`category appearance persists in ${theme} on a narrow phone`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 740 });

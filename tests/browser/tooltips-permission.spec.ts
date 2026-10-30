@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 for (const theme of ["dark", "light"]) {
   test(`coordinate tooltips use the ${theme} theme above a modal and dismiss with Escape`, async ({

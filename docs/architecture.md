@@ -1,5 +1,9 @@
 # Architecture
 
+Place details reuse the lazy-loaded map feature in a non-interactive 180px preview. Only visible details mount a preview; mobile does not mount the hidden desktop pane. The app owns the List/Map mode and workspace-scoped expansion target so expanding a preview shows the selected place in the main map without carrying targets across account/library changes. Map previews use the same tile/privacy/security/cache rules as the main map.
+
+The optional Map view lazy-loads bundled Leaflet and its marker clustering plugin. It renders only the selected workspace's existing live records; tiles come directly from OpenStreetMap's standard HTTPS raster service. Only that host is added to the image CSP. Tile images send an origin-only referrer to comply with the provider policy; outgoing map links retain no-opener/no-referrer protection. Tiles use normal HTTP caching, with no service-worker runtime cache, bulk downloads or prefetch. Provider availability is best-effort; the list and local records remain independent of tiles.
+
 Vite builds React/TypeScript and Workbox. The Worker ESM build embeds compiled app assets and packages the Sites manifest/migrations with nodejs_compat. Sites provisions the sole D1 binding DB. No separate Cloudflare account is required.
 
 Client composition → features → shared UI. Composition/features may use browser foundation and shared schemas. Server modules never import client state. IndexedDB transactions own local durability, not React state.

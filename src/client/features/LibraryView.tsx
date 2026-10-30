@@ -1,11 +1,18 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import type { ReactNode } from "react";
-import { Plus, Search, X, ArrowDownUp, Navigation, MoreHorizontal } from "lucide-react";
+import { lazy, Suspense, type ReactNode } from "react";
+import { Plus, Search, X, ArrowDownUp, Map, List, MoreHorizontal } from "lucide-react";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
 import { Tooltip } from "../ui/Tooltip";
+import { dateAppearsInPlaceName } from "../foundation/place-labels";
+const PlacesMap = lazy(() => import("./PlacesMap"));
 type Props = {
+  view: "list" | "map";
+  setView: (view: "list" | "map") => void;
+  showDetails: boolean;
+  mapFocus: { workspace: string; id: string; request: number } | null;
+  workspace: string;
   canWrite: boolean;
   title?: string;
   t: (key: Message) => string;
@@ -33,6 +40,11 @@ type Props = {
   prefs: { language: Language };
 };
 export function LibraryView({
+  view,
+  setView,
+  showDetails,
+  mapFocus,
+  workspace,
   canWrite,
   title,
   t,
@@ -60,7 +72,9 @@ export function LibraryView({
   prefs,
 }: Props) {
   return (
-    <main className={`app-main${current ? "" : " library-only"}`}>
+    <main
+      className={`app-main${current ? "" : " library-only"}${view === "map" ? " map-view" : ""}`}
+    >
       <section className="library-pane">
         {places.length > 0 && (
           <div className="library-title">
@@ -82,6 +96,18 @@ export function LibraryView({
         )}
         {places.length > 0 && (
           <>
+            <div className="library-view-switch" role="group" aria-label={t("libraryView")}>
+              {(["list", "map"] as const).map((mode) => (
+                <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>
+                  {mode === "list" ? (
+                    <List size={20} aria-hidden="true" />
+                  ) : (
+                    <Map size={20} aria-hidden="true" />
+                  )}
+                  {t(mode === "list" ? "listView" : "mapView")}
+                </button>
+              ))}
+            </div>
             <div className="search-row">
               <div className="search-field">
                 <Search size={20} />
@@ -101,17 +127,19 @@ export function LibraryView({
                   </button>
                 )}
               </div>
-              <label className="sort-button">
-                <ArrowDownUp size={20} />
-                <select
-                  aria-label={t("sort")}
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                >
-                  <option value="newest">{t("newest")}</option>
-                  <option value="name">{t("byName")}</option>
-                </select>
-              </label>
+              {view === "list" && (
+                <label className="sort-button">
+                  <ArrowDownUp size={20} />
+                  <select
+                    aria-label={t("sort")}
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                  >
+                    <option value="newest">{t("newest")}</option>
+                    <option value="name">{t("byName")}</option>
+                  </select>
+                </label>
+              )}
             </div>
             <nav className="category-chips" aria-label={t("categories")}>
               <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
@@ -153,6 +181,20 @@ export function LibraryView({
               {t("clearSearch")}
             </button>
           </div>
+        ) : view === "map" ? (
+          <Suspense fallback={<p role="status">{t("working")}</p>}>
+            <PlacesMap
+              focusId={mapFocus?.workspace === workspace ? mapFocus.id : null}
+              focusRequest={mapFocus?.workspace === workspace ? mapFocus.request : 0}
+              key={workspace}
+              places={filtered}
+              fitKey={`${search}\u0000${filter}`}
+              selected={selected}
+              onSelect={setSelected}
+              categoryColor={categoryColor}
+              t={t}
+            />
+          </Suspense>
         ) : (
           <div className="place-list">
             {filtered.map((p) => (
@@ -167,17 +209,23 @@ export function LibraryView({
                       {categoryFor(p.value.categoryId)
                         ? categoryLabel(categoryFor(p.value.categoryId)!)
                         : t("other")}
-                      <span className="middle-dot">·</span>
-                      {new Intl.DateTimeFormat(prefs.language, {
-                        day: "numeric",
-                        month: "short",
-                      }).format(new Date(p.value.capturedAt))}
+                      {!dateAppearsInPlaceName(p.value) && (
+                        <>
+                          <span className="middle-dot">·</span>
+                          <span className="card-date">
+                            {new Intl.DateTimeFormat(prefs.language, {
+                              day: "numeric",
+                              month: "short",
+                            }).format(new Date(p.value.capturedAt))}
+                          </span>
+                        </>
+                      )}
                     </span>
                   </span>
                 </button>
                 <div className="card-actions">
                   <button className="card-maps" onClick={() => openMaps(p.value)}>
-                    <Navigation size={17} />
+                    <Map size={17} />
                     {t("openMaps")}
                   </button>
                   <button
@@ -227,7 +275,7 @@ export function LibraryView({
           </section>
         )}
       </section>
-      {current && <aside className="detail-pane">{renderDetails(current)}</aside>}
+      {current && showDetails && <aside className="detail-pane">{renderDetails(current)}</aside>}
     </main>
   );
 }

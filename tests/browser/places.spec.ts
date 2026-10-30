@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 for (const provider of ["Google Maps", "Apple Maps"]) {
   test(`${provider} opens separately from the picker and remembered provider`, async ({
     page,
@@ -661,7 +661,7 @@ test("camera and library inputs support a durable offline photo and removable dr
   await context.setOffline(true);
   await page.reload();
   await page.getByRole("button", { name: "Edit place: Photo fixture", exact: true }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit place", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".photo-picker img")).toBeVisible();
   await page.getByRole("button", { name: "Remove photo", exact: true }).click();
   await expect(page.locator(".photo-picker img")).toHaveCount(0);
@@ -886,7 +886,7 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   await page.locator(".card-main").first().click();
   const detailsDialog = page.getByRole("dialog", { name: "Place details", exact: true });
   await detailsDialog.getByRole("button", { name: "Copy coordinates", exact: true }).click();
-  await expect(detailsDialog.getByRole("status")).toContainText("Copied");
+  await expect(detailsDialog.locator(".toast")).toContainText("Copied");
 });
 for (const theme of ["dark", "light"]) {
   test(`place deletion uses a ${theme} themed confirmation with safe cancellation`, async ({
@@ -981,13 +981,12 @@ for (const [width, scale] of [
         nameBottom: rect("h2").bottom,
         categoryTop: rect(".details-header").top,
         categoryBottom: rect(".details-header").bottom,
-        accuracyTop: rect("dl > div:last-child").top,
-        savedBottom: rect("dl > div:first-child").bottom,
+        accuracyTop: rect(".metadata-accuracy").top,
+        savedBottom: rect(".metadata-date").bottom,
         coordinatesTop: rect(".details-coordinates").top,
         coordinateRight: rect(".coordinate-display").right,
         copyLeft: rect(".details-coordinates button").left,
-        savedTop: rect("dt").top,
-        dateTop: rect("dd").top,
+        secondaryBottom: rect(".details-secondary-actions").bottom,
         dateSize: parseFloat(getComputedStyle(el.querySelector("dd")!).fontSize),
         nameSize: parseFloat(getComputedStyle(el.querySelector("h2")!).fontSize),
         mapsWidth: rect(".details-map-actions button:first-child").width,
@@ -1006,11 +1005,10 @@ for (const [width, scale] of [
     expect(measurements.share).toBeCloseTo(measurements.edit, 0);
     expect(measurements.coordinatesTop).toBeGreaterThanOrEqual(measurements.nameBottom);
     expect(measurements.categoryTop).toBeGreaterThan(measurements.nameBottom);
-    expect(measurements.coordinatesTop - measurements.categoryBottom).toBe(12);
+    expect(measurements.coordinatesTop).toBeGreaterThan(measurements.secondaryBottom);
     expect(measurements.accuracyTop).toBeGreaterThan(measurements.savedBottom);
     expect(measurements.copyLeft - measurements.coordinateRight).toBeCloseTo(8, 0);
     expect(measurements.dateSize).toBeLessThan(measurements.nameSize);
-    if (scale === 1) expect(Math.abs(measurements.savedTop - measurements.dateTop)).toBeLessThan(5);
     expect(measurements.mapColumns).toBe(2);
     expect(measurements.chooserWidth).toBe(56);
     await expect(details.getByRole("combobox", { name: "Open with…", exact: true })).toHaveCSS(
@@ -1037,7 +1035,7 @@ for (const [width, scale] of [
       expect(await details.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     }
     if (width === 430) {
-      await details.getByRole("button", { name: "Edit place", exact: true }).click();
+      await details.getByRole("button", { name: "Edit", exact: true }).click();
       await page.getByRole("textbox", { name: "Name", exact: true }).fill("Svamp");
       await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
       await expect(details.getByRole("heading", { name: "Svamp", exact: true })).toBeVisible();
@@ -1088,14 +1086,14 @@ test("compact editor confirms discarding edits and preserves the saved place", a
   await expect(warning).toBeVisible();
   await warning.getByRole("button", { name: "Discard changes", exact: true }).click();
   await expect(editor).toBeHidden();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit place", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   await expect(name).toHaveValue(original);
   await expect(editor.getByRole("combobox", { name: "Category", exact: true })).toHaveValue(
     "other",
   );
   await editor.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
   await expect(warning).toHaveCount(0);
-  await page.getByRole("dialog").getByRole("button", { name: "Share place", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Share", exact: true }).click();
   await expect(
     page
       .getByRole("dialog", { name: "Share place", exact: true })
@@ -1160,13 +1158,13 @@ for (const android of [true, false]) {
     );
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
     await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await expect(page.locator('.details-map-picker option[value="geo"]')).toHaveCount(
+      android ? 1 : 0,
+    );
     await page
       .locator(".details-content")
       .getByRole("button", { name: "Open maps", exact: true })
       .click();
-    await expect(page.locator('.details-map-picker option[value="geo"]')).toHaveCount(
-      android ? 1 : 0,
-    );
     const dialog = page.getByRole("dialog", { name: "Choose map app", exact: true });
     await expect(dialog.locator(".sheet-subtitle")).toHaveText(name.trim());
     await expect(dialog.getByRole("link")).toHaveCount(android ? 3 : 2);

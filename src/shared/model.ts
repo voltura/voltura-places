@@ -139,6 +139,16 @@ export function mapURL(provider: string, p: Pick<Place, "latitude" | "longitude"
   if (provider === "geo") return `geo:0,0?q=${encodeURIComponent(`${coordinates}(${p.name})`)}`;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
 }
+export type MapAction = "show" | "navigate";
+export function directionsURL(
+  provider: "google" | "apple",
+  p: Pick<Place, "latitude" | "longitude">,
+) {
+  const destination = encodeURIComponent(`${p.latitude},${p.longitude}`);
+  return provider === "apple"
+    ? `https://maps.apple.com/directions?destination=${destination}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${destination}&dir_action=navigate`;
+}
 export const shareSchema = z
   .object({
     version: z.literal(1),
