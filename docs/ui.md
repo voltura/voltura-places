@@ -1,5 +1,7 @@
 # UI contract
 
+Offline-data retention is requested automatically at launch. Settings → Backup offers Keep offline data on this device / Behåll offlinedata på den här enheten to retry and reports whether the browser grants it. Backups and account sync remain the recovery options.
+
 Active group libraries show a Participants button with the current member count. It opens Family sharing for that group. The participant list shows all members, marks the owner and the signed-in user, and refreshes while open. Only the owner sees removal controls for other members; removal requires a confirmation naming the selected person. Removing someone ends cloud access to that group while preserving downloaded copies and membership in other groups.
 
 An account may participate in several named groups (up to twenty, with ten people in each). The library selector lists private places, each active group and retained read-only group copies. Settings → Family sharing has a Group selector for management, plus Join or create another group. Codes, approvals, invitations, leaving and ownership actions apply to the selected group. A private place's Copy to family menu lists explicit group destinations. Switching libraries preserves that group's draft and pending writes without copying content between groups.

@@ -289,7 +289,7 @@ export const en = {
   working: "Working…",
   cancelCapture: "Cancel locating",
   noMethods: "Sign-in is not configured yet.",
-  persist: "Protect local storage",
+  persist: "Keep offline data on this device",
   persistGranted: "Persistent storage is enabled where supported. Backups are still recommended.",
   persistNotGranted:
     "This browser did not grant persistent storage. Keep backups or use account sync.",
@@ -595,7 +595,7 @@ export const sv: Record<Message, string> = {
   working: "Arbetar…",
   cancelCapture: "Avbryt positionering",
   noMethods: "Inloggning är ännu inte konfigurerad.",
-  persist: "Skydda lokal lagring",
+  persist: "Behåll offlinedata på den här enheten",
   persistGranted:
     "Beständig lagring är aktiverad där den stöds. Säkerhetskopior rekommenderas ändå.",
   persistNotGranted:

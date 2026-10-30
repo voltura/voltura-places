@@ -38,6 +38,7 @@ import { validPosition, captureLocation } from "../foundation/location-review";
 import { Editor } from "../features/Editor";
 import { Settings, type Preferences } from "../features/Settings";
 import { messages, type Message } from "../foundation/i18n";
+import { keepOfflineData } from "../foundation/storage";
 import { api, synchronize, type AccountState } from "../foundation/sync";
 import { cachedAccount, currentAccount, signOutLocally } from "../foundation/account";
 import {
@@ -97,6 +98,13 @@ function loadPreferences(): Preferences {
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
+  const retentionRequested = useRef(false);
+  useEffect(() => {
+    if (!retentionRequested.current) {
+      retentionRequested.current = true;
+      void keepOfflineData();
+    }
+  }, []);
   const [accountChoice, setAccountChoice] = useState(() => {
     try {
       return !cachedAccount().account && localStorage.getItem("places-account-choice") !== "done";

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, Upload, Plus, Pencil, Trash2, ArrowUpRight } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
+import { keepOfflineData } from "../foundation/storage";
 import { AccountPanel } from "./Account";
 import type { AccountState } from "../foundation/sync";
 import type { Language, Message } from "../foundation/i18n";
@@ -223,10 +224,9 @@ export function Settings({
           <button
             className="button quiet"
             onClick={() =>
-              void navigator.storage
-                ?.persist?.()
-                .then((ok) => alert(t(ok ? "persistGranted" : "persistNotGranted")))
-                .catch(() => alert(t("persistNotGranted")))
+              void keepOfflineData().then((ok) =>
+                alert(t(ok ? "persistGranted" : "persistNotGranted")),
+              )
             }
           >
             {t("persist")}

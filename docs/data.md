@@ -46,6 +46,8 @@ An owner must transfer ownership or delete each group they own before deleting t
 
 ## Privacy/recovery
 
+On launch, Places checks persistent-storage permission and requests it automatically when supported and not already granted. This best-effort browser request never blocks launch or local saving; denial, missing APIs and errors are tolerated. Backup settings retain a manual retry. The browser decides whether to grant persistence; this is neither encryption nor a backup, and explicit clearing of website data still removes local copies.
+
 GPS is explicit, never background-tracked. No end-to-end encryption claim. The app does not encrypt local copies/exports. Cleared browser storage loses unsynced data; cloud sync and exports provide recovery. Account deletion cascades records, identities, sessions and receipts.
 
 Sign-out invalidates both the Places session and the short-lived Better Auth proof session. A pending offline logout is account-specific; a server account-change response clears the stale marker instead of trapping the next account in a retry loop. Disabled account configuration denies family/photo capabilities as well as personal synchronization.

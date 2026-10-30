@@ -66,6 +66,9 @@ test("two signed-in family members share photos and offline saves while private 
       .click();
     await a.page.getByRole("textbox", { name: "Group name", exact: true }).fill("Forest family");
     await a.page.getByRole("button", { name: "Create group", exact: true }).click();
+    await expect(
+      a.page.getByRole("button", { name: "Open shared library", exact: true }),
+    ).toBeVisible();
     mainGroupId = (await (await familyAction(a, undefined)).json()).families[0].id;
     await a.page.getByRole("button", { name: "Create invitation code", exact: true }).click();
     const code = await a.page
