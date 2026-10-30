@@ -25,7 +25,7 @@ test("quick save recovers from initial unavailable positions without enabling ac
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await page.clock.runFor(1000);
   await expect(page.getByRole("alert")).toHaveCount(0);
@@ -58,7 +58,7 @@ test("first use offers optional sign-in and remembers continuing without an acco
     await page.screenshot({ path: testInfo.outputPath("first-use.png") });
     await page.getByRole("button", { name: "Continue without an account", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeHidden();
-    await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
     await page.reload();
     await expect(page.getByRole("dialog", { name: "Use Places", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -94,7 +94,7 @@ test("first location permission grant recovers in the current app without a rest
     };
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await page.evaluate(() => (window as unknown as { grantLocation: () => void }).grantLocation());
   await expect(
     page.getByRole("dialog", { name: "Saved on this device", exact: true }),
@@ -120,10 +120,10 @@ for (const failure of ["invalid", "throw"] as const) {
       failure,
     );
     await page.goto("/");
-    await page.getByRole("button", { name: "Save here", exact: true }).click();
+    await page.getByRole("button", { name: "Save position", exact: true }).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your places 0", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
   });
 }
 
@@ -147,7 +147,7 @@ test("an account change clears an open private map dialog", async ({ page }) => 
   );
   await page.route("**/api/family", (route) => route.fulfill({ json: { family: null } }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Private review fixture");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
@@ -191,7 +191,7 @@ for (const [width, height, textScale] of [
     };
     expect(await font(".save-here")).toBeGreaterThanOrEqual(20 * textScale);
     expect(await font(".search-field input")).toBeGreaterThanOrEqual(18 * textScale);
-    await page.getByRole("button", { name: "Spara här", exact: true }).click();
+    await page.getByRole("button", { name: "Spara position", exact: true }).click();
     await page
       .getByRole("textbox", { name: "Namn", exact: true })
       .fill("Svampstället vid den gamla tallstigen");
@@ -275,18 +275,18 @@ test("a Swedish app link overrides English browser/preferences and remembers the
   page,
 }) => {
   await page.goto("/?lang=sv");
-  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spara position", exact: true })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
   await expect(page).toHaveURL("/");
   await page.reload();
-  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spara position", exact: true })).toBeVisible();
   await page.goto("/?lang=en");
-  await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeVisible();
   await page.goto("/?lang=sv&source=family");
-  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spara position", exact: true })).toBeVisible();
   await expect(page).toHaveURL("/?source=family");
   await page.goto("/?lang=unknown");
-  await expect(page.getByRole("button", { name: "Spara här", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spara position", exact: true })).toBeVisible();
 });
 test("desktop stays focused on the library and opens details only for a selected place", async ({
   page,
@@ -297,7 +297,7 @@ test("desktop stays focused on the library and opens details only for a selected
   await expect(page.getByRole("complementary")).toHaveCount(0);
   await expect(page.getByText("Works offline", { exact: true })).toHaveCount(1);
   await expect(page.locator(".detail-welcome, .trail-art, .library-title .eyebrow")).toHaveCount(0);
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Desktop trailhead");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
@@ -348,7 +348,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
     .getByRole("combobox", { name: "Distance units", exact: true })
     .selectOption("imperial");
   await page.reload();
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   const review = page.getByRole("dialog", { name: "Check your location", exact: true });
   await expect(review).toBeVisible();
   await expect(review.getByRole("meter")).toHaveAttribute("aria-valuenow", "4");
@@ -391,7 +391,7 @@ test("accuracy review handles denied permission and cancel without saving", asyn
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   const review = page.getByRole("dialog", { name: "Check your location", exact: true });
   await expect(review.getByRole("alert")).toContainText("Location access was denied");
   await expect(
@@ -479,10 +479,10 @@ test("GPS denial leaves the library intact and offers recovery", async ({ page }
     }),
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Location access was denied");
   await expect(page.getByRole("heading", { name: "Your places 0" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save here", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
 });
 test("an unfinished manual draft reopens after reload", async ({ page }) => {
   await page.goto("/");
@@ -520,7 +520,7 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 59.3293, longitude: 18.0686, accuracy: 8 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Save here", exact: true }).click();
+  await page.getByRole("button", { name: "Save position", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Saved on this device" })).toBeVisible();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();

@@ -30,6 +30,8 @@
   -webkit-font-smoothing: antialiased;
   accent-color: var(--accent);
   scrollbar-gutter: stable;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 :root:has(dialog[open]) {
   overflow: hidden;
@@ -64,6 +66,8 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
   background:
     radial-gradient(ellipse at 85% 0%, var(--ambient), transparent 65%) no-repeat,
     var(--bg);
@@ -764,8 +768,11 @@ hr {
 .sheet-content {
   padding: 24px;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
   scrollbar-width: thin;
   scrollbar-color: var(--muted) var(--surface);
 }

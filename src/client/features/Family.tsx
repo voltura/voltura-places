@@ -299,7 +299,7 @@ export function FamilyPanel({
                           void action({ action: "remove", member: member.id });
                       }}
                     >
-                      {t("familyRemoveMember")} · {member.label}
+                      {t("familyRemoveMember")}
                     </button>
                   </div>
                 )}

@@ -51,7 +51,7 @@ test("two signed-in family members share photos and offline saves while private 
   try {
     await a.page.goto("/");
     await a.page.getByRole("button", { name: "Use the account library", exact: true }).click();
-    await a.page.getByRole("button", { name: "Save here", exact: true }).click();
+    await a.page.getByRole("button", { name: "Save position", exact: true }).click();
     await a.page.getByRole("textbox", { name: "Name", exact: true }).fill("Private chanterelles");
     await a.page
       .locator('input[type="file"][accept="image/*"]:not([capture])')
@@ -133,7 +133,7 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
     ).toBeVisible();
-    await a.page.getByRole("button", { name: "Save here", exact: true }).click();
+    await a.page.getByRole("button", { name: "Save position", exact: true }).click();
     await a.page
       .getByRole("textbox", { name: "Name", exact: true })
       .fill("Offline mushroom clearing");
@@ -173,7 +173,7 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       b.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
     ).toHaveCount(0);
-    await b.page.getByRole("button", { name: "Save here", exact: true }).click();
+    await b.page.getByRole("button", { name: "Save position", exact: true }).click();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Family picnic");
     await b.page.getByRole("button", { name: "Save changes", exact: true }).click();
     await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
@@ -197,9 +197,35 @@ test("two signed-in family members share photos and offline saves while private 
     const participants = a.page.getByRole("list", { name: "Participants · 2/10" });
     await expect(participants.getByText("Owner", { exact: true })).toBeVisible();
     await expect(participants.getByText("You", { exact: true })).toBeVisible();
+    for (const [width, scale] of [
+      [320, 1],
+      [390, 1],
+      [375, 2],
+    ]) {
+      await a.page.setViewportSize({ width, height: 844 });
+      await a.page.evaluate((value) => {
+        document.documentElement.style.fontSize = `${value * 100}%`;
+      }, scale);
+      expect(
+        await a.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+      const content = a.page.locator("dialog[open] .sheet-content");
+      expect(await content.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      expect(
+        await content.evaluate((el) => {
+          el.scrollLeft = 100;
+          return el.scrollLeft;
+        }),
+      ).toBe(0);
+    }
+    await a.page.setViewportSize({ width: 390, height: 844 });
+    await a.page.evaluate(() => {
+      document.documentElement.style.fontSize = "100%";
+    });
+    await participants.scrollIntoViewIfNeeded();
     await a.page.screenshot({ path: testInfo.outputPath("group-participants.png") });
     const remove = a.page.getByRole("button", {
-      name: "Remove member · family-1@example.invalid",
+      name: "Remove member",
       exact: true,
     });
     a.page.once("dialog", async (dialog) => {
@@ -230,7 +256,7 @@ test("two signed-in family members share photos and offline saves while private 
         { exact: true },
       ),
     ).toBeVisible();
-    await expect(b.page.getByRole("button", { name: "Save here", exact: true })).toBeDisabled();
+    await expect(b.page.getByRole("button", { name: "Save position", exact: true })).toBeDisabled();
     await expect(b.page.getByRole("button", { name: "Add place", exact: true })).toBeDisabled();
     await expect(b.page.getByRole("button", { name: /Participants/ })).toHaveCount(0);
     expect((await familyAction(b, { action: "create", name: "A different family" })).ok()).toBe(
