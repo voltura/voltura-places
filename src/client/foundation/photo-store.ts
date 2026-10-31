@@ -36,6 +36,9 @@ export function watchPhoto(workspace: string, id: string, onChange: () => void) 
     photoChannel?.removeEventListener("message", remote);
   };
 }
+export async function workspacePhotos(workspace: string) {
+  return (await database()).getAllFromIndex("photos", "workspace", workspace);
+}
 export async function getPhoto(workspace: string, id: string) {
   return (await database()).get("photos", [workspace, id]);
 }
@@ -46,6 +49,24 @@ export async function makeStoredPhoto(
 ): Promise<StoredPhoto> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   jpegDimensions(bytes);
+  // A browser decoder verifies entropy data as well as the shared structural checks.
+  if (typeof createImageBitmap === "function") {
+    const image = await createImageBitmap(blob).catch(() => {
+      throw new Error("invalidPhoto");
+    });
+    image.close();
+  } else if (typeof Image !== "undefined") {
+    const url = URL.createObjectURL(blob);
+    try {
+      const image = new Image();
+      image.src = url;
+      await image.decode();
+    } catch {
+      throw new Error("invalidPhoto");
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
   return {
     workspace,
     id,

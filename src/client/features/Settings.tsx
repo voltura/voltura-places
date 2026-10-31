@@ -1,3 +1,4 @@
+import { skins, type Skin } from "../foundation/appearance";
 import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -35,9 +36,11 @@ type Section = keyof typeof sectionIcons;
 export type Preferences = {
   language: Language;
   theme: "light" | "dark" | "system";
+  skin: Skin;
   provider: "google" | "apple" | "geo" | "";
   lastCategory: string;
   reviewGps: boolean;
+  autoHideControls: boolean;
   units: DistanceUnits;
 };
 export function Settings({
@@ -162,7 +165,7 @@ export function Settings({
           <h3>{t("preferences")}</h3>
           <div className="preferences-options">
             <label className="preference-row">
-              <span>{t("appearance")}</span>
+              <span>{t("colorMode")}</span>
               <span className="preference-value" aria-hidden="true">
                 {t(preferences.theme)}
               </span>
@@ -176,6 +179,23 @@ export function Settings({
                 {(["light", "dark", "system"] as const).map((k) => (
                   <option key={k} value={k}>
                     {t(k)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="preference-row">
+              <span>{t("theme")}</span>
+              <span className="preference-value" aria-hidden="true">
+                {t(preferences.skin)}
+              </span>
+              <ChevronRight size={20} aria-hidden="true" />
+              <select
+                value={preferences.skin}
+                onChange={(e) => onPreferences({ ...preferences, skin: e.target.value as Skin })}
+              >
+                {skins.map((skin) => (
+                  <option key={skin} value={skin}>
+                    {t(skin)}
                   </option>
                 ))}
               </select>
@@ -254,6 +274,20 @@ export function Settings({
             />
             <small id="gps-review-help">{t("reviewGpsHint")}</small>
           </label>
+          <label className="gps-setting">
+            <span>{t("autoHideControls")}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label={t("autoHideControls")}
+              aria-describedby="auto-hide-help"
+              checked={preferences.autoHideControls}
+              onChange={(e) =>
+                onPreferences({ ...preferences, autoHideControls: e.target.checked })
+              }
+            />
+            <small id="auto-hide-help">{t("autoHideControlsHint")}</small>
+          </label>
           <div className="preferences-disclosures">
             <details>
               <summary>
@@ -313,7 +347,7 @@ export function Settings({
                 <span>{categoryLabel(c)}</span>
                 <button
                   className="icon-button"
-                  aria-label={`${t("rename")} ${categoryLabel(c)}`}
+                  aria-label={`${t("editCategory")} ${categoryLabel(c)}`}
                   disabled={!canWrite}
                   onClick={() => onCategory(c)}
                 >

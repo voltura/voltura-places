@@ -1,3 +1,5 @@
+import { applyAppearance, validSkin } from "../foundation/appearance";
+import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
 import { shareOrCopy } from "../foundation/sharing";
 import { categoryAppearance, CategoryAppearancePicker } from "../features/CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
@@ -82,9 +84,11 @@ function loadPreferences(): Preferences {
   const defaults: Preferences = {
     language: linkedLanguage ?? (navigator.language.startsWith("sv") ? "sv" : "en"),
     theme: "dark",
+    skin: "forest",
     provider: "",
     lastCategory: "other",
     reviewGps: false,
+    autoHideControls: false,
     units: "metric",
   };
   try {
@@ -99,7 +103,9 @@ function loadPreferences(): Preferences {
         ...defaults,
         ...v,
         language: linkedLanguage ?? v.language,
+        skin: validSkin(v.skin),
         reviewGps: v.reviewGps === true,
+        autoHideControls: v.autoHideControls === true,
         units: v.units === "imperial" ? "imperial" : "metric",
       };
   } catch {}
@@ -158,25 +164,19 @@ export function App() {
   );
   useEffect(() => setLibraryOpen(false), [account.account?.id]);
   const saveDock = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const dock = saveDock.current!;
-    const measure = () =>
-      document.documentElement.style.setProperty(
-        "--save-dock-height",
-        `${dock.getBoundingClientRect().height}px`,
-      );
-    const observer = new ResizeObserver(measure);
-    observer.observe(dock);
-    measure();
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty("--save-dock-height");
-    };
-  }, []);
   const [deletePlace, setDeletePlace] = useState<{ place: PlaceRecord; scope: string } | null>(
     null,
   );
-  useEffect(() => setDeletePlace(null), [scope, account.account?.id]);
+  const [deleteCategory, setDeleteCategory] = useState<{
+    entity: LocalRecord;
+    scope: string;
+  } | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState(false);
+  const categoryDeletePending = useRef(false);
+  useEffect(() => {
+    setDeletePlace(null);
+    setDeleteCategory(null);
+  }, [scope, account.account?.id]);
   useEffect(() => {
     if (account.account) completeAccountChoice();
   }, [account.account?.id]);
@@ -197,6 +197,9 @@ export function App() {
     [sort, setSort] = useState("newest"),
     [selected, setSelected] = useState<string | null>(null);
   const [libraryView, setLibraryView] = useState<"list" | "map">("list");
+  const [fullscreenDetails, setFullscreenDetails] = useState(false);
+  const [fullscreenScope, setFullscreenScope] = useState<string | null>(null);
+  useEffect(() => setFullscreenScope(null), [scope, libraryView]);
   const [mapFocus, setMapFocus] = useState<{
     workspace: string;
     id: string;
@@ -286,6 +289,9 @@ export function App() {
         ? a.value.name.localeCompare(b.value.name, prefs.language)
         : Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt),
     );
+  useEffect(() => {
+    if (!filtered.length) setFullscreenScope(null);
+  }, [filtered.length]);
   const current = places.find((p) => p.id === selected),
     conflicts = workspace?.records.filter((r) => r.conflict) ?? [];
   const notify = (key: Message, error = false) => setNotice({ text: t(key), error });
@@ -357,7 +363,7 @@ export function App() {
             request === accountRequest.current &&
             workspaceIdentity(scopeRef.current).account === next.account!.id
           ) {
-            setFamilyCache(storeFamilies(next.account!.id, value));
+            setFamilyCache((previous) => storeFamilies(next.account!.id, value, previous));
           }
         })
         .catch(() => {});
@@ -458,9 +464,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = prefs.language;
     const m = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () =>
-      (document.documentElement.dataset.theme =
-        prefs.theme === "system" ? (m.matches ? "dark" : "light") : prefs.theme);
+    const apply = () => applyAppearance(prefs.theme, prefs.skin, m.matches);
     apply();
     m.addEventListener("change", apply);
     try {
@@ -510,7 +514,7 @@ export function App() {
       updateMonitor.current?.dispose();
     };
   }, []);
-  async function save(entity: Entity, base?: Entity, clearDraft = false) {
+  async function save(entity: Entity, base?: Entity | null, clearDraft = false) {
     const key = scopeRef.current;
     if (!writeAllowed.current) throw new Error("familyAccessEnded");
     if (!(await readWorkspace(key)).reconciled) throw new Error("syncBusy");
@@ -604,7 +608,7 @@ export function App() {
       return;
     }
     try {
-      await deleteEntity(key, p.id);
+      await deleteEntity(key, p.id, () => scopeRef.current === key && writeAllowed.current);
       if (scopeRef.current !== key) return;
       setSelected(null);
       setMenu(null);
@@ -736,7 +740,7 @@ export function App() {
   function familyChanged(families: Family[]) {
     familyRequest.current++;
     if (account.account && authRef.current === account.account.id) {
-      setFamilyCache(storeFamilies(account.account.id, families));
+      setFamilyCache((previous) => storeFamilies(account.account!.id, families, previous));
     }
   }
   async function copyToFamily(id: string, groupId: string) {
@@ -774,6 +778,59 @@ export function App() {
     const c = categoryFor(id);
     return categoryAppearance(c).color;
   };
+  const mapFullscreen = fullscreenScope === scope && libraryView === "map" && filtered.length > 0;
+  const controls = useAutoHideSaveBar(
+    prefs.autoHideControls,
+    !!(
+      locating ||
+      reconciling ||
+      libraryOpen ||
+      editor ||
+      settings ||
+      maps ||
+      categoryEdit ||
+      backup ||
+      shared ||
+      sharePlace ||
+      menu ||
+      deletePlace ||
+      deleteCategory ||
+      copyGroupPicker ||
+      (accountChoice && !account.account) ||
+      mapFullscreen ||
+      (current && mobile)
+    ),
+    `${scope}:${libraryView}:${mapFullscreen}`,
+  );
+  useEffect(() => {
+    const dock = saveDock.current!;
+    const reveal = document.querySelector<HTMLElement>(".show-controls");
+    const measure = () => {
+      const clearance = reveal
+        ? reveal.getBoundingClientRect().height + parseFloat(getComputedStyle(reveal).bottom)
+        : dock.getBoundingClientRect().height;
+      document.documentElement.style.setProperty(
+        "--save-dock-height",
+        `${reveal ? 0 : clearance}px`,
+      );
+      document.documentElement.style.setProperty(
+        "--floating-controls-clearance",
+        `${reveal ? clearance + 8 : 0}px`,
+      );
+      // Changing bottom clearance can clamp the document scroll at its end.
+      // That layout adjustment is not an upward browsing gesture.
+      controls.rebase();
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(dock);
+    if (reveal) observer.observe(reveal);
+    measure();
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--save-dock-height");
+      document.documentElement.style.removeProperty("--floating-controls-clearance");
+    };
+  }, [controls.hidden]);
   const renderDetails = (record: PlaceRecord) => (
     <PlaceDetails
       canWrite={canWrite}
@@ -796,7 +853,7 @@ export function App() {
           id: place.id,
           request: (previous?.request ?? 0) + 1,
         }));
-        if (mobile) setSelected(null);
+        if (mobile || mapFullscreen) setSelected(null);
       }}
       chooseMapProvider={(place, provider) => {
         window.open(mapURL(provider, place), "_blank", "noopener,noreferrer");
@@ -812,6 +869,22 @@ export function App() {
   );
   return (
     <>
+      {controls.hidden && (
+        <button
+          className="button outline show-controls"
+          onClick={(event) => {
+            controls.reveal();
+            if (event.detail === 0)
+              requestAnimationFrame(() =>
+                saveDock.current
+                  ?.querySelector<HTMLButtonElement>(".save-here")
+                  ?.focus({ preventScroll: true }),
+              );
+          }}
+        >
+          {t("showControls")}
+        </button>
+      )}
       <header className="app-header">
         <div className="header-inner">
           <Brand />
@@ -819,6 +892,7 @@ export function App() {
             <button
               className={`sync-pill ${status === "actionRequired" ? "warning" : ""}`}
               onClick={() => setSettings("account")}
+              aria-describedby={account.account ? "account-sync-status" : undefined}
               aria-label={
                 account.account
                   ? t("account")
@@ -829,7 +903,13 @@ export function App() {
                 <UserRound size={24} aria-hidden="true" />
                 {account.account && <span className="status-dot" aria-hidden="true" />}
               </span>
-              <span className="account-label">
+              <span
+                id="account-sync-status"
+                className="account-label"
+                role={account.account ? "status" : undefined}
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 {!account.account
                   ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
                   : t(
@@ -885,9 +965,19 @@ export function App() {
         </div>
       )}
       <LibraryView
+        onBrowse={controls.browse}
         view={libraryView}
         setView={setLibraryView}
-        showDetails={!mobile}
+        showDetails={!mobile && !mapFullscreen}
+        fullscreen={mapFullscreen}
+        onFullscreenChange={(value) => {
+          setFullscreenDetails(false);
+          setFullscreenScope(value ? scope : null);
+        }}
+        setSelected={(id) => {
+          setSelected(id);
+          if (mapFullscreen) setFullscreenDetails(true);
+        }}
         mapFocus={mapFocus}
         workspace={scope}
         canWrite={canWrite}
@@ -904,7 +994,6 @@ export function App() {
           sort,
           setSort,
           selected,
-          setSelected,
           categoryLabel,
           categoryFor,
           categoryColor,
@@ -932,7 +1021,12 @@ export function App() {
         }
       />
 
-      <div className="save-dock" ref={saveDock}>
+      <div
+        className={`save-dock${prefs.autoHideControls ? " auto-hide-dock" : ""}${controls.hidden ? " controls-hidden" : ""}`}
+        ref={saveDock}
+        inert={controls.hidden}
+        aria-hidden={controls.hidden || undefined}
+      >
         <div className={`dock-inner${current ? "" : " library-only"}`}>
           <div className="save-action">
             {!online && workspace && (
@@ -1064,12 +1158,12 @@ export function App() {
           onClose={() => {
             if (scopeRef.current === scope) setEditor(null);
           }}
-          onSave={(value) => save(value, editor.entity, true)}
+          onSave={(value, base) => save(value, base, true)}
           onDiscardPlace={async (id) => {
             const key = scope;
             if (scopeRef.current !== key || !writeAllowed.current)
               throw new Error("familyAccessEnded");
-            await deleteEntity(key, id);
+            await deleteEntity(key, id, () => scopeRef.current === key && writeAllowed.current);
             if (scopeRef.current !== key) return;
             setSelected(null);
             await refresh();
@@ -1113,7 +1207,8 @@ export function App() {
           onCheckUpdates={() => {
             void updateMonitor.current
               ?.check(true)
-              .then((result) =>
+              .then((result) => {
+                if (result === "ready") setUpdate(true);
                 notify(
                   result === "current"
                     ? "upToDate"
@@ -1122,8 +1217,8 @@ export function App() {
                       : result === "ready"
                         ? "updateReady"
                         : "checkingUpdates",
-                ),
-              )
+                );
+              })
               .catch(() => notify("serviceUnavailable", true));
           }}
           onExport={() => void download()}
@@ -1141,14 +1236,8 @@ export function App() {
               ...categoryAppearance(entity),
             })
           }
-          onDeleteCategory={(r) => {
-            if (canWrite && confirm(`${t("deleteCategory")}\n${t("deleteCategoryBody")}`))
-              void deleteEntity(scope, r.id)
-                .then(() => {
-                  void refresh();
-                  sync();
-                })
-                .catch(() => notify("storageFailure", true));
+          onDeleteCategory={(entity) => {
+            if (canWrite && entity.id !== "other") setDeleteCategory({ entity, scope });
           }}
           account={account}
           onAccount={async () => {
@@ -1166,7 +1255,7 @@ export function App() {
       )}
       {categoryEdit && (
         <Sheet
-          title={t(categoryEdit.entity ? "rename" : "newCategory")}
+          title={t(categoryEdit.entity ? "editCategory" : "newCategory")}
           onClose={() => {
             if (!savingCategory) setCategoryEdit(null);
           }}
@@ -1232,6 +1321,61 @@ export function App() {
               {t(savingCategory ? "working" : "save")}
             </button>
           </form>
+        </Sheet>
+      )}
+      {deleteCategory && deleteCategory.scope === scope && (
+        <Sheet
+          title={t("deleteCategory")}
+          closeLabel={t("cancel")}
+          onClose={() => {
+            if (!deletingCategory) setDeleteCategory(null);
+          }}
+        >
+          <div className="stack">
+            <p>
+              <strong>{categoryLabel(deleteCategory.entity)}</strong>
+            </p>
+            <p>{t("deleteCategoryBody")}</p>
+            <div className="action-pair">
+              <button
+                className="button outline"
+                data-initial-focus
+                disabled={deletingCategory}
+                onClick={() => setDeleteCategory(null)}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                className="button danger"
+                disabled={deletingCategory || !canWrite}
+                onClick={() =>
+                  void (async () => {
+                    if (categoryDeletePending.current) return;
+                    const { entity, scope: key } = deleteCategory;
+                    const isCurrent = () => scopeRef.current === key && writeAllowed.current;
+                    if (!isCurrent()) return;
+                    categoryDeletePending.current = true;
+                    setDeletingCategory(true);
+                    try {
+                      await deleteEntity(key, entity.id, isCurrent);
+                      if (!isCurrent()) return;
+                      setDeleteCategory(null);
+                      setFilter((previous) => (previous === entity.id ? "all" : previous));
+                      await refresh();
+                      sync();
+                    } catch (error) {
+                      if (isCurrent()) notify(libraryErrorMessage(error), true);
+                    } finally {
+                      categoryDeletePending.current = false;
+                      setDeletingCategory(false);
+                    }
+                  })()
+                }
+              >
+                {t(deletingCategory ? "working" : "delete")}
+              </button>
+            </div>
+          </div>
         </Sheet>
       )}
       {maps && (
@@ -1439,11 +1583,21 @@ export function App() {
           )}
         </Sheet>
       )}
-      {current && mobile && !editor && !menu && !sharePlace && !settings && !maps && (
-        <Sheet title={t("placeDetails")} onClose={() => setSelected(null)} closeLabel={t("close")}>
-          {renderDetails(current)}
-        </Sheet>
-      )}
+      {current &&
+        (mobile || (mapFullscreen && fullscreenDetails)) &&
+        !editor &&
+        !menu &&
+        !sharePlace &&
+        !settings &&
+        !maps && (
+          <Sheet
+            title={t("placeDetails")}
+            onClose={() => setSelected(null)}
+            closeLabel={t("close")}
+          >
+            {renderDetails(current)}
+          </Sheet>
+        )}
       {deletePlace && deletePlace.scope === scope && (
         <Sheet
           title={t("deletePlace")}

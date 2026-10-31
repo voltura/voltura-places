@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
+import { captureValidatedSource } from "./validated-source.mjs";
 import { dirname, resolve } from "node:path";
 import { connectSftp } from "./sftp-connection.mjs";
 import { assertDestination, digest, promoManifest } from "./promo-manifest.mjs";
@@ -8,6 +8,8 @@ let client;
 try {
   const args = process.argv.slice(2);
   const rollbackId = args[0] === "--rollback" ? args[1] : null;
+  const source = args[0] === "--dry-run" ? null : captureValidatedSource();
+  const assertSource = () => source?.assertCurrent();
   if (!rollbackId) await import("./build-promo.mjs");
   const manifest = rollbackId ? [] : await promoManifest();
   if (args[0] === "--dry-run") {
@@ -25,9 +27,7 @@ try {
   } else {
     if (args.length && !rollbackId)
       throw new Error("Usage: publish:promo [--dry-run | --rollback <backup-id>]");
-    const git = (a) => execFileSync("git", a, { encoding: "utf8", windowsHide: true }).trim();
-    if (git(["branch", "--show-current"]) !== "main" || git(["status", "--porcelain"]))
-      throw new Error("Require clean reviewed main.");
+    assertSource();
     client = await connectSftp({ allowFirstUse: false });
     const safe = async (path) => {
       assertDestination(path);
@@ -69,7 +69,7 @@ try {
       await mkdir(folder, { recursive: true });
       const record = {
         id,
-        commit: git(["rev-parse", "HEAD"]),
+        commit: source.sha,
         files: [],
       };
       const journal = () => writeFile(`${folder}/journal.json`, JSON.stringify(record, null, 2));
@@ -85,6 +85,7 @@ try {
         });
       }
       await journal();
+      assertSource();
       await ensureDir("places");
       await ensureDir("places/assets");
       await ensureDir("places/sv");
@@ -96,6 +97,7 @@ try {
       await client.posixRename(replacement, probe);
       await client.delete(probe);
       for (const entry of record.files) {
+        assertSource();
         const bytes = await readFile(entry.source);
         if (digest(bytes) !== entry.sha256) throw new Error("Source changed after manifest");
         entry.attempted = true;
@@ -111,6 +113,7 @@ try {
         if (!response.ok || digest(Buffer.from(await response.arrayBuffer())) !== entry.sha256)
           throw new Error("HTTPS payload verification failed.");
       }
+      assertSource();
       record.verified = true;
       await journal();
       console.log(`Published https://voltura.se/places/\nPlaces payloads verified. Backup: ${id}`);

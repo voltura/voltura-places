@@ -2,8 +2,14 @@ import { CategoryIcon } from "./CategoryAppearance";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LocateFixed, LoaderCircle, MapPin } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
-import { getDraft, setDraft } from "../foundation/library";
-import { placeSchema, type Entity, type LocalRecord, type Place } from "../../shared/model";
+import { clearDraft, getDraft, setDraft } from "../foundation/library";
+import {
+  entitySchema,
+  placeSchema,
+  type Entity,
+  type LocalRecord,
+  type Place,
+} from "../../shared/model";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
 import { z } from "zod";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
@@ -11,6 +17,7 @@ import { LocationReview } from "./LocationReview";
 import { captureLocation, refineLocation } from "../foundation/location-review";
 import { PhotoPicker } from "./PlacePhoto";
 const draftSchema = z.object({
+  base: entitySchema.nullable().optional(),
   id: z.string(),
   name: z.string(),
   categoryId: z.string(),
@@ -41,7 +48,7 @@ export function Editor({
   categoryLabel: (r: LocalRecord) => string;
   t: (k: Message) => string;
   onClose: () => void;
-  onSave: (entity: Entity) => Promise<void>;
+  onSave: (entity: Entity, base: Entity | null) => Promise<void>;
   onDiscardPlace: (id: string) => Promise<void>;
   workspace: string;
   reviewGps: boolean;
@@ -51,6 +58,7 @@ export function Editor({
   updateReady?: boolean;
   onUpdate?: () => void;
 }) {
+  const comparisonBase = useRef<Entity | null>(entity ?? null);
   const initial = entity?.kind === "place" ? entity.value : null;
   const [name, setName] = useState(initial?.name ?? ""),
     [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
@@ -100,6 +108,7 @@ export function Editor({
     accuracy,
     capturedAt,
     id: id.current,
+    base: comparisonBase.current,
   };
   useEffect(() => {
     let active = true;
@@ -108,6 +117,8 @@ export function Editor({
         const parsed = draftSchema.safeParse(d);
         if (active && parsed.success && parsed.data.id === id.current) {
           const v = parsed.data;
+          // Legacy drafts have no trustworthy comparison base: preserve both versions.
+          comparisonBase.current = v.base ?? null;
           setName(v.name);
           setCategory(v.categoryId);
           setLat(v.latitude);
@@ -167,7 +178,10 @@ export function Editor({
     stopCapture.current();
     stopRefinement.current();
     try {
-      await onSave({ id: id.current, kind: "place", value: parsed.data as Place });
+      await onSave(
+        { id: id.current, kind: "place", value: parsed.data as Place },
+        comparisonBase.current,
+      );
       onClose();
     } catch (error) {
       setError(t(libraryErrorMessage(error)));
@@ -179,7 +193,7 @@ export function Editor({
     if (busy || photoBusy || !ready) return;
     stopCapture.current();
     stopRefinement.current();
-    void setDraft(workspace, null)
+    void clearDraft(workspace, id.current)
       .then(onClose)
       .catch(() => setError(t("storageFailure")));
   };

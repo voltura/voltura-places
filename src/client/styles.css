@@ -34,7 +34,7 @@
   scroll-padding-bottom: calc(var(--save-dock-height, 150px) + 16px);
   overscroll-behavior-x: none;
 }
-:root:has(dialog[open]) {
+:root:has(dialog:modal) {
   overflow: hidden;
 }
 :root[data-theme="dark"] {
@@ -885,6 +885,8 @@ hr {
   }
 }
 .sheet {
+  -webkit-user-select: none;
+  user-select: none;
   margin: auto;
   padding: 0;
   padding-bottom: 14px;
@@ -925,6 +927,8 @@ hr {
   border-bottom: 1px solid var(--border);
 }
 .sheet-head h2 {
+  -webkit-user-select: none;
+  user-select: none;
   font-size: 21px;
   overflow-wrap: anywhere;
 }
@@ -2675,9 +2679,19 @@ details p {
   max-width: 440px;
   margin-inline: auto;
 }
+@media (min-width: 701px) {
+  .save-action {
+    margin-inline: 0;
+  }
+}
 .dock-inner.library-only {
   grid-template-columns: minmax(0, 1fr);
   max-width: 760px;
+}
+@media (min-width: 701px) and (max-width: 900px) {
+  .dock-inner.library-only {
+    max-width: 792px;
+  }
 }
 .empty-state h1 {
   margin: 0;
@@ -3108,11 +3122,66 @@ select option .category-icon {
 .map-frame {
   position: relative;
 }
-.map-show-all {
+.map-surface {
+  position: static;
+  display: block;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: visible;
+}
+.map-surface.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.map-surface.is-fullscreen .map-frame {
+  flex: 1;
+  min-height: 0;
+}
+.map-surface.is-fullscreen .places-map {
+  height: 100%;
+  border-radius: 0;
+}
+.map-surface.is-fullscreen .map-warning {
+  margin: 0;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+.map-surface.is-fullscreen .leaflet-top {
+  top: env(safe-area-inset-top);
+}
+.map-surface.is-fullscreen .leaflet-left {
+  left: env(safe-area-inset-left);
+}
+.map-surface.is-fullscreen .leaflet-bottom {
+  bottom: env(safe-area-inset-bottom);
+}
+.map-surface.is-fullscreen .leaflet-right {
+  right: env(safe-area-inset-right);
+}
+.map-actions {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
   z-index: 1;
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 8px;
+}
+.map-fullscreen-toggle {
+  background: var(--surface);
+  box-shadow: 0 2px 6px #0003;
+}
+.map-show-all {
   min-height: 48px;
   width: auto;
   padding: 8px 12px;
@@ -3147,6 +3216,10 @@ select option .category-icon {
   padding: 4px 8px;
 }
 .places-map.leaflet-container .leaflet-control-attribution a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding-inline: 4px;
   color: var(--accent);
 }
 .places-map .places-map-pin {
@@ -3224,7 +3297,7 @@ select option .category-icon {
 }
 .map-preview-expand {
   position: absolute;
-  bottom: 34px;
+  top: 8px;
   right: 8px;
   z-index: 1;
   width: 48px;
@@ -3355,5 +3428,62 @@ select option .category-icon {
   }
   .category-chips button {
     padding-block: 7px;
+  }
+}
+
+/* Optional browsing controls keep their DOM state while hidden. */
+.auto-hide-dock {
+  transition:
+    transform 200ms ease,
+    opacity 200ms ease,
+    visibility 0s linear;
+}
+.auto-hide-dock.controls-hidden {
+  opacity: 0;
+  transition:
+    transform 200ms ease,
+    opacity 200ms ease,
+    visibility 0s linear 200ms;
+}
+.auto-hide-dock.controls-hidden {
+  transform: translateY(100%);
+}
+.controls-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+.show-controls {
+  position: fixed;
+  z-index: 6;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  right: max(40px, calc((100% - 1160px) / 2), env(safe-area-inset-right));
+  min-height: 48px;
+  max-width: calc(100% - 32px);
+  width: max-content;
+  padding: 8px 20px;
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: 0 4px 20px #0004;
+}
+@media (max-width: 900px) {
+  .show-controls {
+    right: max(24px, env(safe-area-inset-right));
+  }
+}
+@media (max-width: 700px) {
+  .show-controls {
+    right: max(16px, env(safe-area-inset-right));
+  }
+}
+.show-controls
+  ~ .app-main
+  .places-map-section:not(.places-map-preview)
+  .leaflet-bottom.leaflet-right {
+  bottom: var(--floating-controls-clearance, 64px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-hide-dock,
+  .auto-hide-dock.controls-hidden {
+    transition: none;
   }
 }

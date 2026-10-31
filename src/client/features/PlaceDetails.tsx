@@ -1,7 +1,7 @@
 import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { placeDetailsName } from "../foundation/place-labels";
-import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info, Maximize } from "lucide-react";
+import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info } from "lucide-react";
 import { lazy, Suspense, useId, useState } from "react";
 import type { LocalRecord, Place, Entity } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
@@ -173,6 +173,7 @@ export function PlaceDetails({
           <PlacesMap
             key={`${workspace}:${record.id}`}
             preview
+            onExpand={() => expandMap(record)}
             places={[record]}
             fitKey={`${record.value.latitude},${record.value.longitude}`}
             selected={null}
@@ -181,13 +182,6 @@ export function PlaceDetails({
             t={t}
           />
         </Suspense>
-        <button
-          className="icon-button map-preview-expand"
-          aria-label={t("expandMap")}
-          onClick={() => expandMap(record)}
-        >
-          <Maximize size={20} />
-        </button>
       </div>
     </div>
   );

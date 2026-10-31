@@ -54,7 +54,11 @@ export function FamilyPanel({
     [error, setError] = useState<Message | null>(null),
     [copied, setCopied] = useState(false),
     [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteCode, setInviteCode] = useState<{ code: string; expiresAt: number } | null>(null),
+  const [inviteCode, setInviteCode] = useState<{
+      code: string;
+      expiresAt: number;
+      version?: string;
+    } | null>(null),
     [joinCode, setJoinCode] = useState(""),
     [pending, setPending] = useState<{ expiresAt: number } | null>(null),
     [now, setNow] = useState(Date.now);
@@ -90,6 +94,8 @@ export function FamilyPanel({
   };
   const [selectedGroup, setSelectedGroup] = useState(preferredGroup ?? cache.families[0]?.id ?? "");
   const family = cache.families.find((f) => f.id === selectedGroup) ?? cache.families[0] ?? null;
+  const selectedGroupRef = useRef(family?.id);
+  selectedGroupRef.current = family?.id;
   const waiting = useRef(false),
     knownGroups = useRef(new Set(cache.families.map((f) => f.id)));
   const scoped = (body: unknown) => {
@@ -130,6 +136,15 @@ export function FamilyPanel({
           }
           knownGroups.current = new Set(groups.map((f) => f.id));
           waiting.current = !!response.pendingRequest;
+          setInviteCode((current) => {
+            if (!current?.version) return current;
+            const group = groups.find((g) => g.id === selectedGroupRef.current);
+            return group &&
+              group.invitationVersion !== undefined &&
+              group.invitationVersion !== current.version
+              ? null
+              : current;
+          });
           onChanged(groups);
           setPending(response.pendingRequest ?? null);
           setNow(Date.now());
@@ -178,7 +193,11 @@ export function FamilyPanel({
     setError(null);
     try {
       const result = z
-        .object({ code: z.string().regex(/^\d{4}$/), expiresAt: z.number() })
+        .object({
+          code: z.string().regex(/^\d{4}$/),
+          expiresAt: z.number(),
+          version: z.string().optional(),
+        })
         .parse(await api("/api/family", scoped({ action: "code-create" }), account.id));
       setInviteCode(result);
       setCopied(false);

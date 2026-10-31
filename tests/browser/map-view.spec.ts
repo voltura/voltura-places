@@ -211,6 +211,14 @@ for (const width of [375, 390, 1280]) {
     await expect(page.locator(".details-map-preview")).toHaveCount(1);
     await expect(details.locator(".leaflet-control-zoom")).toHaveCount(0);
     expect((await details.locator(".places-map").boundingBox())!.height).toBe(180);
+    const previewMap = (await details.locator(".places-map").boundingBox())!;
+    const expand = (await details
+      .getByRole("button", { name: "Expand map", exact: true })
+      .boundingBox())!;
+    expect(expand.y - previewMap.y).toBeCloseTo(8, 0);
+    expect(previewMap.x + previewMap.width - expand.x - expand.width).toBeCloseTo(8, 0);
+    expect(expand.width).toBeGreaterThanOrEqual(48);
+    expect(expand.height).toBeGreaterThanOrEqual(48);
     const radius = details.locator(".place-accuracy-radius");
     await expect(radius).toHaveCount(1);
     const circle = (await radius.boundingBox())!;
@@ -478,3 +486,120 @@ for (const provider of ["Google Maps", "Apple Maps"]) {
     }
   });
 }
+
+for (const width of [375, 1280]) {
+  test(`fullscreen map preserves its instance and supports nested dialogs at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await start(page, [record("Fullscreen destination"), record("Same location")]);
+    await openMap(page);
+    const map = page.locator(".library-pane .places-map");
+    await map.evaluate((el) => el.setAttribute("data-instance", "original"));
+    const enter = page.getByRole("button", { name: "Fullscreen map", exact: true });
+    await enter.scrollIntoViewIfNeeded();
+    const scrollY = await page.evaluate(() => window.scrollY);
+    // Move away from the initial fit; resizing must not silently fit the pins again.
+    await map.press("ArrowRight", { delay: 300 });
+    const offset = () =>
+      map.evaluate((el) => {
+        const bounds = el.getBoundingClientRect();
+        const pin = el.querySelector(".places-map-cluster")!.getBoundingClientRect();
+        return {
+          x: pin.x + pin.width / 2 - bounds.x - bounds.width / 2,
+          y: pin.y + pin.height / 2 - bounds.y - bounds.height / 2,
+        };
+      });
+    const before = await offset();
+    await enter.click();
+    const surface = page.getByRole("dialog", { name: "Map", exact: true });
+    await expect(surface).toBeVisible();
+    await expect(surface).toHaveJSProperty("open", true);
+    expect(await surface.evaluate((el) => el.matches(":modal"))).toBe(true);
+    await expect(map).toHaveAttribute("data-instance", "original");
+    const box = (await map.boundingBox())!;
+    expect(box.x).toBe(0);
+    expect(box.y).toBe(0);
+    expect(box.width).toBe(width);
+    expect(box.height).toBe(800);
+    await expect(
+      page.getByRole("button", { name: "Exit fullscreen map", exact: true }),
+    ).toBeFocused();
+    await expect(surface.getByRole("link", { name: "OpenStreetMap", exact: true })).toBeVisible();
+    await expect.poll(async () => Math.abs((await offset()).x - before.x)).toBeLessThan(2);
+    await expect.poll(async () => Math.abs((await offset()).y - before.y)).toBeLessThan(2);
+    await page.locator(".places-map-cluster").click();
+    const picker = page.getByRole("dialog", { name: "Choose place", exact: true });
+    await expect(picker).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(surface).toBeVisible();
+    await page.locator(".places-map-cluster").click();
+    await picker.getByRole("button", { name: "Fullscreen destination", exact: true }).click();
+    const details = page.getByRole("dialog", { name: "Place details", exact: true });
+    await expect(details).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(details).toHaveCount(0);
+    await expect(surface).toBeVisible();
+    await surface.screenshot({ path: `.artifacts/fullscreen-map-${width}.png` });
+    for (let i = 0; i < 4; i++) await map.press("Shift+ArrowRight", { delay: 350 });
+    const showAll = surface.getByRole("button", { name: "Show all", exact: true });
+    await expect(showAll).toBeVisible();
+    const showBox = (await showAll.boundingBox())!;
+    const exitBox = (await surface
+      .getByRole("button", { name: "Exit fullscreen map", exact: true })
+      .boundingBox())!;
+    expect(showBox.x + showBox.width).toBeLessThan(exitBox.x);
+    await showAll.click();
+    await expect(showAll).toHaveCount(0);
+    await page.context().setOffline(true);
+    await expect(surface.getByRole("status")).toContainText("Background map unavailable");
+    await expect(surface.locator(".places-map-cluster")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(enter).toBeVisible();
+    await expect(enter).toBeFocused();
+    expect(await page.evaluate(() => window.scrollY)).toBeCloseTo(scrollY, 0);
+    await expect(map).toHaveAttribute("data-instance", "original");
+    await enter.click();
+    await page.getByRole("button", { name: "Exit fullscreen map", exact: true }).click();
+    await expect(enter).toBeFocused();
+    expect(await page.locator("dialog:modal").count()).toBe(0);
+  });
+}
+
+test("WebKit phone fullscreen keeps focus and exits through Escape", async () => {
+  const browser = await webkit.launch();
+  try {
+    const context = await browser.newContext({
+      ...devices["iPhone 13"],
+      baseURL: "http://127.0.0.1:5174",
+      locale: "en-US",
+    });
+    await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
+    await context.route("https://tile.openstreetmap.org/**", (route) => route.abort());
+    const page = await context.newPage();
+    await start(page, [record("Saved pin")]);
+    await openMap(page);
+    const enter = page.getByRole("button", { name: "Fullscreen map", exact: true });
+    await enter.click();
+    const surface = page.getByRole("dialog", { name: "Map", exact: true });
+    await expect(surface.getByRole("status")).toContainText("Background map unavailable");
+    const bounds = (await surface.boundingBox())!;
+    expect(bounds.width).toBe(390);
+    expect(bounds.height).toBe(await page.evaluate(() => window.innerHeight));
+    await expect(
+      surface.getByRole("button", { name: "Exit fullscreen map", exact: true }),
+    ).toBeFocused();
+    // Background app controls are inert while the native modal owns focus.
+    await page
+      .locator(".save-dock button")
+      .first()
+      .evaluate((el: HTMLButtonElement) => el.focus());
+    expect(await surface.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(enter).toBeFocused();
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+});

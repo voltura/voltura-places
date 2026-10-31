@@ -2,6 +2,9 @@ import { digest } from "./auth.js";
 import { WorkspaceError } from "./workspace";
 import type { Environment } from "./types";
 
+export const invitationVersion = (env: Environment, family: string, hash: string) =>
+  digest(`family-invitation:${env.AUTH_SECRET}:${family}:${hash}`);
+
 export async function pendingRequest(env: Environment, account: string) {
   return env.DB.prepare(
     "SELECT c.expires_at AS expiresAt FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.account_id=? AND (c.expires_at=0 OR c.expires_at>?)",
@@ -87,7 +90,11 @@ export async function handleFamilyCode(
           ).bind(family.id, hash, expiresAt, family.id, account),
         ]);
         if (!results[1].meta.changes) throw new WorkspaceError(403, "familyOwnerOnly");
-        return Response.json({ code, expiresAt });
+        return Response.json({
+          code,
+          expiresAt,
+          version: await invitationVersion(env, family.id, hash),
+        });
       } catch (error) {
         // An active code belongs to exactly one family. Retry random collisions only.
         if (

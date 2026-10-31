@@ -126,7 +126,7 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
   expect(
     await rows.first().evaluate((el) => el.getBoundingClientRect().height),
   ).toBeLessThanOrEqual(64);
-  await page.getByRole("button", { name: "Rename Parking", exact: true }).click();
+  await page.getByRole("button", { name: "Edit category Parking", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Category name", exact: true })
     .fill("Averylongunbrokencategorynamewithmultiplewordsandmore");
@@ -137,17 +137,22 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
       .evaluate((el) => el.scrollWidth <= el.clientWidth),
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("categories-phone.png") });
-  const confirm = page.waitForEvent("dialog");
-  const click = page
+  await page
     .getByRole("button", {
       name: "Delete Averylongunbrokencategorynamewithmultiplewordsandmore",
       exact: true,
     })
     .click();
-  const prompt = await confirm;
-  expect(prompt.message()).toContain("Its places move to Other.");
-  await prompt.dismiss();
-  await click;
+  const confirmation = page.getByRole("dialog", { name: "Delete category?", exact: true });
+  await expect(confirmation).toContainText("Its places move to Other.");
+  await expect(
+    confirmation.locator(".sheet-content").getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await confirmation
+    .locator(".sheet-content")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect(confirmation).toHaveCount(0);
 });
 
 test("Preferences switch, disclosures and footer stay usable with enlarged text", async ({
@@ -205,21 +210,21 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const rows = page.locator(".preference-row");
-  await expect(rows).toHaveCount(4);
-  await page.getByRole("combobox", { name: "Appearance", exact: true }).selectOption("light");
+  await expect(rows).toHaveCount(5);
+  await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("light");
   await expect(rows.nth(0).locator(".preference-value")).toHaveText("Light");
   await page
     .getByRole("combobox", { name: "Preferred map app", exact: true })
     .selectOption("apple");
-  await expect(rows.nth(2).locator(".preference-value")).toHaveText("Apple Maps");
+  await expect(rows.nth(3).locator(".preference-value")).toHaveText("Apple Maps");
   await page
     .getByRole("combobox", { name: "Distance units", exact: true })
     .selectOption("imperial");
-  await expect(rows.nth(3).locator(".preference-value")).toHaveText("Feet (ft)");
-  await page.getByRole("combobox", { name: "Appearance", exact: true }).selectOption("dark");
+  await expect(rows.nth(4).locator(".preference-value")).toHaveText("Feet (ft)");
+  await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("dark");
   await page.screenshot({ path: testInfo.outputPath("preference-rows-phone.png") });
   await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
-  await expect(rows.nth(1).locator(".preference-value")).toHaveText("Svenska");
+  await expect(rows.nth(2).locator(".preference-value")).toHaveText("Svenska");
   await page.setViewportSize({ width: 320, height: 640 });
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   expect(
@@ -230,9 +235,9 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   ).toBe(true);
   await page.reload();
   await page.getByRole("button", { name: "Inställningar", exact: true }).click();
-  await expect(rows.nth(1).locator(".preference-value")).toHaveText("Svenska");
-  await expect(rows.nth(2).locator("select")).toHaveValue("apple");
-  await expect(rows.nth(3).locator("select")).toHaveValue("imperial");
+  await expect(rows.nth(2).locator(".preference-value")).toHaveText("Svenska");
+  await expect(rows.nth(3).locator("select")).toHaveValue("apple");
+  await expect(rows.nth(4).locator("select")).toHaveValue("imperial");
 });
 
 for (const theme of ["light", "dark"]) {
@@ -241,7 +246,7 @@ for (const theme of ["light", "dark"]) {
   }, testInfo) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Settings", exact: true }).click();
-    await page.getByRole("combobox", { name: "Appearance", exact: true }).selectOption(theme);
+    await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption(theme);
     const menu = page.getByRole("combobox", { name: "Language", exact: true });
     await menu.click();
     const hovered = menu.getByRole("option", { name: "Svenska", exact: true });

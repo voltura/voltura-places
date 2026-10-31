@@ -3,6 +3,11 @@ export const familySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(80),
   ownerId: z.string(),
+  invitationVersion: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable()
+    .optional(),
   members: z.array(z.object({ id: z.string(), label: z.string().max(320) })).max(10),
   requests: z
     .array(z.object({ id: z.string(), label: z.string().max(320) }))

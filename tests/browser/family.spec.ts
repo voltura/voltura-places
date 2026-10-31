@@ -241,7 +241,9 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("button", { name: "Edit place: Private chanterelles", exact: true })
       .click();
     await a.page.getByRole("button", { name: "Copy to Forest family", exact: true }).click();
-    await expect(a.page.getByRole("status")).toContainText("Copied to the selected group");
+    await expect(a.page.locator(".toast[role=status]")).toContainText(
+      "Copied to the selected group",
+    );
     if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
@@ -260,7 +262,7 @@ test("two signed-in family members share photos and offline saves while private 
       .selectOption("familySharing");
     await b.page.getByRole("textbox", { name: "Invitation code", exact: true }).fill(code);
     await b.page.getByRole("button", { name: "Request to join", exact: true }).click();
-    await expect(b.page.getByRole("status")).toContainText("Request sent");
+    await expect(b.page.locator(".family-panel").getByRole("status")).toContainText("Request sent");
     await b.page.screenshot({ path: testInfo.outputPath("family-code-request.png") });
     await expect(
       b.page.getByRole("button", { name: "Edit place: Private chanterelles", exact: true }),

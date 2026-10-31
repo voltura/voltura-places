@@ -35,3 +35,5 @@ Relay public code/config are separately deployed; secrets never enter the promo 
 Redeploy a saved Sites version for code rollback. SQL migrations are append-only/backward-compatible; code rollback does not revert D1. Export owned data before destructive migrations. User JSON backups are independent recovery files.
 
 No publisher buys services, credits, paid runners or upgrades. Sites inclusion is current beta policy with usage limits. Source, SQL and portable exports support future migration.
+
+Promo publication captures a clean main SHA before building and checks it again after the build, before remote mutation, before each promotion and at completion. The backup journal records that captured SHA. Dirty-checkout dry runs remain available without connecting. A shared source guard rejects both later dirty changes and clean commit switches; rollback remains restricted to the Places allowlist.

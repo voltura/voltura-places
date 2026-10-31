@@ -31,9 +31,12 @@ export function cachedFamily(account?: string): FamilyCache {
     return empty();
   }
 }
-export function storeFamilies(account: string, families: Family[]) {
-  const previous = cachedFamily(account),
-    ids = new Set(families.map((f) => f.id));
+export function storeFamilies(
+  account: string,
+  families: Family[],
+  previous = cachedFamily(account),
+) {
+  const ids = new Set(families.map((f) => f.id));
   const inactive = [...previous.families, ...previous.inactive].filter((f) => !ids.has(f.id));
   const unique = [...new Map(inactive.map((f) => [f.id, f])).values()];
   const value: FamilyCache = {

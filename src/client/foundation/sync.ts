@@ -1,6 +1,12 @@
 import { workspaceHeaders } from "../../shared/families";
 import { recordSchema, snapshotSchema } from "../../shared/model";
-import { acknowledge, mergeSnapshot, prepareMutation, readWorkspace } from "./library";
+import {
+  deferCapacityFlight,
+  acknowledge,
+  mergeSnapshot,
+  prepareMutation,
+  readWorkspace,
+} from "./library";
 import { z } from "zod";
 import { uploadPhoto, loadPhoto } from "./photos";
 const errorSchema = z.object({ error: z.string().optional() });
@@ -101,7 +107,7 @@ export async function synchronize(
       // Persist exact request bodies before network access. A lost response retries the same ID/body.
       for (let i = 0; i < 5200; i++) {
         if (!isCurrent()) return;
-        const flight = await prepareMutation(account);
+        const flight = await prepareMutation(account, isCurrent);
         if (!flight) break;
         if (
           !flight.mutation.deleted &&
@@ -125,18 +131,30 @@ export async function synchronize(
         const data = mutationResultSchema.parse(await response.json());
         if (!isCurrent()) return;
         if (data.accountId !== account) throw new Error("accountChanged");
+        if (response.status === 413 && data.error === "libraryLimit") {
+          await deferCapacityFlight(account, flight.mutation.mutationId, isCurrent);
+          const next = await readWorkspace(account);
+          if (next.flight) throw new Error("libraryLimit");
+          continue;
+        }
         if (!response.ok && response.status !== 409)
           throw new Error(data.error ?? "serviceUnavailable");
         const remote = recordSchema.parse(data.record);
         if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
           throw new Error("invalidResponse");
-        await acknowledge(account, flight.mutation.mutationId, remote, response.status === 409);
+        await acknowledge(
+          account,
+          flight.mutation.mutationId,
+          remote,
+          response.status === 409,
+          isCurrent,
+        );
       }
       if (!isCurrent()) return;
       const snapshot = await fetchSnapshot(account, isCurrent);
       if (!isCurrent()) return;
       if (snapshot.accountId !== account) throw new Error("accountChanged");
-      await mergeSnapshot(account, snapshot.records);
+      await mergeSnapshot(account, snapshot.records, isCurrent);
       const w = await readWorkspace(account);
       const photoIds = new Set(
         w.records

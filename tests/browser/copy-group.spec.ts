@@ -81,7 +81,7 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     expect(await records(second)).toHaveLength(0);
     await page.getByRole("button", { name: "Copy to group…", exact: true }).click();
     await picker.getByRole("button", { name: longName, exact: true }).click();
-    await expect(page.getByRole("status")).toContainText("Copied to the selected group");
+    await expect(page.locator(".toast[role=status]")).toContainText("Copied to the selected group");
     expect(await records(first)).toHaveLength(0);
     expect(await records(second)).toHaveLength(1);
     await expect(

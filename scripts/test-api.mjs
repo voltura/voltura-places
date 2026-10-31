@@ -118,6 +118,14 @@ try {
     "Photo uploads are bounded",
   );
   check((await photoRequest(a, new Uint8Array(20))).status === 422, "Invalid JPEG is rejected");
+  const fakeJpeg = new Uint8Array(22);
+  fakeJpeg.set([255, 216, 255, 192, 0, 8, 8, 0, 1, 0, 1, 1]);
+  fakeJpeg[20] = 255;
+  fakeJpeg[21] = 217;
+  check(
+    (await photoRequest(a, fakeJpeg)).status === 422,
+    "SOF-only fake JPEG uploads are rejected",
+  );
   check((await photoRequest(a)).status === 200, "Photo upload persists in D1");
   const portablePhotoId = "019a0000-0000-7000-8000-000000000001";
   check(
@@ -283,7 +291,14 @@ try {
       .run();
     const generated = await familyCall(owner, { action: "code-create", familyId: id });
     assert.equal(generated.status, 200, await generated.clone().text());
-    const code = (await generated.json()).code;
+    const generatedData = await generated.json();
+    const code = generatedData.code;
+    const ownerGroup = (await (await familyCall(owner)).json()).families.find((f) => f.id === id);
+    check(
+      /^[a-f0-9]{64}$/.test(generatedData.version) &&
+        ownerGroup.invitationVersion === generatedData.version,
+      "Owner sees an opaque active invitation version",
+    );
     const requested = await familyCall(who, { action: "code-request", code });
     assert.equal(requested.status, 200, await requested.clone().text());
     const approved = await familyCall(owner, {
@@ -292,6 +307,12 @@ try {
       member: who.account,
     });
     assert.equal(approved.status, 200, await approved.clone().text());
+    const ownerAfter = (await (await familyCall(owner)).json()).families.find((f) => f.id === id);
+    const memberAfter = (await (await familyCall(who)).json()).families.find((f) => f.id === id);
+    check(
+      ownerAfter.invitationVersion === null && !Object.hasOwn(memberAfter, "invitationVersion"),
+      "Consumption clears the owner version and members receive no invitation metadata",
+    );
     return approved;
   };
   check(

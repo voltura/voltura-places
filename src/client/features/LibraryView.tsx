@@ -11,6 +11,9 @@ type Props = {
   view: "list" | "map";
   setView: (view: "list" | "map") => void;
   showDetails: boolean;
+  fullscreen: boolean;
+  onFullscreenChange: (value: boolean) => void;
+  onBrowse?: () => void;
   mapFocus: { workspace: string; id: string; request: number } | null;
   workspace: string;
   canWrite: boolean;
@@ -43,6 +46,9 @@ export function LibraryView({
   view,
   setView,
   showDetails,
+  fullscreen,
+  onFullscreenChange,
+  onBrowse,
   mapFocus,
   workspace,
   canWrite,
@@ -142,7 +148,11 @@ export function LibraryView({
               )}
             </div>
             <nav className="category-chips" aria-label={t("categories")}>
-              <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>
+              <button
+                aria-pressed={filter === "all"}
+                className={filter === "all" ? "active" : ""}
+                onClick={() => setFilter("all")}
+              >
                 {t("all")}
               </button>
               {categories
@@ -152,6 +162,7 @@ export function LibraryView({
                 .map((c) => (
                   <button
                     key={c.id}
+                    aria-pressed={filter === c.id}
                     className={filter === c.id ? "active" : ""}
                     onClick={() => setFilter(c.id)}
                   >
@@ -184,6 +195,9 @@ export function LibraryView({
         ) : view === "map" ? (
           <Suspense fallback={<p role="status">{t("working")}</p>}>
             <PlacesMap
+              onBrowse={onBrowse}
+              fullscreen={fullscreen}
+              onFullscreenChange={onFullscreenChange}
               focusId={mapFocus?.workspace === workspace ? mapFocus.id : null}
               focusRequest={mapFocus?.workspace === workspace ? mapFocus.request : 0}
               key={workspace}

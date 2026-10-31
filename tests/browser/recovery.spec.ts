@@ -161,7 +161,7 @@ test("changing a preset's appearance preserves its translated name", async ({ pa
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const settings = page.getByRole("combobox", { name: "Settings", exact: true });
   await settings.selectOption("categories");
-  await page.getByRole("button", { name: "Rename Mushrooms", exact: true }).click();
+  await page.getByRole("button", { name: "Edit category Mushrooms", exact: true }).click();
   await page.getByRole("button", { name: "Blue", exact: true }).click();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(1);
@@ -170,7 +170,9 @@ test("changing a preset's appearance preserves its translated name", async ({ pa
   await page
     .getByRole("combobox", { name: "Inställningar", exact: true })
     .selectOption("categories");
-  await expect(page.getByRole("button", { name: "Byt namn Svampar", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Redigera kategori Svampar", exact: true }),
+  ).toBeVisible();
 });
 
 test("submitting a new category twice while its save is pending creates one category", async ({
@@ -227,7 +229,9 @@ test("read-only groups disable category mutations and backup imports", async ({ 
   const settings = page.getByRole("combobox", { name: "Settings", exact: true });
   await settings.selectOption("categories");
   await expect(page.getByRole("button", { name: "New category", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Rename Parking", exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Edit category Parking", exact: true }),
+  ).toBeDisabled();
   await expect(page.getByRole("button", { name: "Delete Parking", exact: true })).toBeDisabled();
   await settings.selectOption("backup");
   await expect(page.getByRole("button", { name: "Import backup", exact: true })).toBeDisabled();

@@ -5,7 +5,9 @@ for (const [width, scale] of [
   [320, 1],
   [390, 1],
   [375, 2],
+  [800, 1],
   [1280, 1],
+  [1920, 1],
 ]) {
   test(`library stays compact and scrollable at ${width}px ${scale}x text`, async ({
     page,
@@ -34,6 +36,7 @@ for (const [width, scale] of [
       const inner = rect(".dock-inner");
       return {
         centred: Math.abs(primary.x + primary.width / 2 - library.x - library.width / 2),
+        leftAligned: Math.abs(primary.x - library.x),
         aligned: Math.abs(inner.x - library.x),
         primaryWidth: primary.width,
         libraryWidth: library.width,
@@ -44,7 +47,7 @@ for (const [width, scale] of [
     expect(emptyGeometry.pickerWidth).toBeGreaterThanOrEqual(48);
     expect(emptyGeometry.pickerHeight).toBeGreaterThanOrEqual(48);
     await expect(page.locator(".save-details, .save-secondary-row")).toHaveCount(0);
-    expect(emptyGeometry.centred).toBeLessThanOrEqual(1);
+    expect(width > 700 ? emptyGeometry.leftAligned : emptyGeometry.centred).toBeLessThanOrEqual(1);
     expect(emptyGeometry.aligned).toBeLessThanOrEqual(1);
     if (width < 640) expect(emptyGeometry.primaryWidth).toBe(emptyGeometry.libraryWidth);
     await expect(page.locator(".account-indicator > svg")).toBeVisible();
@@ -107,6 +110,7 @@ for (const [width, scale] of [
     const geometry = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
       return {
+        saveAligned: Math.abs(rect(".save-split").left - rect(".library-pane").left),
         search: rect(".search-field").top,
         sort: rect(".sort-button").top,
         maps: rect(".card-maps").left,
@@ -120,6 +124,7 @@ for (const [width, scale] of [
         ),
       };
     });
+    expect(geometry.saveAligned).toBeLessThanOrEqual(1);
     expect(geometry.search).toBe(geometry.sort);
     expect(geometry.maps).toBe(geometry.content);
     expect(geometry.overflow).toBe(false);
@@ -204,7 +209,9 @@ test("library selector keeps long group destinations explicit and private places
       [390, 1],
       [320, 1],
       [375, 2],
+      [800, 1],
       [1280, 1],
+      [1920, 1],
     ]) {
       await page.setViewportSize({ width, height: 844 });
       await page.evaluate(

@@ -3,7 +3,7 @@ import { readJSON, RequestError } from "./accounts.js";
 import { authorizedWorkspace, requireOrigin, WorkspaceError } from "./workspace";
 import { starters } from "../shared/model";
 import type { Environment } from "./types";
-import { handleFamilyCode, codeRequests, pendingRequest } from "./family-codes";
+import { handleFamilyCode, codeRequests, pendingRequest, invitationVersion } from "./family-codes";
 async function details(env: Environment, account: string, id: string) {
   const family = await env.DB.prepare(
     "SELECT f.id,f.name,f.owner_id AS ownerId FROM places_families f JOIN places_family_members m ON m.family_id=f.id WHERE m.account_id=? AND f.id=?",
@@ -29,7 +29,7 @@ async function allDetails(env: Environment, account: string) {
     .bind(account)
     .all<{ id: string; name: string; ownerId: string }>();
   if (!rows.results.length) return [];
-  const [members, requests] = await Promise.all([
+  const [members, requests, invitations] = await Promise.all([
     env.DB.prepare(
       "SELECT m.family_id AS familyId,m.account_id AS id,COALESCE((SELECT MIN(label) FROM places_identities i WHERE i.account_id=m.account_id),'Member') AS label FROM places_family_members m WHERE m.family_id IN (SELECT family_id FROM places_family_members WHERE account_id=?) ORDER BY m.joined_at,m.account_id",
     )
@@ -40,9 +40,22 @@ async function allDetails(env: Environment, account: string) {
     )
       .bind(account, Date.now(), account)
       .all<{ familyId: string; id: string; label: string }>(),
+    env.DB.prepare(
+      "SELECT c.family_id AS familyId,c.code_hash AS hash FROM places_family_codes c JOIN places_families f ON f.id=c.family_id WHERE f.owner_id=? AND (c.expires_at=0 OR c.expires_at>?)",
+    )
+      .bind(account, Date.now())
+      .all<{ familyId: string; hash: string }>(),
   ]);
+  const versions = new Map(
+    await Promise.all(
+      invitations.results.map(
+        async (c) => [c.familyId, await invitationVersion(env, c.familyId, c.hash)] as const,
+      ),
+    ),
+  );
   return rows.results.map((group) => ({
     ...group,
+    ...(group.ownerId === account ? { invitationVersion: versions.get(group.id) ?? null } : {}),
     members: members.results
       .filter((m) => m.familyId === group.id)
       .map(({ id, label }) => ({ id, label })),

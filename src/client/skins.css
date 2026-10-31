@@ -1,0 +1,284 @@
+/* Independent skins: Forest uses the original palette in styles.css. */
+:root[data-skin="retro-wood"][data-theme="light"] {
+  --bg: #f3eadb;
+  --surface: #fffaf1;
+  --raised: #e9ddc9;
+  --text: #35271e;
+  --muted: #66513e;
+  --border: #cfc0a9;
+  --accent: #795022;
+  --accent-hover: #604019;
+  --accent-soft: #ece0c9;
+  --on-accent: #ffffff;
+  --surface-top: #fffcf5;
+  --surface-bottom: #faf2e4;
+  --ambient: #d6ad7040;
+  --accent-top: #8b602e;
+  --selected-top: #e6d4b3;
+  --focus: var(--muted);
+  --danger: #a92d37;
+  --shadow: 0 12px 35px #18253214;
+  --elevation: #18253212;
+  --edge-light: #ffffff;
+  --card-divider: var(--border);
+}
+:root[data-skin="retro-wood"][data-theme="dark"] {
+  --bg: #211b16;
+  --surface: #30261e;
+  --raised: #413327;
+  --text: #f8efdf;
+  --muted: #cbbba5;
+  --border: #68523e;
+  --accent: #edbf7f;
+  --accent-hover: #ffdaa7;
+  --accent-soft: #493720;
+  --on-accent: #271b0c;
+  --surface-top: #3a2e22;
+  --surface-bottom: #30261e;
+  --ambient: #85542a40;
+  --accent-top: #f5cf9c;
+  --selected-top: #564128;
+  --focus: var(--muted);
+  --danger: #ffa0a5;
+  --shadow: 0 12px 35px #00000030;
+  --elevation: #00000028;
+  --edge-light: #ffffff12;
+  --card-divider: var(--border);
+}
+:root[data-skin="modern-metallic"][data-theme="light"] {
+  --bg: #e6ebf0;
+  --surface: #f7fafc;
+  --raised: #dce4eb;
+  --text: #203141;
+  --muted: #4e6376;
+  --border: #afbfcd;
+  --accent: #245f83;
+  --accent-hover: #194762;
+  --accent-soft: #ddebf4;
+  --on-accent: #ffffff;
+  --surface-top: #ffffff;
+  --surface-bottom: #edf2f6;
+  --ambient: #91b4d040;
+  --accent-top: #31739a;
+  --selected-top: #cfe2ef;
+  --focus: var(--muted);
+  --danger: #a92d37;
+  --shadow: 0 12px 35px #18253214;
+  --elevation: #18253212;
+  --edge-light: #ffffff;
+  --card-divider: var(--border);
+}
+:root[data-skin="modern-metallic"][data-theme="dark"] {
+  --bg: #191f27;
+  --surface: #252e39;
+  --raised: #324150;
+  --text: #eaf2f9;
+  --muted: #b4c6d5;
+  --border: #4d6277;
+  --accent: #9ad6fa;
+  --accent-hover: #c8e9ff;
+  --accent-soft: #293f53;
+  --on-accent: #102a3c;
+  --surface-top: #354658;
+  --surface-bottom: #252e39;
+  --ambient: #3b699640;
+  --accent-top: #b8e4ff;
+  --selected-top: #36536d;
+  --focus: var(--muted);
+  --danger: #ffa0a5;
+  --shadow: 0 12px 35px #00000030;
+  --elevation: #00000028;
+  --edge-light: #ffffff12;
+  --card-divider: var(--border);
+}
+:root[data-skin="modern-black"][data-theme="light"] {
+  --bg: #f0f0f1;
+  --surface: #ffffff;
+  --raised: #e4e4e7;
+  --text: #242429;
+  --muted: #606069;
+  --border: #c8c8d0;
+  --accent: #444450;
+  --accent-hover: #2f2f39;
+  --accent-soft: #e7e7ed;
+  --on-accent: #ffffff;
+  --surface-top: #ffffff;
+  --surface-bottom: #f5f5f7;
+  --ambient: #b0b0bb30;
+  --accent-top: #575765;
+  --selected-top: #dcdce4;
+  --focus: var(--muted);
+  --danger: #a92d37;
+  --shadow: 0 12px 35px #18253214;
+  --elevation: #18253212;
+  --edge-light: #ffffff;
+  --card-divider: var(--border);
+}
+:root[data-skin="modern-black"][data-theme="dark"] {
+  --bg: #111113;
+  --surface: #1c1c20;
+  --raised: #2b2b31;
+  --text: #f3f3f6;
+  --muted: #bdbdc8;
+  --border: #484851;
+  --accent: #d0d0df;
+  --accent-hover: #ececf5;
+  --accent-soft: #33333e;
+  --on-accent: #1b1b24;
+  --surface-top: #28282f;
+  --surface-bottom: #1c1c20;
+  --ambient: #77778a20;
+  --accent-top: #e3e3ef;
+  --selected-top: #41414e;
+  --focus: var(--muted);
+  --danger: #ffa0a5;
+  --shadow: 0 12px 35px #00000030;
+  --elevation: #00000028;
+  --edge-light: #ffffff12;
+  --card-divider: var(--border);
+}
+:root[data-skin="midnight"][data-theme="light"] {
+  --bg: #eef3fa;
+  --surface: #f9fcff;
+  --raised: #dee8f4;
+  --text: #172f4a;
+  --muted: #4d6380;
+  --border: #b9cce1;
+  --accent: #275f94;
+  --accent-hover: #1c4872;
+  --accent-soft: #ddebf9;
+  --on-accent: #ffffff;
+  --surface-top: #ffffff;
+  --surface-bottom: #eff5fd;
+  --ambient: #6c9bd530;
+  --accent-top: #3777ad;
+  --selected-top: #d1e5f8;
+  --focus: var(--muted);
+  --danger: #a92d37;
+  --shadow: 0 12px 35px #18253214;
+  --elevation: #18253212;
+  --edge-light: #ffffff;
+  --card-divider: var(--border);
+}
+:root[data-skin="midnight"][data-theme="dark"] {
+  --bg: #0b1019;
+  --surface: #141f30;
+  --raised: #203149;
+  --text: #ecf5ff;
+  --muted: #b2c8e1;
+  --border: #39516e;
+  --accent: #9dd4ff;
+  --accent-hover: #c7e7ff;
+  --accent-soft: #1c3652;
+  --on-accent: #10273b;
+  --surface-top: #20334e;
+  --surface-bottom: #141f30;
+  --ambient: #315da940;
+  --accent-top: #b9e1ff;
+  --selected-top: #2b4a6e;
+  --focus: var(--muted);
+  --danger: #ffa0a5;
+  --shadow: 0 12px 35px #00000030;
+  --elevation: #00000028;
+  --edge-light: #ffffff12;
+  --card-divider: var(--border);
+}
+:root[data-skin="matrix"][data-theme="light"] {
+  --bg: #eef6ee;
+  --surface: #f9fff9;
+  --raised: #dcecdc;
+  --text: #142f1a;
+  --muted: #48674e;
+  --border: #b7ceb9;
+  --accent: #1b6c33;
+  --accent-hover: #115024;
+  --accent-soft: #dcefdc;
+  --on-accent: #ffffff;
+  --surface-top: #ffffff;
+  --surface-bottom: #eff8ef;
+  --ambient: #70b07730;
+  --accent-top: #278244;
+  --selected-top: #cde9d1;
+  --focus: var(--muted);
+  --danger: #a92d37;
+  --shadow: 0 12px 35px #18253214;
+  --elevation: #18253212;
+  --edge-light: #ffffff;
+  --card-divider: var(--border);
+}
+:root[data-skin="matrix"][data-theme="dark"] {
+  --bg: #030805;
+  --surface: #0d1b11;
+  --raised: #192d1e;
+  --text: #e3f9e9;
+  --muted: #a9cfb3;
+  --border: #315c3d;
+  --accent: #79e699;
+  --accent-hover: #b0f7c4;
+  --accent-soft: #183c24;
+  --on-accent: #072812;
+  --surface-top: #173020;
+  --surface-bottom: #0d1b11;
+  --ambient: #217c3930;
+  --accent-top: #9bf0b4;
+  --selected-top: #245333;
+  --focus: var(--muted);
+  --danger: #ffa0a5;
+  --shadow: 0 12px 35px #00000030;
+  --elevation: #00000028;
+  --edge-light: #ffffff12;
+  --card-divider: var(--border);
+}
+
+:root {
+  --material: linear-gradient(transparent, transparent);
+}
+:root[data-skin="retro-wood"] {
+  --material: repeating-linear-gradient(
+    3deg,
+    transparent 0 5px,
+    #8553290a 6px,
+    transparent 8px 13px
+  );
+}
+:root[data-skin="modern-metallic"] {
+  --material: repeating-linear-gradient(
+    0deg,
+    #ffffff08 0 1px,
+    #455d7406 1px 2px,
+    transparent 2px 4px
+  );
+}
+:root[data-skin="modern-black"] {
+  --material: linear-gradient(115deg, #ffffff07, transparent 40%, #ffffff04);
+}
+:root[data-skin="midnight"] {
+  --material: radial-gradient(ellipse at 80% 0%, #639ef014, transparent 75%);
+}
+:root[data-skin="matrix"] {
+  --material:
+    repeating-linear-gradient(0deg, #4caa6508 0 1px, transparent 1px 20px),
+    repeating-linear-gradient(90deg, #4caa6508 0 1px, transparent 1px 20px);
+}
+:root:not([data-skin="forest"]) :is(.app-header, .save-dock, .sheet-head) {
+  background-image:
+    var(--material), linear-gradient(130deg, var(--surface-top), var(--surface-bottom));
+}
+:root:not([data-skin="forest"]) .place-card {
+  background-image:
+    var(--material), linear-gradient(145deg, var(--surface-top), var(--surface-bottom) 72%);
+}
+:root:not([data-skin="forest"]) .place-card.selected {
+  background-image:
+    var(--material), linear-gradient(145deg, var(--selected-top), var(--accent-soft));
+}
+
+/* Backdrops use the active palette, rather than the original forest tint. */
+:root:not([data-skin="forest"]) .sheet::backdrop {
+  background: color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* Dark palettes need a dark scrim: their light text color creates a milky haze. */
+:root[data-theme="dark"] .sheet::backdrop {
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
+}
