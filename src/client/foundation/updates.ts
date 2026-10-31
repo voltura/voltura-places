@@ -3,6 +3,7 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
   let pending: Promise<"ready" | "current" | "checking" | "offline"> | undefined;
   let announced: ServiceWorker | null = null;
   let disposed = false;
+  let installing: ServiceWorker | null = null;
   const announce = () => {
     if (registration.waiting && registration.waiting !== announced && !disposed) {
       announced = registration.waiting;
@@ -10,6 +11,24 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
     }
     return Boolean(registration.waiting);
   };
+  const stateChanged = () => {
+    announce();
+    if (installing?.state === "activated" || installing?.state === "redundant") {
+      installing.removeEventListener("statechange", stateChanged);
+      installing = null;
+    }
+  };
+  const trackInstallation = () => {
+    if (disposed) return;
+    if (installing !== registration.installing) {
+      installing?.removeEventListener("statechange", stateChanged);
+      installing = registration.installing;
+      installing?.addEventListener("statechange", stateChanged);
+    }
+    announce();
+  };
+  registration.addEventListener("updatefound", trackInstallation);
+  trackInstallation();
   const check = (force = false) => {
     if (announce()) return Promise.resolve("ready" as const);
     if (!navigator.onLine) return Promise.resolve("offline" as const);
@@ -18,6 +37,7 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
     lastCheck = Date.now();
     pending = (async () => {
       await registration.update();
+      trackInstallation();
       if (announce()) return "ready" as const;
       return registration.installing ? ("checking" as const) : ("current" as const);
     })().finally(() => {
@@ -37,6 +57,8 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
     check,
     dispose() {
       disposed = true;
+      registration.removeEventListener("updatefound", trackInstallation);
+      installing?.removeEventListener("statechange", stateChanged);
       clearInterval(timer);
       window.removeEventListener("focus", foreground);
       window.removeEventListener("online", foreground);

@@ -22,7 +22,6 @@ import {
 import { registerSW } from "virtual:pwa-register";
 import { Sheet } from "../ui/Sheet";
 import { Toast } from "../ui/Toast";
-import { DialogLayer } from "../ui/DialogLayer";
 import { watchForUpdates } from "../foundation/updates";
 import { exportWithPhotos } from "../foundation/photo-backup";
 import { BACKUP_BYTES } from "../../shared/photos";
@@ -1208,15 +1207,17 @@ export function App() {
             void updateMonitor.current
               ?.check(true)
               .then((result) => {
-                if (result === "ready") setUpdate(true);
+                if (result === "ready") {
+                  setNotice(null);
+                  setUpdate(true);
+                  return;
+                }
                 notify(
                   result === "current"
                     ? "upToDate"
                     : result === "offline"
                       ? "offline"
-                      : result === "ready"
-                        ? "updateReady"
-                        : "checkingUpdates",
+                      : "checkingUpdates",
                 );
               })
               .catch(() => notify("serviceUnavailable", true));
@@ -1642,12 +1643,13 @@ export function App() {
         />
       )}
       {update && !editor && (
-        <DialogLayer>
-          <div className="update-banner" role="status">
-            <span>
-              <strong>{t("updateReady")}</strong>
-              <small>{t("updateHint")}</small>
-            </span>
+        <Sheet
+          title={t("updateReady")}
+          closeLabel={t("updateLater")}
+          onClose={() => setUpdate(false)}
+        >
+          <div className="stack">
+            <p>{t("updateHint")}</p>
             <button
               className="button primary"
               onClick={() =>
@@ -1658,15 +1660,11 @@ export function App() {
             >
               {t("update")}
             </button>
-            <button
-              className="icon-button"
-              aria-label={t("updateLater")}
-              onClick={() => setUpdate(false)}
-            >
-              <X />
+            <button className="button outline" onClick={() => setUpdate(false)}>
+              {t("updateLater")}
             </button>
           </div>
-        </DialogLayer>
+        </Sheet>
       )}
     </>
   );

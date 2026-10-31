@@ -10,11 +10,11 @@ test("visible tabs check on return and each minute, deduplicate work and announc
   vi.stubGlobal("navigator", navigator);
   const update = vi.fn(async () => {}),
     ready = vi.fn();
-  const registration = {
+  const registration = Object.assign(new EventTarget(), {
     update,
     waiting: null,
     installing: null,
-  } as unknown as ServiceWorkerRegistration;
+  }) as unknown as ServiceWorkerRegistration;
   const monitor = watchForUpdates(registration, ready);
   try {
     await vi.advanceTimersByTimeAsync(60000);
@@ -40,6 +40,56 @@ test("visible tabs check on return and each minute, deduplicate work and announc
   } finally {
     monitor.dispose();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("tracks delayed installations, including one already running, and detaches on disposal", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "hidden" }));
+  vi.stubGlobal("navigator", { onLine: true });
+  const worker = Object.assign(new EventTarget(), { state: "installing" });
+  const registration = Object.assign(new EventTarget(), {
+    installing: worker as typeof worker | null,
+    waiting: null as typeof worker | null,
+    update: vi.fn(async () => {}),
+  });
+  const ready = vi.fn();
+  const monitor = watchForUpdates(registration as unknown as ServiceWorkerRegistration, ready);
+  try {
+    expect(await monitor.check(true)).toBe("checking");
+    registration.waiting = worker;
+    registration.installing = null;
+    worker.state = "installed";
+    worker.dispatchEvent(new Event("statechange"));
+    expect(ready).toHaveBeenCalledTimes(1);
+    worker.dispatchEvent(new Event("statechange"));
+    expect(ready).toHaveBeenCalledTimes(1);
+
+    registration.waiting = null;
+    const next = Object.assign(new EventTarget(), { state: "installing" });
+    registration.installing = next;
+    registration.dispatchEvent(new Event("updatefound"));
+    // A failed install never offers an update.
+    next.state = "redundant";
+    next.dispatchEvent(new Event("statechange"));
+    expect(ready).toHaveBeenCalledTimes(1);
+
+    const final = Object.assign(new EventTarget(), { state: "installing" });
+    registration.installing = final;
+    registration.dispatchEvent(new Event("updatefound"));
+    registration.waiting = final;
+    final.state = "installed";
+    final.dispatchEvent(new Event("statechange"));
+    expect(ready).toHaveBeenCalledTimes(2);
+
+    monitor.dispose();
+    registration.waiting = worker;
+    final.dispatchEvent(new Event("statechange"));
+    registration.dispatchEvent(new Event("updatefound"));
+    expect(ready).toHaveBeenCalledTimes(2);
+  } finally {
+    monitor.dispose();
     vi.unstubAllGlobals();
   }
 });

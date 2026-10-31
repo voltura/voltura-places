@@ -246,33 +246,84 @@ test("sync failure is exposed by the phone account status description", async ({
   await expect(page.locator("#account-sync-status")).toHaveAttribute("role", "status");
   await expect(page.locator("#account-sync-status")).toHaveText("Sync needs attention");
 });
-test("manual update checking reopens a previously dismissed waiting update", async ({ page }) => {
-  await page.addInitScript(() => {
-    const original = Object.getOwnPropertyDescriptor(
-      ServiceWorkerRegistration.prototype,
-      "waiting",
-    )!;
-    Object.defineProperty(ServiceWorkerRegistration.prototype, "waiting", {
-      get() {
-        return (window as unknown as { auditWaiting: boolean }).auditWaiting
-          ? { state: "installed", scriptURL: location.origin + "/sw.js" }
-          : original.get!.call(this);
+for (const engine of [chromium, webkit])
+  test(`${engine.name()} phone: manual update offers a tappable dialog above Settings and reopens after Later`, async () => {
+    const browser = await engine.launch();
+    const context = await browser.newContext({
+      ...devices["iPhone 13"],
+      baseURL: "http://127.0.0.1:5174",
+      storageState: {
+        cookies: [],
+        origins: [
+          {
+            origin: "http://127.0.0.1:5174",
+            localStorage: [{ name: "places-account-choice", value: "done" }],
+          },
+        ],
       },
     });
+    const page = await context.newPage();
+    try {
+      await page.addInitScript(() => {
+        const state = window as unknown as {
+          auditWaiting: boolean;
+          auditInstallRequested: boolean;
+        };
+        const worker = {
+          state: "installed",
+          scriptURL: location.origin + "/sw.js",
+          postMessage(message: { type?: string }) {
+            if (message.type === "SKIP_WAITING") state.auditInstallRequested = true;
+          },
+        };
+        const original = Object.getOwnPropertyDescriptor(
+          ServiceWorkerRegistration.prototype,
+          "waiting",
+        )!;
+        Object.defineProperty(ServiceWorkerRegistration.prototype, "waiting", {
+          get() {
+            return state.auditWaiting ? worker : original.get!.call(this);
+          },
+        });
+        document.addEventListener(
+          "click",
+          (event) => {
+            if (
+              (event.target as Element).closest("button")?.textContent?.trim() ===
+              "Check for updates"
+            )
+              state.auditWaiting = true;
+          },
+          true,
+        );
+      });
+      await page.goto("/");
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+      await page.reload();
+      await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+      await page.getByRole("button", { name: "Settings", exact: true }).tap();
+      await page.getByRole("button", { name: "Check for updates", exact: true }).tap();
+      const prompt = page.getByRole("dialog", { name: "An update is ready", exact: true });
+      await expect(prompt).toBeVisible();
+      await expect(prompt).toBeFocused();
+      await expect(page.locator(".toast")).toHaveCount(0);
+      await prompt.getByRole("button", { name: "Later", exact: true }).last().tap();
+      await expect(prompt).toHaveCount(0);
+      await page.getByRole("button", { name: "Check for updates", exact: true }).tap();
+      await expect(prompt).toBeVisible();
+      await page.screenshot({ path: `.artifacts/update-settings-${engine.name()}.png` });
+      await prompt.getByRole("button", { name: "Update now", exact: true }).tap();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => (window as unknown as { auditInstallRequested: boolean }).auditInstallRequested,
+          ),
+        )
+        .toBe(true);
+    } finally {
+      await browser.close();
+    }
   });
-  await page.goto("/");
-  await expect
-    .poll(() => page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())))
-    .toBe(true);
-  await page.evaluate(() => ((window as unknown as { auditWaiting: boolean }).auditWaiting = true));
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
-  await expect(page.locator(".update-banner")).toBeVisible();
-  await page.getByRole("button", { name: "Later", exact: true }).click();
-  await expect(page.locator(".update-banner")).toHaveCount(0);
-  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
-  await expect(page.locator(".update-banner")).toBeVisible();
-});
 
 for (const engine of [chromium, webkit])
   for (const theme of ["light", "dark"]) {
