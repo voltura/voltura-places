@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef } from "react";
-import { Check, ChevronDown, LockKeyhole, Users } from "lucide-react";
+import { Check, ChevronDown, LockKeyhole, Users, Plus } from "lucide-react";
 
 export function LibrarySelector({
   value,
@@ -11,6 +11,8 @@ export function LibrarySelector({
   open,
   placement,
   onOpenChange,
+  createGroupLabel,
+  onCreateGroup,
 }: {
   value: string;
   privateValue: string;
@@ -21,6 +23,8 @@ export function LibrarySelector({
   open: boolean;
   placement: "selector" | "dock";
   onOpenChange: (open: boolean) => void;
+  createGroupLabel: string;
+  onCreateGroup: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -162,6 +166,16 @@ export function LibrarySelector({
               </button>
             );
           })}
+          <button
+            className="library-option"
+            onClick={() => {
+              onOpenChange(false);
+              onCreateGroup();
+            }}
+          >
+            <Plus size={22} aria-hidden="true" />
+            <span>{createGroupLabel}</span>
+          </button>
         </div>
       )}
     </div>

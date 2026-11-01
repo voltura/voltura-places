@@ -45,6 +45,7 @@ type Props = {
   onExport: (id: string) => void;
   preferredGroup?: string;
   focusParticipants?: boolean;
+  focusCreate?: boolean;
 };
 export function FamilyPanel({
   account,
@@ -56,9 +57,17 @@ export function FamilyPanel({
   onExport,
   preferredGroup,
   focusParticipants = false,
+  focusCreate = false,
 }: Props) {
   const actionPending = useRef(false),
     pollVersion = useRef(0);
+  const createName = useRef<HTMLInputElement>(null);
+  const [newGroupOpen, setNewGroupOpen] = useState(focusCreate);
+  useEffect(() => {
+    if (!focusCreate) return;
+    const frame = requestAnimationFrame(() => createName.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusCreate]);
   const participantsHeading = useRef<HTMLHeadingElement>(null),
     requestDisplay = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(""),
@@ -234,8 +243,11 @@ export function FamilyPanel({
     try {
       const response = familyStateSchema.parse(await api("/api/family", scoped(body), account.id));
       onChanged(response.families);
-      if ((body as { action: string }).action === "create" && response.familyId)
+      if ((body as { action: string }).action === "create" && response.familyId) {
         setSelectedGroup(response.familyId);
+        setName("");
+        setNewGroupOpen(false);
+      }
       return true;
     } catch (e) {
       setError(knownError(e));
@@ -287,7 +299,13 @@ export function FamilyPanel({
       >
         <label>
           {t("familyName")}
-          <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} />
+          <input
+            ref={createName}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={80}
+          />
         </label>
         <button className="button primary" disabled={busy || cache.families.length >= 20}>
           {t("familyCreate")}
@@ -628,7 +646,10 @@ export function FamilyPanel({
         </details>
       )}
       {account && family && (
-        <details>
+        <details
+          open={newGroupOpen}
+          onToggle={(event) => setNewGroupOpen(event.currentTarget.open)}
+        >
           <summary>{t("familyAnotherGroup")}</summary>
           {joinForms}
         </details>

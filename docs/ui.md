@@ -90,6 +90,8 @@ Account settings explicitly say Signed in or Not signed in. A signed-in account 
 
 Group owners can select Rename group / Byt namn på grupp beneath the selected group name in Family sharing. The inline form starts with the current name, supports Save/Cancel, rejects blank names and limits names to 80 characters. Saving updates the heading, library selectors and cached group metadata from the server response and announces completion. Failures retain the draft and existing name for retry. Switching groups discards the rename draft. Other members see the current group name without rename controls.
 
+The group/library dropdown ends with Create new group… / Skapa ny grupp… and a plus icon. It closes the dropdown, opens Family sharing, expands the existing group-creation area and focuses the empty Group name field. It does not switch the current library or create anything until the user submits Create group. The shortcut works from both the library selector and save-destination picker and participates in their existing keyboard navigation. Existing server authorization and the twenty-group limit apply.
+
 The Vite development preview hides unavailable sign-in/link controls and shows a short explanation for each unlinked method: ChatGPT requires the published app; Google and email require local provider configuration. Configured Google/email controls remain available. Production builds retain the normal provider controls without preview explanations.
 
 Family sharing's Sign in to share action opens the visible Account & sync section, including after switching between settings sections repeatedly. The local preview's account section explains unavailable sign-in methods.

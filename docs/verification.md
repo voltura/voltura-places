@@ -1,3 +1,9 @@
+# 0.1.8 — Create-group shortcut, 1 November 2026
+
+The library/group dropdown now ends with Create new group… / Skapa ny grupp… and a plus icon. It closes the menu and opens the existing Family sharing creation area with Group name focused, preserving the selected library until the user chooses another one. Creating a group refreshes group metadata, clears the submitted name and selects the new group within Settings. The same menu serves the save-destination picker, including existing keyboard navigation.
+
+Type/document checks, production build and both targeted Chromium group flows pass. The real two-member flow now creates its second group through the new menu action, verifies the final row and focused empty name field, and continues through group isolation, photos and offline sharing. The copy-destination flow also passes. The creation view was visually inspected. The shared 5173 review preview and its interactive API are retained. Browser checks do not establish physical-device behavior. The existing chunk-size advisory remains. This is a follow-up to already-published 0.1.7; publication uses a separate exact clean-main commit and leaves the one.com promo unchanged.
+
 # 0.1.7 — Language flags, sync feedback and group renaming, 1 November 2026
 
 English/Svenska use local UK/Swedish SVG flags in first-use selection and Settings → Appearance and language → Language. Settings retains language names in platform pickers and includes flags in customizable pickers. Both flags enter the service-worker precache.

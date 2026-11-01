@@ -969,6 +969,8 @@ export function App() {
                   : ""),
             }))}
             onChange={switchLibrary}
+            createGroupLabel={t("familyCreateNew")}
+            onCreateGroup={() => setSettings("createGroup")}
           />
         </div>
       )}
@@ -1243,7 +1245,9 @@ export function App() {
       {settings && (
         <Settings
           canWrite={canWrite}
-          initial={settings === "participants" ? "familySharing" : settings}
+          initial={
+            settings === "participants" || settings === "createGroup" ? "familySharing" : settings
+          }
           familyPanel={(onSignIn) => (
             <FamilyPanel
               key={account.account?.id ?? "guest"}
@@ -1253,6 +1257,7 @@ export function App() {
               onChanged={familyChanged}
               preferredGroup={selectedFamily ?? undefined}
               focusParticipants={settings === "participants"}
+              focusCreate={settings === "createGroup"}
               onOpen={(groupId) => {
                 if (account.account) switchLibrary(familyKey(account.account.id, groupId));
               }}

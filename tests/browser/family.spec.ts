@@ -363,10 +363,22 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       b.page.getByRole("button", { name: "Edit place: Offline mushroom clearing", exact: true }),
     ).toBeVisible();
-    const secondResponse = await familyAction(a, { action: "create", name: "Mother and family" });
-    expect(secondResponse.ok()).toBe(true);
-    const secondState = await secondResponse.json();
-    const second = secondState.families.find((g: { id: string }) => g.id === secondState.familyId);
+    await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
+    const libraryMenu = a.page.getByRole("group", { name: "Choose group", exact: true });
+    await expect(libraryMenu.getByRole("button").last()).toHaveText("Create new group…");
+    await libraryMenu.getByRole("button", { name: "Create new group…", exact: true }).click();
+    await expect(libraryMenu).toHaveCount(0);
+    await expect(groupName).toBeFocused();
+    await expect(groupName).toHaveValue("");
+    await groupName.fill("Mother and family");
+    await a.page.screenshot({ path: testInfo.outputPath("create-from-group-menu.png") });
+    await a.page.getByRole("button", { name: "Create group", exact: true }).click();
+    await expect(a.page.locator(".family-group-name")).toHaveText("Mother and family");
+    const secondState = await (await familyAction(a, undefined)).json();
+    const second = secondState.families.find(
+      (g: { name: string }) => g.name === "Mother and family",
+    );
+    await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     const secondCode = await (
       await familyAction(a, { action: "code-create", familyId: second.id })
     ).json();
