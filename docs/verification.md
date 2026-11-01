@@ -1,3 +1,9 @@
+# 0.1.11 — Safari share-sheet instructions, 1 November 2026
+
+The owner’s iPhone screenshots establish the three-line Safari menu beside the address bar → Share → View More → Add to Home Screen route. Settings and first use now show a separate, conditional View More step with a down-chevron icon, then scrolling to Add to Home Screen and the final Add confirmation. Direct toolbar Share remains an alternative when visible; iPad keeps its toolbar Share route. Swedish uses Apple’s documented Visa mer, Lägg till på hemskärmen, Öppna som webbapp and Lägg till labels (source in the UI owner).
+
+Type/document checks, 162 unit/data tests, production build and 37 targeted installation/first-use browser checks pass, including narrow/doubled-text English/Swedish layouts. English and Swedish iPhone-size previews were visually reviewed on the reused 5173 preview. Browser identities and native offers are simulated; the supplied physical-iPhone screenshots establish the menu flow, not a completed installation test. The existing build chunk-size advisory remains. The owner approved publishing this change without another review. Publication uses the exact clean-main Sites commit; the independent one.com promo is unchanged.
+
 # 0.1.8 — Create-group shortcut, 1 November 2026
 
 The library/group dropdown now ends with Create new group… / Skapa ny grupp… and a plus icon. It closes the menu and opens the existing Family sharing creation area with Group name focused, preserving the selected library until the user chooses another one. Creating a group refreshes group metadata, clears the submitted name and selects the new group within Settings. The same menu serves the save-destination picker, including existing keyboard navigation.

@@ -81,14 +81,11 @@ for (const ipad of [false, true]) {
     await openInstall(page);
     await expect(page.getByText("In Safari:")).toBeVisible();
     const steps = page.locator(".install-steps");
-    await expect(steps.locator("li")).toHaveCount(3);
-    await expect(
-      steps.getByText(
-        ipad
-          ? "Choose Add to Home Screen (tap More first if needed)."
-          : "Choose Add to Home Screen.",
-      ),
-    ).toBeVisible();
+    await expect(steps.locator("li")).toHaveCount(4);
+    await expect(steps.locator("li").nth(1)).toHaveText(
+      "In the share sheet, tap View More (⌄) if the full list of actions is hidden.",
+    );
+    await expect(steps.getByText("Scroll down and tap Add to Home Screen.")).toBeVisible();
     await expect(
       page.getByText("Use your browser’s Install app or Add to home screen menu."),
     ).toHaveCount(0);
@@ -98,13 +95,13 @@ for (const ipad of [false, true]) {
       .getByRole("combobox")
       .filter({ has: page.locator('option[value="sv"]') })
       .selectOption("sv");
-    await expect(
-      steps.getByText(
-        ipad
-          ? "Välj Lägg till på hemskärmen (tryck först på Visa mer om det behövs)."
-          : "Välj Lägg till på hemskärmen.",
-      ),
-    ).toBeVisible();
+    await expect(steps.locator("li").nth(1)).toHaveText(
+      "Tryck på Visa mer (⌄) i delningspanelen om hela listan med åtgärder är dold.",
+    );
+    await expect(steps.getByText("Rulla ned och tryck på Lägg till på hemskärmen.")).toBeVisible();
+    await expect(steps.locator("li").last()).toHaveText(
+      "Behåll Öppna som webbapp aktiverat om det visas och tryck sedan på Lägg till.",
+    );
   });
 }
 
@@ -179,7 +176,9 @@ for (const [browser, marker] of [
         ),
       ).toBeVisible();
       await expect(
-        steps.getByText("Tap Share (you may need to open the More menu first)."),
+        steps.getByText(
+          "Tap Safari’s menu (three lines) beside the address bar, then Share. If Share is already visible in the toolbar, tap it directly.",
+        ),
       ).toBeVisible();
     }
   });

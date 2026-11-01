@@ -10,7 +10,7 @@ const identities = [
     "Safari iPhone",
     "iPhone Version/26.0 Mobile Safari/605.1.15",
     "iPhone",
-    "Tap Share (you may need to open the More menu first).",
+    "Tap Safari’s menu (three lines) beside the address bar, then Share. If Share is already visible in the toolbar, tap it directly.",
   ],
   [
     "Chrome iPhone",
@@ -195,7 +195,7 @@ for (const locale of ["en-US", "sv-SE"]) {
         });
         const dialog = page.getByRole("dialog");
         await dialog.locator("summary").click();
-        await expect(dialog.locator(".install-steps li")).toHaveCount(3);
+        await expect(dialog.locator(".install-steps li")).toHaveCount(4);
         expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
         await dialog.locator(".install-steps li").last().scrollIntoViewIfNeeded();
         await expect(dialog.locator(".install-steps li").last()).toBeInViewport();

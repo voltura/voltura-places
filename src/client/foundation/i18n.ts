@@ -422,12 +422,14 @@ export const en = {
   installChromeShare: "Tap Share to the right of the address bar.",
   installChromeConfirm: "Check the app name, then tap Add.",
   installIOSFallback:
-    "If Add to Home Screen is missing, open this page in Safari and use Share → Add to Home Screen → Add.",
-  installShare: "Tap Share (you may need to open the More menu first).",
+    "If Add to Home Screen is missing, open this page in Safari and use Share → View More (if needed) → Add to Home Screen → Add.",
+  installShare:
+    "Tap Safari’s menu (three lines) beside the address bar, then Share. If Share is already visible in the toolbar, tap it directly.",
   installIPadShare: "Tap Share in Safari’s toolbar.",
-  installIPadHomeScreen: "Choose Add to Home Screen (tap More first if needed).",
+  installExpandShare:
+    "In the share sheet, tap View More (⌄) if the full list of actions is hidden.",
   installChromeHomeScreen: "Choose Add to Home Screen.",
-  installHomeScreen: "Choose Add to Home Screen.",
+  installHomeScreen: "Scroll down and tap Add to Home Screen.",
   installConfirm: "Keep Open as Web App enabled if shown, then tap Add.",
   installAndroid:
     "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
@@ -902,12 +904,14 @@ export const sv: Record<Message, string> = {
   installChromeShare: "Tryck på Dela till höger om adressfältet.",
   installChromeConfirm: "Kontrollera appnamnet och tryck sedan på Lägg till.",
   installIOSFallback:
-    "Om Lägg till på hemskärmen saknas: öppna sidan i Safari och välj Dela → Lägg till på hemskärmen → Lägg till.",
-  installShare: "Tryck på Dela (du kan behöva öppna menyn Mer först).",
+    "Om Lägg till på hemskärmen saknas: öppna sidan i Safari och välj Dela → Visa mer (om det behövs) → Lägg till på hemskärmen → Lägg till.",
+  installShare:
+    "Tryck på Safaris meny (tre streck) bredvid adressfältet och sedan på Dela. Om delningsknappen redan syns i verktygsfältet kan du trycka direkt på den.",
   installIPadShare: "Tryck på delningsknappen i Safaris verktygsfält.",
-  installIPadHomeScreen: "Välj Lägg till på hemskärmen (tryck först på Visa mer om det behövs).",
+  installExpandShare:
+    "Tryck på Visa mer (⌄) i delningspanelen om hela listan med åtgärder är dold.",
   installChromeHomeScreen: "Välj Lägg till på startskärmen.",
-  installHomeScreen: "Välj Lägg till på hemskärmen.",
+  installHomeScreen: "Rulla ned och tryck på Lägg till på hemskärmen.",
   installConfirm: "Behåll Öppna som webbapp aktiverat om det visas och tryck sedan på Lägg till.",
   installAndroid:
     "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ChevronRight, Download, Share, SquarePlus, Check } from "lucide-react";
+import { ChevronRight, ChevronDown, Download, Share, SquarePlus, Check } from "lucide-react";
 import {
   appleInstallBrowser,
   appleInstallDevice,
@@ -75,16 +75,16 @@ export function InstallPlaces({
                   )}
                 </span>
               </li>
+              {appleBrowser !== "chrome" && (
+                <li>
+                  <ChevronDown size={22} aria-hidden="true" />
+                  <span>{t("installExpandShare")}</span>
+                </li>
+              )}
               <li>
                 <SquarePlus size={22} aria-hidden="true" />
                 <span>
-                  {t(
-                    appleBrowser === "chrome"
-                      ? "installChromeHomeScreen"
-                      : appleDevice === "ipad"
-                        ? "installIPadHomeScreen"
-                        : "installHomeScreen",
-                  )}
+                  {t(appleBrowser === "chrome" ? "installChromeHomeScreen" : "installHomeScreen")}
                 </span>
               </li>
               <li>
