@@ -240,6 +240,10 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await page.screenshot({ path: testInfo.outputPath("preference-rows-phone.png") });
   await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
   await expect(rows.nth(2).locator(".preference-value")).toHaveText("Svenska");
+  await expect(rows.nth(2).locator(".preference-value .language-flag")).toHaveAttribute(
+    "src",
+    "/flags/se.svg",
+  );
   await page.setViewportSize({ width: 320, height: 640 });
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   expect(
@@ -268,6 +272,11 @@ test.describe("mouse preference dropdowns", () => {
       await menu.click();
       const hovered = menu.getByRole("option", { name: "Svenska", exact: true });
       await hovered.hover();
+      expect(
+        await menu.locator("option").evaluateAll((options) => {
+          return options[1].getBoundingClientRect().top - options[0].getBoundingClientRect().bottom;
+        }),
+      ).toBeGreaterThan(0);
       const colors = await menu.evaluate((el) => ({
         selected: getComputedStyle(el.querySelector("option:checked")!).backgroundColor,
         hovered: getComputedStyle(el.querySelector("option:hover")!).backgroundColor,

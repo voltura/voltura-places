@@ -1,5 +1,7 @@
 # Asset provenance
 
+`public/flags/gb.svg` and `se.svg` are local vector drawings of the UK and Swedish flags for English/Svenska selection, following Music's country choices. They require no external image service or font support.
+
 The Places pin/check SVG is original project artwork, with a dark forest surface and mint gradient matching the app’s default theme. PNG app icons are deterministically rendered from it with resvg during build.
 
 `scripts/branding.mjs` generates normal 192/512 icons, dedicated opaque safe-zone maskable icons, 152/167/180 Apple touch icons, small PNG/ICO favicons and a Windows tile icon. `assets/branding/apple-startup-devices.json` starts from an independent copy of Air's device catalogue, expanded with older Pro/Max and Mini sizes verified against Playwright's device descriptors: 16 iPhone/iPad screen/DPR combinations, both orientations and both system appearances (64 startup PNGs). Air is not imported or modified by the build.

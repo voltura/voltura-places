@@ -62,6 +62,7 @@ export function Settings({
   onAccount,
   onSignOut,
   onSync,
+  syncStatus,
   onDeleteAccount,
   onRemoveDevice,
   initial = "preferences",
@@ -83,6 +84,7 @@ export function Settings({
   onAccount: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onSync: () => void;
+  syncStatus: Message;
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
   initial?: string;
@@ -210,18 +212,44 @@ export function Settings({
             </label>
             <label className="preference-row">
               <span>{t("language")}</span>
-              <span className="preference-value" aria-hidden="true">
-                {preferences.language === "sv" ? "Svenska" : "English"}
+              <span className="preference-value language-value" aria-hidden="true">
+                <img
+                  className="language-flag"
+                  src={`/flags/${preferences.language === "sv" ? "se" : "gb"}.svg`}
+                  width="24"
+                  height="18"
+                  alt=""
+                />
+                <span>{preferences.language === "sv" ? "Svenska" : "English"}</span>
               </span>
               <ChevronRight size={20} aria-hidden="true" />
               <select
+                className="language-select"
                 value={preferences.language}
                 onChange={(e) =>
                   onPreferences({ ...preferences, language: e.target.value as Language })
                 }
               >
-                <option value="en">English</option>
-                <option value="sv">Svenska</option>
+                <option value="en" lang="en">
+                  <img
+                    className="language-flag"
+                    src="/flags/gb.svg"
+                    width="24"
+                    height="18"
+                    alt=""
+                  />
+                  English
+                </option>
+                <option value="sv" lang="sv">
+                  <img
+                    className="language-flag"
+                    src="/flags/se.svg"
+                    width="24"
+                    height="18"
+                    alt=""
+                  />
+                  Svenska
+                </option>
               </select>
             </label>
             <label className="preference-row">
@@ -432,6 +460,7 @@ export function Settings({
           onRefresh={onAccount}
           onSignOut={onSignOut}
           onSync={onSync}
+          syncStatus={syncStatus}
           onDelete={onDeleteAccount}
           onRemoveDevice={onRemoveDevice}
         />

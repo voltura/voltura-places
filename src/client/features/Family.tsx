@@ -11,6 +11,7 @@ import {
   UserMinus,
   LogOut,
   X,
+  Pencil,
 } from "lucide-react";
 import { z } from "zod";
 import { api, type Account } from "../foundation/sync";
@@ -65,6 +66,8 @@ export function FamilyPanel({
     [error, setError] = useState<Message | null>(null),
     [copied, setCopied] = useState(false),
     [inviteOpen, setInviteOpen] = useState(false);
+  const [renameName, setRenameName] = useState<string | null>(null),
+    [renamed, setRenamed] = useState(false);
   const [inviteCode, setInviteCode] = useState<{
       code: string;
       expiresAt: number;
@@ -119,6 +122,8 @@ export function FamilyPanel({
     setInviteCode(null);
     setInviteOpen(false);
     setCopied(false);
+    setRenameName(null);
+    setRenamed(false);
   }, [family?.id]);
   useEffect(() => {
     if (!focusParticipants) return;
@@ -322,6 +327,71 @@ export function FamilyPanel({
             </label>
           )}
           <h3 className="family-group-name">{family.name}</h3>
+          {family.ownerId === account.id &&
+            (renameName === null ? (
+              <button
+                className="button outline"
+                disabled={busy}
+                onClick={() => {
+                  setRenameName(family.name);
+                  setRenamed(false);
+                  setError(null);
+                }}
+              >
+                <Pencil size={20} aria-hidden="true" />
+                {t("familyRename")}
+              </button>
+            ) : (
+              <form
+                className="stack"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (busy || !renameName.trim()) return;
+                  if (await action({ action: "rename", name: renameName.trim() })) {
+                    setRenameName(null);
+                    setRenamed(true);
+                  }
+                }}
+              >
+                <label>
+                  {t("familyName")}
+                  <input
+                    value={renameName}
+                    onChange={(event) => setRenameName(event.target.value)}
+                    required
+                    maxLength={80}
+                    disabled={busy}
+                    autoFocus
+                  />
+                </label>
+                <div className="account-actions">
+                  <button className="button primary" disabled={busy || !renameName.trim()}>
+                    {t("save")}
+                  </button>
+                  <button
+                    type="button"
+                    className="button outline"
+                    disabled={busy}
+                    onClick={() => {
+                      setRenameName(null);
+                      setError(null);
+                    }}
+                  >
+                    {t("cancel")}
+                  </button>
+                </div>
+                {error && (
+                  <p role="alert" className="error">
+                    {t(error)}
+                  </p>
+                )}
+              </form>
+            ))}
+          {renamed && (
+            <p role="status" className="muted small">
+              {t("familyRenamed")}
+            </p>
+          )}
           <p className="muted">{t("familySharedNotice")}</p>
           <button className="button primary" onClick={() => onOpen(family.id)}>
             {t("openFamilyLibrary")}
@@ -563,7 +633,7 @@ export function FamilyPanel({
           {joinForms}
         </details>
       )}
-      {error && !inviteOpen && (
+      {error && !inviteOpen && renameName === null && (
         <p role="alert" className="error">
           {t(error)}
         </p>

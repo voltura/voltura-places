@@ -981,8 +981,24 @@ hr {
   max-width: 100%;
   color: var(--text);
 }
-.onboarding-language > svg {
+.language-flag {
+  display: inline-block;
   flex-shrink: 0;
+  width: 24px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+.language-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@supports (appearance: base-select) {
+  .language-select option + option {
+    margin-block-start: 4px;
+  }
 }
 .onboarding-language select {
   appearance: auto;

@@ -8,6 +8,7 @@ export function AccountPanel({
   onRefresh,
   onSignOut,
   onSync,
+  syncStatus,
   onDelete,
   onRemoveDevice,
 }: {
@@ -16,6 +17,7 @@ export function AccountPanel({
   onRefresh: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onSync: () => void;
+  syncStatus: Message;
   onDelete: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
 }) {
@@ -193,8 +195,13 @@ export function AccountPanel({
           </div>
           <p className="muted">{t("accountSyncIntro")}</p>
           <div className="account-actions">
-            <button className="button outline" onClick={onSync}>
-              {t("syncNow")}
+            <button
+              className="button outline"
+              onClick={onSync}
+              disabled={busy || syncStatus === "syncing"}
+              aria-describedby="settings-sync-status"
+            >
+              {t(syncStatus === "syncing" ? "syncing" : "syncNow")}
             </button>
             <button
               className="button outline"
@@ -204,6 +211,15 @@ export function AccountPanel({
               {t("signOut")}
             </button>
           </div>
+          <p
+            id="settings-sync-status"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={syncStatus === "actionRequired" ? "error" : "muted small"}
+          >
+            {t(syncStatus)}
+          </p>
           <p className="muted small">{t("signOutNotice")}</p>
           <details>
             <summary>{t("linkedMethods")}</summary>

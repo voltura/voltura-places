@@ -13,7 +13,6 @@ import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
-  Globe,
   LocateFixed,
   ChevronDown,
   MapPin,
@@ -1137,7 +1136,13 @@ export function App() {
           title={t("accountChoiceTitle")}
           headerActions={
             <label className="onboarding-language">
-              <Globe size={18} aria-hidden="true" />
+              <img
+                className="language-flag"
+                src={`/flags/${prefs.language === "sv" ? "se" : "gb"}.svg`}
+                width="24"
+                height="18"
+                alt=""
+              />
               <select
                 aria-label={t("language")}
                 value={prefs.language}
@@ -1303,7 +1308,19 @@ export function App() {
             await refreshAccount();
           }}
           onSignOut={signOut}
-          onSync={sync}
+          syncStatus={
+            (!navigator.onLine ? "offline" : scope === "guest" ? "localOnly" : status) as Message
+          }
+          onSync={() => {
+            if (reconciling) {
+              setStatus("reconcilePending");
+              return;
+            }
+            if (scopeRef.current !== "guest") {
+              setStatus(navigator.onLine ? "syncing" : "offline");
+              sync();
+            }
+          }}
           onDeleteAccount={deleteAccount}
           onRemoveDevice={async () => {
             const id = account.account!.id;

@@ -87,6 +87,32 @@ test("two signed-in family members share photos and offline saves while private 
       0,
     );
     mainGroupId = (await (await familyAction(a, undefined)).json()).families[0].id;
+    await a.page.getByRole("button", { name: "Rename group", exact: true }).click();
+    const groupName = a.page.getByRole("textbox", { name: "Group name", exact: true });
+    await expect(groupName).toHaveValue("Forest family");
+    await groupName.fill("Cancelled name");
+    await a.page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(a.page.locator(".family-group-name")).toHaveText("Forest family");
+    await a.page.getByRole("button", { name: "Rename group", exact: true }).click();
+    await groupName.fill("  Woodland group  ");
+    await a.page.route("**/api/family", async (route) => {
+      if (route.request().method() === "POST" && route.request().postDataJSON().action === "rename")
+        await route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+      else await route.fallback();
+    });
+    await a.page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.page.getByRole("alert")).toBeVisible();
+    await expect(groupName).toHaveValue("  Woodland group  ");
+    await expect(a.page.locator(".family-group-name")).toHaveText("Forest family");
+    await a.page.unroute("**/api/family");
+    await a.page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.page.locator(".family-group-name")).toHaveText("Woodland group");
+    await expect(a.page.getByRole("status").filter({ hasText: "Group renamed" })).toBeVisible();
+    await a.page.screenshot({ path: testInfo.outputPath("group-renamed.png") });
+    await a.page.getByRole("button", { name: "Rename group", exact: true }).click();
+    await groupName.fill("Forest family");
+    await a.page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(a.page.locator(".family-group-name")).toHaveText("Forest family");
     // A failed creation offers retry without pretending an invitation exists.
     await a.page.route("**/api/family", async (route) => {
       if (route.request().postDataJSON()?.action === "code-create")

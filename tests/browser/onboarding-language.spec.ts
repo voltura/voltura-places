@@ -38,6 +38,17 @@ for (const [browserLanguage, saved, query, expected] of [
     await expect(
       dialog.getByRole("combobox", { name: expected === "sv" ? "Språk" : "Language", exact: true }),
     ).toHaveValue(expected);
+    await expect(dialog.locator(".language-flag")).toHaveAttribute(
+      "src",
+      `/flags/${expected === "sv" ? "se" : "gb"}.svg`,
+    );
+    await expect
+      .poll(() =>
+        dialog
+          .locator(".language-flag")
+          .evaluate((image) => (image as HTMLImageElement).naturalWidth),
+      )
+      .toBeGreaterThan(0);
   });
 }
 

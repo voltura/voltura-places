@@ -85,6 +85,7 @@ export async function handleFamilies(request: Request, env: Environment) {
       .object({
         action: z.enum([
           "create",
+          "rename",
           "revoke",
           "remove",
           "leave",
@@ -148,6 +149,15 @@ export async function handleFamilies(request: Request, env: Environment) {
           .run();
       } else {
         if (family.ownerId !== account) throw new WorkspaceError(403, "familyOwnerOnly");
+        if (b.action === "rename") {
+          if (!b.name) throw new WorkspaceError(422, "invalidFamilyAction");
+          const result = await env.DB.prepare(
+            "UPDATE places_families SET name=? WHERE id=? AND owner_id=? AND EXISTS(SELECT 1 FROM places_family_members WHERE family_id=? AND account_id=?)",
+          )
+            .bind(b.name, family.id, account, family.id, account)
+            .run();
+          if (!result.meta.changes) throw new WorkspaceError(403, "familyOwnerOnly");
+        }
         if (b.action === "revoke") {
           await env.DB.prepare(
             "DELETE FROM places_family_codes WHERE family_id=? AND EXISTS(SELECT 1 FROM places_families WHERE id=? AND owner_id=?)",

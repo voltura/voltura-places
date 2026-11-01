@@ -506,6 +506,10 @@ try {
   );
   await familyCall(a, { action: "transfer", member: c.account });
   check(
+    (await familyCall(a, { action: "rename", name: "Former owner rename" })).status === 403,
+    "Transferring ownership revokes rename permission",
+  );
+  check(
     (await familyCall(a, { action: "code-create" })).status === 403,
     "Transferred owner privileges are revoked",
   );
@@ -772,6 +776,49 @@ try {
     "An account can own multiple independent groups",
   );
   await joinGroup(codeGuest, codeOwner, anotherGroup.id);
+  for (const name of [undefined, "", "   ", "x".repeat(81)])
+    check(
+      (await familyCall(codeOwner, { action: "rename", familyId: anotherGroup.id, name }))
+        .status === 422,
+      "Group rename rejects missing, blank and oversized names",
+    );
+  check(
+    (await familyCall(codeGuest, { action: "rename", familyId: anotherGroup.id, name: "Denied" }))
+      .status === 403,
+    "Members cannot rename a group",
+  );
+  const renameOutsider = await login("rename-outsider");
+  check(
+    (
+      await familyCall(renameOutsider, {
+        action: "rename",
+        familyId: anotherGroup.id,
+        name: "Denied",
+      })
+    ).status === 403,
+    "Nonmembers cannot rename a group",
+  );
+  const renamedResponse = await familyCall(codeOwner, {
+    action: "rename",
+    familyId: anotherGroup.id,
+    name: "  Renamed group åäö  ",
+  });
+  const renamedState = await renamedResponse.json();
+  const renamedGroup = renamedState.families.find((group) => group.id === anotherGroup.id);
+  check(
+    renamedResponse.status === 200 &&
+      renamedGroup.name === "Renamed group åäö" &&
+      renamedGroup.ownerId === anotherGroup.ownerId &&
+      renamedGroup.members.length === 2 &&
+      renamedState.families.find((group) => group.id === codeFamily.id).name === codeFamily.name,
+    "Owner rename trims names and preserves group identity, ownership, membership and other groups",
+  );
+  check(
+    (await (await familyCall(codeGuest)).json()).families.find(
+      (group) => group.id === anotherGroup.id,
+    ).name === "Renamed group åäö",
+    "Members receive the renamed group from the server",
+  );
   check(
     (await (await familyCall(codeGuest)).json()).families.length === 2,
     "All memberships are listed independently",
