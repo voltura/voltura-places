@@ -1,3 +1,11 @@
+# 0.1.6 — Compact first-use language selector, 1 November 2026
+
+Get started has a compact globe/native English/Svenska dropdown. Switching updates the whole app and document language, persists the preference and preserves expanded installation help without completing onboarding. Browser Swedish matching is case-insensitive and tolerates missing language; explicit links and saved preferences retain priority. The header wraps at narrow widths and doubled text.
+
+Installation guidance was checked against official Apple, Google and Microsoft documentation linked in the UI owner. iPhone/iPad Safari, Chrome on iOS/Android/desktop, Edge desktop and Safari Mac have distinct routes; unidentified/other browsers get explicitly labelled alternative-browser guidance. Google's localized documentation has an AI-translation caveat, so localized source wording is evidence, not physical validation of native menu labels.
+
+Type/documentation checks, 136 unit/data tests, production build and all 53 targeted Chromium onboarding/installation/language scenarios pass. Coverage includes language priority/persistence, expanded-help retention, 320px/390px headers with doubled text, browser identities and native-offer acceptance/dismissal/failure. The build retains its existing chunk-size advisory. Swedish phone and 320px doubled-text screenshots were visually inspected. The shared 5173 preview was reused and opened. The owner approved the compact language dropdown in the phone screenshot on 1 November 2026. Browser identities and installation events are emulated; physical OS menus/installation remain unverified. The owner requested committing and publishing these reviewed changes through the exact clean-main Sites publisher. The independent one.com promo payload is unchanged.
+
 # 0.1.5 — Installation guidance, category appearance and usage statistics, 1 November 2026
 
 This release includes all pending changes: shared button hierarchy, guided installation in Settings and mobile first use, the expanded category catalog with explicit no-icon selection and adaptive scrolling, and public English/Swedish usage statistics. Activity reporting has a persistent Privacy switch; aggregate endpoints use additive migration 0007. Sites publishes before the independent thirteen-file Places-only promo payload.

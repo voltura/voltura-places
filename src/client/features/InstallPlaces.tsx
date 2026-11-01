@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from "react";
 import { ChevronRight, Download, Share, SquarePlus, Check } from "lucide-react";
-import { appleInstallBrowser, installationPlatform } from "../foundation/installation";
+import {
+  appleInstallBrowser,
+  appleInstallDevice,
+  manualInstallBrowser,
+  installationPlatform,
+} from "../foundation/installation";
 import { installation } from "../foundation/installation-runtime";
 import type { Message } from "../foundation/i18n";
 
@@ -16,6 +21,20 @@ export function InstallPlaces({
   const platform = installationPlatform(navigator);
   if (firstUse && platform === "other") return null;
   const appleBrowser = appleInstallBrowser(navigator);
+  const appleDevice = appleInstallDevice(navigator);
+  const manualBrowser = manualInstallBrowser(navigator);
+  const manualMessage =
+    platform === "android"
+      ? manualBrowser === "chrome"
+        ? "installAndroid"
+        : "installAndroidOther"
+      : manualBrowser === "chrome"
+        ? "installChromeDesktop"
+        : manualBrowser === "edge"
+          ? "installEdgeDesktop"
+          : manualBrowser === "safari-mac"
+            ? "installSafariMac"
+            : "installOther";
   const disclosure = (
     <details>
       <summary className={firstUse ? "button primary" : undefined}>
@@ -46,11 +65,27 @@ export function InstallPlaces({
             <ol className="install-steps">
               <li>
                 <Share size={22} aria-hidden="true" />
-                <span>{t(appleBrowser === "chrome" ? "installChromeShare" : "installShare")}</span>
+                <span>
+                  {t(
+                    appleBrowser === "chrome"
+                      ? "installChromeShare"
+                      : appleDevice === "ipad"
+                        ? "installIPadShare"
+                        : "installShare",
+                  )}
+                </span>
               </li>
               <li>
                 <SquarePlus size={22} aria-hidden="true" />
-                <span>{t("installHomeScreen")}</span>
+                <span>
+                  {t(
+                    appleBrowser === "chrome"
+                      ? "installChromeHomeScreen"
+                      : appleDevice === "ipad"
+                        ? "installIPadHomeScreen"
+                        : "installHomeScreen",
+                  )}
+                </span>
               </li>
               <li>
                 <Check size={22} aria-hidden="true" />
@@ -62,7 +97,7 @@ export function InstallPlaces({
             {appleBrowser === "chrome" && <p className="muted">{t("installIOSFallback")}</p>}
           </>
         ) : (
-          <p className="muted">{t(platform === "android" ? "installAndroid" : "installOther")}</p>
+          <p className="muted">{t(manualMessage)}</p>
         )}
         {state.failed && (
           <p role="status" className="muted">

@@ -421,13 +421,25 @@ export const en = {
   installIOSFallback:
     "If Add to Home Screen is missing, open this page in Safari and use Share → Add to Home Screen → Add.",
   installShare: "Tap Share (you may need to open the More menu first).",
+  installIPadShare: "Tap Share in Safari’s toolbar.",
+  installIPadHomeScreen: "Choose Add to Home Screen (tap More first if needed).",
+  installChromeHomeScreen: "Choose Add to Home Screen.",
   installHomeScreen: "Choose Add to Home Screen.",
   installConfirm: "Keep Open as Web App enabled if shown, then tap Add.",
   installAndroid:
-    "Open your browser’s menu, then choose Install app or Add to home screen and confirm.",
+    "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
+  installAndroidOther:
+    "For a guided installation, open this page in Chrome on Android. In Chrome, tap More (⋮) → Install and create shortcut → Install, then follow the on-screen instructions.",
+  installChromeDesktop:
+    "In Chrome on your computer: open More (⋮) → Cast, save, and share → Install page as app…, then confirm installation.",
+  installEdgeDesktop:
+    "In Microsoft Edge on your computer: open Settings and more (…) → More tools → Apps → Install this site as an app, then confirm installation.",
+  installSafariMac:
+    "In Safari on macOS Sonoma 14 or later: choose File → Add to Dock, then click Add.",
   installPending: "Waiting for browser…",
   installFailed: "The install prompt could not open. Try your browser’s installation menu instead.",
-  installOther: "Use your browser’s Install app or Add to home screen menu.",
+  installOther:
+    "For a guided installation, open this page in Chrome on your computer. In Chrome, open More (⋮) → Cast, save, and share → Install page as app…, then confirm installation.",
   updateReady: "An update is ready",
   update: "Update now",
   updateLater: "Later",
@@ -886,14 +898,26 @@ export const sv: Record<Message, string> = {
   installIOSFallback:
     "Om Lägg till på hemskärmen saknas: öppna sidan i Safari och välj Dela → Lägg till på hemskärmen → Lägg till.",
   installShare: "Tryck på Dela (du kan behöva öppna menyn Mer först).",
+  installIPadShare: "Tryck på delningsknappen i Safaris verktygsfält.",
+  installIPadHomeScreen: "Välj Lägg till på hemskärmen (tryck först på Visa mer om det behövs).",
+  installChromeHomeScreen: "Välj Lägg till på startskärmen.",
   installHomeScreen: "Välj Lägg till på hemskärmen.",
   installConfirm: "Behåll Öppna som webbapp aktiverat om det visas och tryck sedan på Lägg till.",
   installAndroid:
-    "Öppna webbläsarens meny, välj Installera app eller Lägg till på hemskärmen och bekräfta.",
+    "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",
+  installAndroidOther:
+    "För en guidad installation: öppna den här sidan i Chrome på Android. I Chrome trycker du på Mer (⋮) → Installera och skapa genväg → Installera och följer anvisningarna på skärmen.",
+  installChromeDesktop:
+    "I Chrome på datorn: öppna Mer (⋮) → Casta, spara och dela → Installera sidan som en app … och bekräfta installationen.",
+  installEdgeDesktop:
+    "I Microsoft Edge på datorn: öppna Inställningar med mera (…) → Fler verktyg → Appar → Installera webbplatsen som en app och bekräfta installationen.",
+  installSafariMac:
+    "I Safari på macOS Sonoma 14 eller senare: välj Arkiv → Lägg till i Dock och klicka sedan på Lägg till.",
   installPending: "Väntar på webbläsaren…",
   installFailed:
     "Installationsdialogen kunde inte öppnas. Prova webbläsarens installationsmeny i stället.",
-  installOther: "Använd webbläsarens Installera app eller Lägg till på hemskärmen.",
+  installOther:
+    "För en guidad installation: öppna den här sidan i Chrome på datorn. I Chrome öppnar du Mer (⋮) → Casta, spara och dela → Installera sidan som en app … och bekräftar installationen.",
   updateReady: "En uppdatering är klar",
   update: "Uppdatera nu",
   updateLater: "Senare",

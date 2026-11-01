@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 export function Sheet({
   title,
   subtitle,
+  headerActions,
   onClose,
   children,
   closeLabel = "Close",
@@ -12,6 +13,7 @@ export function Sheet({
 }: {
   title: string;
   subtitle?: string;
+  headerActions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   closeLabel?: string;
@@ -49,9 +51,12 @@ export function Sheet({
       }}
     >
       <div className="sheet-head">
-        <div>
-          <h2>{title}</h2>
-          {subtitle && <p className="sheet-subtitle muted small">{subtitle}</p>}
+        <div className={headerActions ? "sheet-heading-actions" : undefined}>
+          <div>
+            <h2>{title}</h2>
+            {subtitle && <p className="sheet-subtitle muted small">{subtitle}</p>}
+          </div>
+          {headerActions}
         </div>
         <button className="icon-button" onClick={onClose} aria-label={closeLabel}>
           <X />

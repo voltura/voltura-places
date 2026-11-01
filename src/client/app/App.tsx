@@ -13,6 +13,7 @@ import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
+  Globe,
   LocateFixed,
   ChevronDown,
   MapPin,
@@ -90,7 +91,7 @@ function loadPreferences(): Preferences {
   const requested = new URLSearchParams(location.search).get("lang");
   const linkedLanguage = requested === "sv" || requested === "en" ? requested : null;
   const defaults: Preferences = {
-    language: linkedLanguage ?? (navigator.language.startsWith("sv") ? "sv" : "en"),
+    language: linkedLanguage ?? (/^sv(?:-|$)/i.test(navigator.language ?? "") ? "sv" : "en"),
     theme: "dark",
     skin: "forest",
     provider: "",
@@ -1134,6 +1135,27 @@ export function App() {
       {accountChoice && !account.account && !settings && !shared && (
         <Sheet
           title={t("accountChoiceTitle")}
+          headerActions={
+            <label className="onboarding-language">
+              <Globe size={18} aria-hidden="true" />
+              <select
+                aria-label={t("language")}
+                value={prefs.language}
+                onChange={(e) => {
+                  const language = e.target.value;
+                  if (language === "en" || language === "sv")
+                    setPrefs((previous) => ({ ...previous, language }));
+                }}
+              >
+                <option value="en" lang="en">
+                  English
+                </option>
+                <option value="sv" lang="sv">
+                  Svenska
+                </option>
+              </select>
+            </label>
+          }
           closeLabel={t("close")}
           onClose={completeAccountChoice}
         >

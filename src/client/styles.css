@@ -957,6 +957,45 @@ hr {
   font-size: 21px;
   overflow-wrap: anywhere;
 }
+.sheet-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  gap: 8px 12px;
+}
+.sheet-heading-actions > div {
+  flex: 1 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.sheet-head:has(.sheet-heading-actions) > .icon-button {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.onboarding-language {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  color: var(--text);
+}
+.onboarding-language > svg {
+  flex-shrink: 0;
+}
+.onboarding-language select {
+  appearance: auto;
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font-size: 0.875rem;
+}
 .sheet-content {
   padding: 24px;
   min-height: 0;

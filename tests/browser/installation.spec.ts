@@ -44,7 +44,7 @@ for (const outcome of ["accepted", "dismissed", "failed"] as const) {
     } else {
       await expect(
         page.getByText(
-          "Open your browser’s menu, then choose Install app or Add to home screen and confirm.",
+          "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
         ),
       ).toBeVisible();
       if (outcome === "failed")
@@ -82,7 +82,13 @@ for (const ipad of [false, true]) {
     await expect(page.getByText("In Safari:")).toBeVisible();
     const steps = page.locator(".install-steps");
     await expect(steps.locator("li")).toHaveCount(3);
-    await expect(steps.getByText("Choose Add to Home Screen.")).toBeVisible();
+    await expect(
+      steps.getByText(
+        ipad
+          ? "Choose Add to Home Screen (tap More first if needed)."
+          : "Choose Add to Home Screen.",
+      ),
+    ).toBeVisible();
     await expect(
       page.getByText("Use your browser’s Install app or Add to home screen menu."),
     ).toHaveCount(0);
@@ -92,7 +98,13 @@ for (const ipad of [false, true]) {
       .getByRole("combobox")
       .filter({ has: page.locator('option[value="sv"]') })
       .selectOption("sv");
-    await expect(steps.getByText("Välj Lägg till på hemskärmen.")).toBeVisible();
+    await expect(
+      steps.getByText(
+        ipad
+          ? "Välj Lägg till på hemskärmen (tryck först på Visa mer om det behövs)."
+          : "Välj Lägg till på hemskärmen.",
+      ),
+    ).toBeVisible();
   });
 }
 
@@ -123,7 +135,9 @@ test("desktop without an install offer keeps browser guidance", async ({ page })
   );
   await openInstall(page);
   await expect(
-    page.getByText("Use your browser’s Install app or Add to home screen menu."),
+    page.getByText("For a guided installation, open this page in Chrome on your computer.", {
+      exact: false,
+    }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Install Places", exact: true })).toHaveCount(0);
 });
@@ -157,6 +171,7 @@ for (const [browser, marker] of [
         .filter({ has: page.locator('option[value="sv"]') })
         .selectOption("sv");
       await expect(steps.getByText("Tryck på Dela till höger om adressfältet.")).toBeVisible();
+      await expect(steps.getByText("Välj Lägg till på startskärmen.")).toBeVisible();
     } else {
       await expect(
         page.getByText(
@@ -167,5 +182,67 @@ for (const [browser, marker] of [
         steps.getByText("Tap Share (you may need to open the More menu first)."),
       ).toBeVisible();
     }
+  });
+}
+
+for (const [name, userAgent, en, sv] of [
+  [
+    "Android Chrome",
+    "Android Chrome/140.0 Mobile Safari/537.36",
+    "In Chrome on Android:",
+    "I Chrome på Android:",
+  ],
+  [
+    "Android Samsung",
+    "Android Chrome/140.0 SamsungBrowser/28.0 Safari/537.36",
+    "open this page in Chrome on Android",
+    "öppna den här sidan i Chrome på Android",
+  ],
+  [
+    "Android Edge",
+    "Android Chrome/140.0 EdgA/140.0 Safari/537.36",
+    "open this page in Chrome on Android",
+    "öppna den här sidan i Chrome på Android",
+  ],
+  [
+    "Android embedded",
+    "Android; wv) Version/4.0 Chrome/140.0 Safari/537.36",
+    "open this page in Chrome on Android",
+    "öppna den här sidan i Chrome på Android",
+  ],
+  [
+    "Windows Chrome",
+    "Windows NT 10.0 Chrome/140.0 Safari/537.36",
+    "In Chrome on your computer:",
+    "I Chrome på datorn:",
+  ],
+  [
+    "Windows Edge",
+    "Windows NT 10.0 Chrome/140.0 Safari/537.36 Edg/140.0",
+    "In Microsoft Edge on your computer:",
+    "I Microsoft Edge på datorn:",
+  ],
+  [
+    "Mac Safari",
+    "Macintosh Version/26.0 Safari/605.1.15",
+    "In Safari on macOS Sonoma 14 or later:",
+    "I Safari på macOS Sonoma 14 eller senare:",
+  ],
+]) {
+  test(`${name} manual instructions use the correct browser route in both languages`, async ({
+    page,
+  }) => {
+    await page.addInitScript((userAgent) => {
+      Object.defineProperty(navigator, "userAgent", { value: userAgent });
+      Object.defineProperty(navigator, "maxTouchPoints", { value: 0 });
+    }, userAgent);
+    await openInstall(page);
+    await expect(page.locator(".install-content")).toContainText(en);
+    await page
+      .getByRole("combobox")
+      .filter({ has: page.locator('option[value="sv"]') })
+      .selectOption("sv");
+    await expect(page.locator(".install-content")).toContainText(sv);
+    await expect(page.locator(".install-steps")).toHaveCount(0);
   });
 }

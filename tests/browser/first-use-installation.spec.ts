@@ -22,7 +22,7 @@ const identities = [
     "Safari iPad",
     "iPad Version/26.0 Mobile Safari/605.1.15",
     "iPad",
-    "Tap Share (you may need to open the More menu first).",
+    "Tap Share in Safari’s toolbar.",
   ],
   [
     "Chrome iPad",
@@ -34,13 +34,13 @@ const identities = [
     "desktop-mode iPad",
     "Macintosh Version/26.0 Safari/605.1.15",
     "MacIntel",
-    "Tap Share (you may need to open the More menu first).",
+    "Tap Share in Safari’s toolbar.",
   ],
   [
     "Android",
     "Android Chrome/140.0 Mobile Safari/537.36",
     "Linux armv8l",
-    "Open your browser’s menu, then choose Install app or Add to home screen and confirm.",
+    "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
   ],
 ];
 

@@ -99,8 +99,31 @@ export function appleInstallBrowser(nav: Pick<Navigator, "userAgent">) {
   if (/CriOS\//i.test(nav.userAgent)) return "chrome";
   if (
     /Safari\//i.test(nav.userAgent) &&
-    !/FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\//i.test(nav.userAgent)
+    /Version\//i.test(nav.userAgent) &&
+    !/FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\/|FBAN|FBAV|Instagram|Line\//i.test(nav.userAgent)
   )
     return "safari";
+  return "other";
+}
+
+export function appleInstallDevice(
+  nav: Pick<Navigator, "userAgent" | "platform" | "maxTouchPoints">,
+) {
+  return /iPad/i.test(nav.userAgent) || (nav.platform === "MacIntel" && nav.maxTouchPoints > 1)
+    ? "ipad"
+    : "iphone";
+}
+
+export function manualInstallBrowser(nav: Pick<Navigator, "userAgent">) {
+  // Embedded and separately branded Chromium browsers must not inherit Chrome's menus.
+  if (/; wv\)|\bVersion\/.*Chrome\//i.test(nav.userAgent)) return "other";
+  if (/Edg\//i.test(nav.userAgent)) return "edge";
+  if (
+    /Chrome\//i.test(nav.userAgent) &&
+    !/EdgA|OPR|SamsungBrowser|Vivaldi|DuckDuckGo/i.test(nav.userAgent)
+  )
+    return "chrome";
+  if (/Macintosh/i.test(nav.userAgent) && appleInstallBrowser(nav) === "safari")
+    return "safari-mac";
   return "other";
 }
