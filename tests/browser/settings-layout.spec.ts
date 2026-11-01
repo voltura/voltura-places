@@ -68,6 +68,14 @@ for (const [width, height, scale] of [
     await expect(
       page.getByRole("dialog").getByText("Not signed in", { exact: true }),
     ).toBeVisible();
+    // Repeating the action must navigate even when Account was the initial section.
+    for (let repeat = 0; repeat < 2; repeat++) {
+      if (await selector.isVisible()) await selector.selectOption("familySharing");
+      else await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+      await action.click();
+      await expect(dialog.getByText("Not signed in", { exact: true })).toBeVisible();
+      if (await selector.isVisible()) await expect(selector).toHaveValue("account");
+    }
   });
 }
 
@@ -128,7 +136,7 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
   ).toBeLessThanOrEqual(64);
   await page.getByRole("button", { name: "Edit category Parking", exact: true }).click();
   await page
-    .getByRole("textbox", { name: "Category name", exact: true })
+    .getByRole("textbox", { name: "Name", exact: true })
     .fill("Averylongunbrokencategorynamewithmultiplewordsandmore");
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   expect(
@@ -145,6 +153,13 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
     .click();
   const confirmation = page.getByRole("dialog", { name: "Delete category?", exact: true });
   await expect(confirmation).toContainText("Its places move to Other.");
+  await expect(
+    confirmation.getByRole("button", { name: "Delete", exact: true }).locator(".lucide-trash-2"),
+  ).toHaveCount(1);
+  await page.screenshot({
+    path: testInfo.outputPath("delete-category.png"),
+    animations: "disabled",
+  });
   await expect(
     confirmation.locator(".sheet-content").getByRole("button", { name: "Cancel", exact: true }),
   ).toBeFocused();
@@ -240,37 +255,40 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await expect(rows.nth(4).locator("select")).toHaveValue("imperial");
 });
 
-for (const theme of ["light", "dark"]) {
-  test(`preference dropdown hover and focus follow the ${theme} theme`, async ({
-    page,
-  }, testInfo) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
-    await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption(theme);
-    const menu = page.getByRole("combobox", { name: "Language", exact: true });
-    await menu.click();
-    const hovered = menu.getByRole("option", { name: "Svenska", exact: true });
-    await hovered.hover();
-    const colors = await menu.evaluate((el) => ({
-      selected: getComputedStyle(el.querySelector("option:checked")!).backgroundColor,
-      hovered: getComputedStyle(el.querySelector("option:hover")!).backgroundColor,
-      picker: getComputedStyle(el, "::picker(select)").backgroundColor,
-      text: getComputedStyle(el.querySelector("option:hover")!).color,
-    }));
-    expect(colors.hovered).toBe(colors.selected);
-    expect(colors.hovered).not.toBe("rgba(0, 0, 0, 0)");
-    expect(colors.text).not.toBe(colors.hovered);
-    await page.screenshot({ path: testInfo.outputPath(`preference-menu-${theme}.png`) });
-    await page.keyboard.press("Escape");
-    await menu.focus();
-    const focus = await menu.evaluate((el) => ({
-      outline: getComputedStyle(el).outlineStyle,
-      shadow: getComputedStyle(el.parentElement!).boxShadow,
-    }));
-    expect(focus.outline).toBe("none");
-    expect(focus.shadow).toContain("1px");
-  });
-}
+test.describe("mouse preference dropdowns", () => {
+  test.use({ isMobile: false, hasTouch: false });
+  for (const theme of ["light", "dark"]) {
+    test(`preference dropdown hover and focus follow the ${theme} theme`, async ({
+      page,
+    }, testInfo) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption(theme);
+      const menu = page.getByRole("combobox", { name: "Language", exact: true });
+      await menu.click();
+      const hovered = menu.getByRole("option", { name: "Svenska", exact: true });
+      await hovered.hover();
+      const colors = await menu.evaluate((el) => ({
+        selected: getComputedStyle(el.querySelector("option:checked")!).backgroundColor,
+        hovered: getComputedStyle(el.querySelector("option:hover")!).backgroundColor,
+        picker: getComputedStyle(el, "::picker(select)").backgroundColor,
+        text: getComputedStyle(el.querySelector("option:hover")!).color,
+      }));
+      expect(colors.hovered).toBe(colors.selected);
+      expect(colors.hovered).not.toBe("rgba(0, 0, 0, 0)");
+      expect(colors.text).not.toBe(colors.hovered);
+      await page.screenshot({ path: testInfo.outputPath(`preference-menu-${theme}.png`) });
+      await page.keyboard.press("Escape");
+      await menu.focus();
+      const focus = await menu.evaluate((el) => ({
+        outline: getComputedStyle(el).outlineStyle,
+        shadow: getComputedStyle(el.parentElement!).boxShadow,
+      }));
+      expect(focus.outline).toBe("none");
+      expect(focus.shadow).toContain("1px");
+    });
+  }
+});
 
 for (const [width, scale] of [
   [320, 1],

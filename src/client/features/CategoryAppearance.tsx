@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   MapPin,
   Car,
@@ -22,6 +23,30 @@ import {
   Music,
   Plane,
   Wrench,
+  Footprints,
+  Binoculars,
+  Bird,
+  Cat,
+  Leaf,
+  Sun,
+  Snowflake,
+  Flame,
+  Droplets,
+  Palmtree,
+  Castle,
+  Church,
+  Landmark,
+  Hospital,
+  BedDouble,
+  Store,
+  Fuel,
+  TrainFront,
+  Bus,
+  Ship,
+  Dumbbell,
+  Volleyball,
+  Wine,
+  IceCreamCone,
   Check,
 } from "lucide-react";
 import type { Category, LocalRecord } from "../../shared/model";
@@ -70,6 +95,30 @@ const icons = {
   music: Music,
   plane: Plane,
   wrench: Wrench,
+  footprints: Footprints,
+  binoculars: Binoculars,
+  bird: Bird,
+  cat: Cat,
+  leaf: Leaf,
+  sun: Sun,
+  snowflake: Snowflake,
+  flame: Flame,
+  water: Droplets,
+  palm: Palmtree,
+  castle: Castle,
+  church: Church,
+  landmark: Landmark,
+  hospital: Hospital,
+  bed: BedDouble,
+  store: Store,
+  fuel: Fuel,
+  train: TrainFront,
+  bus: Bus,
+  ship: Ship,
+  dumbbell: Dumbbell,
+  volleyball: Volleyball,
+  wine: Wine,
+  icecream: IceCreamCone,
 };
 const defaults: Record<string, NonNullable<Category["icon"]>> = {
   parking: "car",
@@ -98,8 +147,10 @@ export function CategoryIcon({
   color?: string;
   size?: number;
 }) {
-  const a = categoryAppearance(record),
-    Icon = icons[icon ?? a.icon];
+  const a = categoryAppearance(record);
+  const selected = icon ?? a.icon;
+  if (selected === "none") return null;
+  const Icon = icons[selected];
   return (
     <span className={`category-icon ${color ?? a.color}`} aria-hidden="true">
       <Icon size={size} />
@@ -117,8 +168,50 @@ export function CategoryAppearancePicker({
   onChange: (c: { icon?: NonNullable<Category["icon"]>; color?: string }) => void;
   t: (key: Message) => string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrollIcons, setScrollIcons] = useState(false);
+  useLayoutEffect(() => {
+    const picker = ref.current!;
+    const body = picker.closest<HTMLElement>(".category-editor-body");
+    const sheet = picker.closest<HTMLElement>(".category-editor-sheet");
+    if (!body || !sheet) return;
+    const name = body.querySelector("label")!;
+    const colors = picker.querySelector("fieldset")!;
+    const heading = picker.querySelector(".category-icons-heading")!;
+    const measure = () => {
+      const viewport = window.visualViewport;
+      sheet.style.setProperty(
+        "--category-viewport-height",
+        `${viewport?.height ?? window.innerHeight}px`,
+      );
+      const style = getComputedStyle(body);
+      const fixedHeight =
+        name.getBoundingClientRect().height +
+        colors.getBoundingClientRect().height +
+        heading.getBoundingClientRect().height +
+        8 +
+        parseFloat(style.paddingTop) +
+        parseFloat(style.paddingBottom) +
+        parseFloat(style.gap) +
+        parseFloat(getComputedStyle(picker).gap);
+      // Reserve at least two complete 48px icon rows before pinning the fields.
+      setScrollIcons(body.clientHeight - fixedHeight >= 104);
+    };
+    const observer = new ResizeObserver(measure);
+    for (const element of [body, name, colors, heading]) observer.observe(element);
+    window.visualViewport?.addEventListener("resize", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.visualViewport?.removeEventListener("resize", measure);
+      sheet.style.removeProperty("--category-viewport-height");
+    };
+  }, []);
   return (
-    <div className="stack category-appearance-picker">
+    <div
+      ref={ref}
+      className={`stack category-appearance-picker ${scrollIcons ? "scroll-icons" : ""}`}
+    >
       <fieldset>
         <legend>{t("color")}</legend>
         <div className="color-swatches">
@@ -137,23 +230,29 @@ export function CategoryAppearancePicker({
           ))}
         </div>
       </fieldset>
-      <fieldset>
-        <legend>{t("categoryIcon")}</legend>
-        <div className="category-icon-grid">
-          {categoryIcons.map((i) => (
-            <button
-              type="button"
-              key={i}
-              aria-label={t(`icon_${i}`)}
-              title={t(`icon_${i}`)}
-              aria-pressed={icon === i}
-              onClick={() => onChange({ icon: i })}
-            >
-              <CategoryIcon icon={i} color={color} />
-            </button>
-          ))}
+      <div className="category-icons-section" role="group" aria-label={t("categoryIcon")}>
+        <div className="category-icons-heading">{t("categoryIcon")}</div>
+        <div className="category-icon-scroll">
+          <div className="category-icon-grid">
+            {categoryIcons.map((i) => (
+              <button
+                type="button"
+                key={i}
+                aria-label={t(`icon_${i}`)}
+                title={t(`icon_${i}`)}
+                aria-pressed={icon === i}
+                onClick={() => onChange({ icon: i })}
+              >
+                {i === "none" ? (
+                  <span className="category-no-icon" aria-hidden="true" />
+                ) : (
+                  <CategoryIcon icon={i} color={color} />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </fieldset>
+      </div>
     </div>
   );
 }

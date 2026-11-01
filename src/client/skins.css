@@ -282,3 +282,17 @@
 :root[data-theme="dark"] .sheet::backdrop {
   background: color-mix(in srgb, var(--bg) 75%, transparent);
 }
+
+/* Action tokens resolve against each skin/mode, independently of decorative borders. */
+:root {
+  --button-border: color-mix(in srgb, var(--text) 60%, var(--surface));
+  --button-subdued-border: color-mix(in srgb, var(--text) 55%, var(--surface));
+  --button-hover: var(--raised);
+  --button-pressed: color-mix(in srgb, var(--text) 14%, var(--surface));
+  --danger-fill: var(--danger);
+  --on-danger: var(--surface);
+}
+
+:root[data-theme="dark"] {
+  --button-subdued-border: color-mix(in srgb, var(--text) 40%, var(--surface));
+}

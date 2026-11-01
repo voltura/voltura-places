@@ -193,7 +193,7 @@ export function LibraryView({
             <Search size={30} />
             <h2>{t("noResults")}</h2>
             <button
-              className="button quiet"
+              className="button outline"
               onClick={() => {
                 setSearch("");
                 setFilter("all");

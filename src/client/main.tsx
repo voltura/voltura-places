@@ -4,6 +4,7 @@ import { App } from "./app/App";
 import "./styles.css";
 import "./skins.css";
 import { applyAppearance, validSkin } from "./foundation/appearance";
+import "./foundation/installation-runtime";
 // The blocking initializer resolves saved attributes before CSS; synchronize browser chrome
 // as soon as the stylesheet is ready, before React renders.
 applyAppearance(

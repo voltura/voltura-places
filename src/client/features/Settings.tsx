@@ -1,4 +1,5 @@
 import { skins, type Skin } from "../foundation/appearance";
+import { activityEnabled, setActivityEnabled } from "../foundation/activity";
 import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import {
 import { Sheet } from "../ui/Sheet";
 import { keepOfflineData } from "../foundation/storage";
 import { AccountPanel } from "./Account";
+import { InstallPlaces } from "./InstallPlaces";
 import type { AccountState } from "../foundation/sync";
 import type { Language, Message } from "../foundation/i18n";
 import type { LocalRecord } from "../../shared/model";
@@ -84,9 +86,15 @@ export function Settings({
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
   initial?: string;
-  familyPanel: ReactNode;
+  familyPanel: (onSignIn: () => void) => ReactNode;
 }) {
   const [tab, setTab] = useState(initial);
+  const [reportActivity, setReportActivity] = useState(activityEnabled);
+  useEffect(() => {
+    const refresh = () => setReportActivity(activityEnabled());
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
+  }, []);
   useEffect(() => setTab(initial), [initial]);
   const [storageStatus, setStorageStatus] = useState<boolean | null>(null);
   const [requestingStorage, setRequestingStorage] = useState(false);
@@ -159,7 +167,7 @@ export function Settings({
           ))}
         </nav>
       </div>
-      {tab === "familySharing" && familyPanel}
+      {tab === "familySharing" && familyPanel(() => setTab("account"))}
       {tab === "preferences" && (
         <div className="stack preferences-panel">
           <h3>{t("preferences")}</h3>
@@ -289,20 +297,28 @@ export function Settings({
             <small id="auto-hide-help">{t("autoHideControlsHint")}</small>
           </label>
           <div className="preferences-disclosures">
-            <details>
-              <summary>
-                <span>{t("install")}</span>
-                <ChevronRight aria-hidden="true" size={20} />
-              </summary>
-              <p className="muted">{t("installIOS")}</p>
-              <p className="muted">{t("installOther")}</p>
-            </details>
+            <InstallPlaces t={t} />
             <details>
               <summary>
                 <span>{t("privacy")}</span>
                 <ChevronRight aria-hidden="true" size={20} />
               </summary>
               <p className="muted">{t("privacyText")}</p>
+              <label className="gps-setting">
+                <span>{t("activityReporting")}</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={reportActivity}
+                  aria-label={t("activityReporting")}
+                  aria-describedby="activity-help"
+                  onChange={(event) => {
+                    setActivityEnabled(event.target.checked);
+                    setReportActivity(event.target.checked);
+                  }}
+                />
+                <small id="activity-help">{t("activityReportingHint")}</small>
+              </label>
               <p className="muted">{t("recoveryText")}</p>
             </details>
           </div>
@@ -355,12 +371,12 @@ export function Settings({
                 </button>
                 {c.id !== "other" ? (
                   <button
-                    className="icon-button"
+                    className="icon-button danger"
                     aria-label={`${t("delete")} ${categoryLabel(c)}`}
                     disabled={!canWrite}
                     onClick={() => onDeleteCategory(c)}
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={18} aria-hidden="true" />
                   </button>
                 ) : (
                   <span aria-hidden="true" className="category-delete-slot" />

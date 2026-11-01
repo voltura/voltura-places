@@ -32,6 +32,7 @@ try {
     "0004_family_codes.sql",
     "0005_multiple_groups.sql",
     "0006_code_invitations_only.sql",
+    "0007_usage_statistics.sql",
   ]) {
     if (file === "0005_multiple_groups.sql") {
       await db.batch([
@@ -165,6 +166,50 @@ try {
   check(
     (await request("/api/v1/sync", { ...a, account: b.account })).status === 409,
     "Caller-supplied account ownership is rejected",
+  );
+  // Use an isolated account so catalog checks cannot change existing fixture counts.
+  const appearanceAccount = await login("appearance-catalog");
+  const appearanceCategory = {
+    id: crypto.randomUUID(),
+    kind: "category",
+    value: { name: "Synthetic category", color: "cyan", icon: "none" },
+  };
+  const appearanceMutation = {
+    version: 1,
+    mutationId: crypto.randomUUID(),
+    baseRevision: 0,
+    deleted: false,
+    entity: appearanceCategory,
+  };
+  const appearanceWrite = await request("/api/v1/sync", {
+    ...appearanceAccount,
+    body: appearanceMutation,
+  });
+  check(appearanceWrite.status === 200, "Expanded category appearance is accepted by the server");
+  const appearanceSnapshot = await (await request("/api/v1/sync", appearanceAccount)).json();
+  assert.deepEqual(
+    appearanceSnapshot.records.find((r) => r.id === appearanceCategory.id)?.value,
+    appearanceCategory.value,
+  );
+  check(true, "Expanded category appearance survives sync pull");
+  for (const invalid of [{ color: "unknown" }, { icon: "unknown" }]) {
+    const rejected = await request("/api/v1/sync", {
+      ...appearanceAccount,
+      body: {
+        ...appearanceMutation,
+        mutationId: crypto.randomUUID(),
+        entity: {
+          ...appearanceCategory,
+          id: crypto.randomUUID(),
+          value: { ...appearanceCategory.value, ...invalid },
+        },
+      },
+    });
+    check(rejected.status === 422, "Unknown category appearance is rejected by the server");
+  }
+  check(
+    (await request("/api/v1/sync", { ...appearanceAccount, account: b.account })).status === 409,
+    "Expanded appearance cannot bypass account ownership",
   );
   const entity = {
     id: crypto.randomUUID(),

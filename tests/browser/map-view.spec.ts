@@ -643,3 +643,38 @@ test("WebKit phone fullscreen keeps focus and exits through Escape", async () =>
     await browser.close();
   }
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`expanded category colors reach map pins in ${theme}`, async ({ page }) => {
+    await page.addInitScript(
+      (theme) =>
+        localStorage.setItem("places-preferences", JSON.stringify({ theme, language: "en" })),
+      theme,
+    );
+    const recordsFor = (color: string) => [
+      {
+        id: "custom-category",
+        kind: "category",
+        value: { name: color, color, icon: "icecream" },
+        revision: 0,
+        deleted: false,
+        generation: 1,
+        dirty: false,
+      },
+      {
+        ...record("Color sample"),
+        value: { ...record("Color sample").value, categoryId: "custom-category" },
+      },
+    ];
+    await start(page, recordsFor("red"));
+    await openMap(page);
+    for (const color of ["red", "orange", "yellow", "lime", "teal", "cyan"]) {
+      await seed(page, recordsFor(color));
+      const dot = page.locator('.places-map-pin[title="Color sample"] .places-map-dot');
+      await expect(dot).toHaveClass(`places-map-dot ${color}`);
+      expect(
+        await dot.evaluate((el) => getComputedStyle(el).getPropertyValue("--marker").trim()),
+      ).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+}

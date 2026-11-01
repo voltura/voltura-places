@@ -1,12 +1,18 @@
 import { applyAppearance, validSkin } from "../foundation/appearance";
+import { startActivityReporting } from "../foundation/activity";
 import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
 import { useCurrentPosition } from "./useCurrentPosition";
 import { distanceMetres } from "../foundation/distance";
 import { shareOrCopy } from "../foundation/sharing";
-import { categoryAppearance, CategoryAppearancePicker } from "../features/CategoryAppearance";
+import {
+  categoryAppearance,
+  CategoryAppearancePicker,
+  CategoryIcon,
+} from "../features/CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
   LocateFixed,
   ChevronDown,
   MapPin,
@@ -45,6 +51,7 @@ import { familyKey, workspaceIdentity, type Family } from "../../shared/families
 import { LocationReview } from "../features/LocationReview";
 import { validPosition, captureLocation } from "../foundation/location-review";
 import { Editor } from "../features/Editor";
+import { InstallPlaces } from "../features/InstallPlaces";
 import { Settings, type Preferences } from "../features/Settings";
 import { libraryErrorMessage, messages, type Message } from "../foundation/i18n";
 import { keepOfflineData } from "../foundation/storage";
@@ -115,6 +122,7 @@ function loadPreferences(): Preferences {
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
+  useEffect(() => startActivityReporting(), []);
   const { position: currentPosition, rememberPosition } = useCurrentPosition();
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
@@ -1129,21 +1137,27 @@ export function App() {
           closeLabel={t("close")}
           onClose={completeAccountChoice}
         >
-          <div className="stack">
-            <p>{t("accountChoiceBody")}</p>
-            <p>{t("accountChoiceOffline")}</p>
-            <button
-              className="button primary"
-              onClick={() => {
-                completeAccountChoice();
-                setSettings("account");
-              }}
-            >
-              {t("signInOrCreate")}
-            </button>
-            <button className="button outline" onClick={completeAccountChoice}>
-              {t("continueGuest")}
-            </button>
+          <div className="stack onboarding-steps">
+            <InstallPlaces t={t} firstUse />
+            <section className="onboarding-step stack" aria-labelledby="onboarding-account-title">
+              <h3 className="onboarding-step-heading" id="onboarding-account-title">
+                <span className="onboarding-step-number" aria-hidden="true" />
+                {t("accountChoiceAccount")}
+              </h3>
+              <p className="onboarding-account-help">{t("accountChoiceBody")}</p>
+              <button
+                className="button outline"
+                onClick={() => {
+                  completeAccountChoice();
+                  setSettings("account");
+                }}
+              >
+                {t("signInOrCreate")}
+              </button>
+              <button className="button outline" onClick={completeAccountChoice}>
+                {t("continueGuest")}
+              </button>
+            </section>
           </div>
         </Sheet>
       )}
@@ -1203,7 +1217,7 @@ export function App() {
         <Settings
           canWrite={canWrite}
           initial={settings === "participants" ? "familySharing" : settings}
-          familyPanel={
+          familyPanel={(onSignIn) => (
             <FamilyPanel
               key={account.account?.id ?? "guest"}
               account={account.account}
@@ -1215,12 +1229,12 @@ export function App() {
               onOpen={(groupId) => {
                 if (account.account) switchLibrary(familyKey(account.account.id, groupId));
               }}
-              onSignIn={() => setSettings("account")}
+              onSignIn={onSignIn}
               onExport={(groupId) => {
                 if (account.account) void download(familyKey(account.account.id, groupId));
               }}
             />
-          }
+          )}
           t={t}
           preferences={prefs}
           onPreferences={setPrefs}
@@ -1282,10 +1296,11 @@ export function App() {
           onClose={() => {
             if (!savingCategory) setCategoryEdit(null);
           }}
+          className="category-editor-sheet"
           closeLabel={t("close")}
         >
           <form
-            className="stack"
+            className="category-editor-form"
             inert={savingCategory}
             onSubmit={(e) => {
               e.preventDefault();
@@ -1325,24 +1340,38 @@ export function App() {
                 });
             }}
           >
-            <label>
-              {t("categoryName")}
-              <input
-                value={categoryEdit.name}
-                maxLength={60}
-                required
-                onChange={(e) => setCategoryEdit({ ...categoryEdit, name: e.target.value })}
+            <div className="stack category-editor-body">
+              <label>
+                {t("name")}
+                <span
+                  className={`category-name-field ${categoryEdit.icon === "none" ? "no-icon" : ""}`}
+                >
+                  {categoryEdit.icon !== "none" && (
+                    <span className="category-name-preview" aria-hidden="true">
+                      <CategoryIcon icon={categoryEdit.icon} color={categoryEdit.color} size={22} />
+                    </span>
+                  )}
+                  <input
+                    value={categoryEdit.name}
+                    maxLength={60}
+                    required
+                    onChange={(e) => setCategoryEdit({ ...categoryEdit, name: e.target.value })}
+                  />
+                </span>
+              </label>
+              <CategoryAppearancePicker
+                icon={categoryEdit.icon}
+                color={categoryEdit.color}
+                t={t}
+                onChange={(change) => setCategoryEdit({ ...categoryEdit, ...change })}
               />
-            </label>
-            <CategoryAppearancePicker
-              icon={categoryEdit.icon}
-              color={categoryEdit.color}
-              t={t}
-              onChange={(change) => setCategoryEdit({ ...categoryEdit, ...change })}
-            />
-            <button className="button primary" disabled={savingCategory}>
-              {t(savingCategory ? "working" : "save")}
-            </button>
+            </div>
+            <div className="category-editor-footer">
+              <button className="button primary" disabled={savingCategory}>
+                {!savingCategory && <Check size={20} aria-hidden="true" />}
+                {t(savingCategory ? "working" : "save")}
+              </button>
+            </div>
           </form>
         </Sheet>
       )}
@@ -1361,7 +1390,7 @@ export function App() {
             <p>{t("deleteCategoryBody")}</p>
             <div className="action-pair">
               <button
-                className="button outline"
+                className="button outline subdued"
                 data-initial-focus
                 disabled={deletingCategory}
                 onClick={() => setDeleteCategory(null)}
@@ -1369,7 +1398,7 @@ export function App() {
                 {t("cancel")}
               </button>
               <button
-                className="button danger"
+                className="button danger confirm"
                 disabled={deletingCategory || !canWrite}
                 onClick={() =>
                   void (async () => {
@@ -1395,6 +1424,7 @@ export function App() {
                   })()
                 }
               >
+                <Trash2 size={20} aria-hidden="true" />
                 {t(deletingCategory ? "working" : "delete")}
               </button>
             </div>
@@ -1545,7 +1575,7 @@ export function App() {
                 </button>
               ))}
               <button
-                className="button outline"
+                className="button outline subdued"
                 disabled={copyingToGroup}
                 data-initial-focus
                 onClick={() => setCopyGroupPicker(false)}
@@ -1554,7 +1584,7 @@ export function App() {
               </button>
             </div>
           ) : (
-            <div className="stack">
+            <div className="stack place-actions">
               <button
                 className="button outline"
                 disabled={!canWrite}
@@ -1599,7 +1629,7 @@ export function App() {
                 disabled={!canWrite}
                 onClick={() => setDeletePlace({ place: menu, scope })}
               >
-                <Trash2 size={18} />
+                <Trash2 size={20} aria-hidden="true" />
                 {t("delete")}
               </button>
             </div>
@@ -1634,18 +1664,18 @@ export function App() {
             <p>{t("deletePlaceBody")}</p>
             <div className="action-pair">
               <button
-                className="button outline"
+                className="button outline subdued"
                 data-initial-focus
                 onClick={() => setDeletePlace(null)}
               >
                 {t("cancel")}
               </button>
               <button
-                className="button danger"
+                className="button danger confirm"
                 disabled={!canWrite}
                 onClick={() => void remove(deletePlace.place, deletePlace.scope)}
               >
-                <Trash2 size={18} />
+                <Trash2 size={20} aria-hidden="true" />
                 {t("delete")}
               </button>
             </div>
@@ -1682,7 +1712,7 @@ export function App() {
             >
               {t("update")}
             </button>
-            <button className="button outline" onClick={() => setUpdate(false)}>
+            <button className="button outline subdued" onClick={() => setUpdate(false)}>
               {t("updateLater")}
             </button>
           </div>

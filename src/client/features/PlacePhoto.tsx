@@ -148,7 +148,7 @@ export function PhotoPicker({
       {id && (
         <button
           type="button"
-          className="button quiet"
+          className="button danger"
           disabled={busy}
           onClick={() => {
             onChange(null);
@@ -156,7 +156,7 @@ export function PhotoPicker({
             setMissingPosition(false);
           }}
         >
-          <Trash2 size={17} />
+          <Trash2 size={20} aria-hidden="true" />
           {t("removePhoto")}
         </button>
       )}

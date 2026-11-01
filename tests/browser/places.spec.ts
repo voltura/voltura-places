@@ -205,7 +205,7 @@ test("first use offers optional sign-in and remembers continuing without an acco
   const page = await context.newPage();
   try {
     await page.goto("/");
-    await expect(page.getByRole("dialog", { name: "Use Places", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Get started", exact: true })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Sign in or create account", exact: true }),
     ).toBeVisible();
@@ -214,7 +214,7 @@ test("first use offers optional sign-in and remembers continuing without an acco
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
     await page.reload();
-    await expect(page.getByRole("dialog", { name: "Use Places", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Get started", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByText("Not signed in", { exact: true })).toBeVisible();
   } finally {

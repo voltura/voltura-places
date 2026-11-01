@@ -43,9 +43,15 @@ test("editor location update reports progress, cancellation, success and bounded
   const update = editor.getByRole("button", { name: "Update location", exact: true });
   const cancel = editor.getByRole("button", { name: "Cancel location update", exact: true });
   const save = editor.getByRole("button", { name: /^(Save|Done)$/, exact: true });
+  const enabledSize = await save.boundingBox();
   await update.click();
   await expect(update).toBeDisabled();
   await expect(save).toBeDisabled();
+  const disabledSize = await save.boundingBox();
+  expect(disabledSize!.width).toBeCloseTo(enabledSize!.width, 0);
+  expect(disabledSize!.height).toBeCloseTo(enabledSize!.height, 0);
+  await expect(save).toHaveCSS("cursor", "not-allowed");
+  await expect(cancel).toHaveClass("button outline subdued");
   await expect(editor.getByText("Finding your location…", { exact: true })).toBeVisible();
   await expect(
     editor.getByText("This can take up to a minute. Allow location access if asked."),

@@ -427,7 +427,7 @@ export function Editor({
               </div>
               <button
                 type="button"
-                className="button quiet"
+                className="button outline subdued"
                 onClick={() => {
                   stopCapture.current();
                   setLocating(false);
@@ -532,28 +532,29 @@ export function Editor({
             {t(busy ? "working" : fresh ? "done" : "save")}
           </button>
           {!fresh && (
-            <button type="button" className="button editor-secondary" onClick={dismiss}>
+            <button type="button" className="button outline subdued" onClick={dismiss}>
               {t("cancel")}
             </button>
           )}
           {!fresh && initial && onDelete && (
             <button
               type="button"
-              className="button editor-secondary editor-delete"
+              className="button danger editor-delete"
               disabled={busy || photoBusy || !ready}
               onClick={onDelete}
             >
-              <Trash2 size={18} aria-hidden="true" />
+              <Trash2 size={20} aria-hidden="true" />
               {t("delete")}
             </button>
           )}
           {fresh && (
             <button
               type="button"
-              className="editor-discard-place"
+              className="button danger"
               disabled={busy || photoBusy || !ready}
               onClick={() => setDiscardingPlace(true)}
             >
+              <Trash2 size={20} aria-hidden="true" />
               {t("discardPlace")}
             </button>
           )}
@@ -574,7 +575,7 @@ export function Editor({
             <p>{t("deletePlaceBody")}</p>
             <button
               type="button"
-              className="button outline"
+              className="button outline subdued"
               data-initial-focus
               disabled={busy}
               onClick={() => setDiscardingPlace(false)}
@@ -583,10 +584,11 @@ export function Editor({
             </button>
             <button
               type="button"
-              className="button danger"
+              className="button danger confirm"
               disabled={busy}
               onClick={() => void discardPlace()}
             >
+              <Trash2 size={20} aria-hidden="true" />
               {t(busy ? "working" : "discardPlace")}
             </button>
           </div>
@@ -602,13 +604,14 @@ export function Editor({
             <p>{t("discardChangesHint")}</p>
             <button
               type="button"
-              className="button outline"
+              className="button outline subdued"
               data-initial-focus
               onClick={() => setDiscarding(false)}
             >
               {t("keepEditing")}
             </button>
-            <button type="button" className="button danger" onClick={discard}>
+            <button type="button" className="button danger confirm" onClick={discard}>
+              <Trash2 size={20} aria-hidden="true" />
               {t("discard")}
             </button>
           </div>

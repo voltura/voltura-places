@@ -98,6 +98,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       "0004_family_codes",
       "0005_multiple_groups",
       "0006_code_invitations_only",
+      "0007_usage_statistics",
     ]) {
       const sql = await readFile(new URL(`../drizzle/${migration}.sql`, import.meta.url), "utf8");
       for (const statement of sql

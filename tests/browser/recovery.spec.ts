@@ -182,7 +182,7 @@ test("submitting a new category twice while its save is pending creates one cate
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("combobox", { name: "Settings", exact: true }).selectOption("categories");
   await page.getByRole("button", { name: "New category", exact: true }).click();
-  await page.getByRole("textbox", { name: "Category name", exact: true }).fill("One category");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("One category");
   await page.locator("dialog form").evaluate((form) => {
     (form as HTMLFormElement).requestSubmit();
     (form as HTMLFormElement).requestSubmit();

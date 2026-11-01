@@ -31,6 +31,9 @@ const css = await readFile("site/site.css"),
 await mkdir(".artifacts/promo/assets", { recursive: true });
 await mkdir(".artifacts/promo/sv", { recursive: true });
 await writeFile(`.artifacts/promo/assets/site.${hash}.css`, css);
+const usageScript = await readFile("site/usage.js");
+const usageScriptName = `usage.${createHash("sha256").update(usageScript).digest("hex").slice(0, 16)}.js`;
+await writeFile(`.artifacts/promo/assets/${usageScriptName}`, usageScript);
 await cp("public/icon.svg", ".artifacts/promo/assets/icon.svg");
 for (const [language, c] of Object.entries(content)) {
   const prefix = language === "sv" ? "../" : "./";
@@ -64,7 +67,7 @@ for (const [language, c] of Object.entries(content)) {
     themeScript,
   });
   await writeFile(`.artifacts/promo/${language === "sv" ? "sv/" : ""}index.html`, html);
-  const statsTitle = language === "sv" ? "Kodstatistik" : "Code statistics";
+  const statsTitle = language === "sv" ? "Statistik" : "Statistics";
   const statsHtml = renderPromo({
     language,
     c: {
@@ -72,8 +75,8 @@ for (const [language, c] of Object.entries(content)) {
       title: statsTitle,
       description:
         language === "sv"
-          ? "Källkoden bakom Voltura Places i siffror."
-          : "The code behind Voltura Places, in numbers.",
+          ? "Användning och koden bakom Places i siffror."
+          : "Usage and the code behind Places, in numbers.",
     },
     prefix,
     appUrl,
@@ -86,6 +89,7 @@ for (const [language, c] of Object.entries(content)) {
     themeScript,
     mainHtml: renderStatistics(statistics, language),
     statistics: true,
+    usageScriptName,
   });
   await writeFile(`.artifacts/promo/${language === "sv" ? "sv/" : ""}stats.html`, statsHtml);
 }

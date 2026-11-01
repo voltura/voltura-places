@@ -35,6 +35,7 @@ export function renderPromo({
   themeScript,
   mainHtml,
   statistics = false,
+  usageScriptName,
 }) {
   const asset = (name) => `${prefix}assets/${name}`;
   const brand = `<img src="${asset("icon.svg")}" width="38" height="38" alt=""><span>voltura <strong>places</strong></span>`;
@@ -65,15 +66,16 @@ export function renderPromo({
 <meta property="og:title" content="Voltura Places — ${c.title}"><meta property="og:description" content="${c.description}"><meta property="og:type" content="website"><meta property="og:site_name" content="Voltura Places"><meta property="og:url" content="${pageUrl}"><meta property="og:locale" content="${language === "sv" ? "sv_SE" : "en_GB"}"><meta property="og:image" content="${imageUrl}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${imageAlt}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Voltura Places — ${c.title}"><meta name="twitter:description" content="${c.description}"><meta name="twitter:image" content="${imageUrl}"><meta name="twitter:image:alt" content="${imageAlt}">
 <link rel="icon" href="${asset("icon.svg")}"><link rel="stylesheet" href="${asset(cssName)}">
+${usageScriptName ? `<script type="module" src="${asset(usageScriptName)}"></script>` : ""}
 </head><body>
 <a class="skip-link" href="#main">${c.skip}</a>
 <header class="site-header"><div class="container header-inner">
   <a class="brand" href="${language === "sv" ? "./" : "./"}" aria-label="Voltura Places">${brand}</a>
-  <nav class="main-nav" aria-label="${c.navLabel}"><a href="${statistics ? "./#features" : "#features"}">${c.featuresNav}</a><a href="${statistics ? "./#sharing" : "#sharing"}">${c.sharingNav}</a><a href="${statistics ? "./#install" : "#install"}">${c.installNav}</a></nav>
+  ${statistics ? "" : `<nav class="main-nav" aria-label="${c.navLabel}"><a href="${statistics ? "./#features" : "#features"}">${c.featuresNav}</a><a href="${statistics ? "./#sharing" : "#sharing"}">${c.sharingNav}</a><a href="${statistics ? "./#install" : "#install"}">${c.installNav}</a></nav>`}
   <div class="header-actions"><a class="language" href="${language === "sv" ? "../" : "sv/"}${statistics ? "stats.html" : ""}" lang="${language === "sv" ? "en" : "sv"}">${language === "sv" ? "English" : "Svenska"}</a><button class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="${c.darkTheme}" data-light-label="${c.lightThemeAction}" data-dark-label="${c.darkThemeAction}">${icon("sun", "theme-sun")}${icon("moon", "theme-moon")}</button><a class="header-open" href="${appUrl}">${c.open}${icon("external")}</a></div>
 </div></header>
 <main id="main">
 ${main}
-</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="${statistics ? "./" : pageUrl}">${brand}</a><nav aria-label="${c.privacy}"><a href="${statistics ? "./#privacy" : "#privacy"}">${c.privacy}</a><a href="stats.html"${statistics ? ' aria-current="page"' : ""}>${language === "sv" ? "Kodstatistik" : "Code statistics"}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
+</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="${statistics ? "./" : pageUrl}">${brand}</a><nav aria-label="${c.privacy}"><a href="${statistics ? "./#privacy" : "#privacy"}">${c.privacy}</a><a href="stats.html"${statistics ? ' aria-current="page"' : ""}>${language === "sv" ? "Statistik" : "Statistics"}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
 </body></html>`;
 }

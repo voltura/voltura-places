@@ -104,7 +104,7 @@ export function LocationReview({
               {t("gpsRetry")}
             </button>
           )}
-          <button className="button quiet" onClick={onClose}>
+          <button className="button outline subdued" onClick={onClose}>
             {t("cancel")}
           </button>
         </div>

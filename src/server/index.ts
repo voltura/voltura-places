@@ -2,6 +2,7 @@ import { handleAccounts } from "./accounts.js";
 import { handleSync } from "./sync";
 import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
+import { handleStatistics } from "./statistics";
 import type { Environment } from "./types";
 export type AssetMap = Record<string, [string, string]>;
 const security = {
@@ -23,7 +24,9 @@ export function createWorker(assets: AssetMap, version: string) {
           );
         if (url.pathname.startsWith("/api/")) {
           let response: Response;
-          if (url.pathname === "/api/family") {
+          if (["/api/v1/activity", "/api/v1/statistics"].includes(url.pathname)) {
+            response = await handleStatistics(request, env);
+          } else if (url.pathname === "/api/family") {
             response = await handleFamilies(request, env);
           } else if (url.pathname.startsWith("/api/v1/photos/")) {
             response = await handlePhoto(request, env);

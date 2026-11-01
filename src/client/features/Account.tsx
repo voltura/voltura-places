@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cloud, ArrowRight, Mail } from "lucide-react";
+import { Cloud, ArrowRight, Mail, Trash2, MonitorX } from "lucide-react";
 import { api, type AccountState } from "../foundation/sync";
 import type { Message } from "../foundation/i18n";
 export function AccountPanel({
@@ -88,12 +88,26 @@ export function AccountPanel({
             <ArrowRight size={18} />
           </button>
         )}
-      {state.providers.chatgpt &&
+      {import.meta.env.DEV &&
+        !state.providers.google &&
+        !state.account?.methods.some((m) => m.provider === "google") && (
+          <p className="muted small">{t("googlePreviewUnavailable")}</p>
+        )}
+      {import.meta.env.DEV && !state.account?.methods.some((m) => m.provider === "chatgpt") && (
+        <p className="muted small">{t("chatGPTPublishedOnly")}</p>
+      )}
+      {!import.meta.env.DEV &&
+        state.providers.chatgpt &&
         (!state.account || !state.account.methods.some((m) => m.provider === "chatgpt")) && (
           <button className="button outline" disabled={busy} onClick={() => void native()}>
             {t(state.account ? "linkChatGPT" : "continueChatGPT")}
             <ArrowRight size={18} />
           </button>
+        )}
+      {import.meta.env.DEV &&
+        !state.providers.email &&
+        !state.account?.methods.some((m) => m.provider === "email") && (
+          <p className="muted small">{t("emailPreviewUnavailable")}</p>
         )}
       {state.providers.email &&
         (!state.account || !state.account.methods.some((m) => m.provider === "email")) && (
@@ -133,12 +147,16 @@ export function AccountPanel({
                 </label>
               </>
             )}
-            <button className="button outline" disabled={busy} type="submit">
+            <button className="button primary" disabled={busy} type="submit">
               <Mail size={18} />
               {t(sent ? "verify" : state.account ? "linkEmail" : "sendCode")}
             </button>
             {sent && (
-              <button className="button quiet" type="button" onClick={() => setSent(false)}>
+              <button
+                className="button outline subdued"
+                type="button"
+                onClick={() => setSent(false)}
+              >
                 {t("cancel")}
               </button>
             )}
@@ -175,7 +193,7 @@ export function AccountPanel({
           </div>
           <p className="muted">{t("accountSyncIntro")}</p>
           <div className="account-actions">
-            <button className="button quiet" onClick={onSync}>
+            <button className="button outline" onClick={onSync}>
               {t("syncNow")}
             </button>
             <button
@@ -226,6 +244,7 @@ export function AccountPanel({
                 if (confirm(t("deleteAccountBody"))) void execute(onDelete);
               }}
             >
+              <Trash2 size={20} aria-hidden="true" />
               {t("deleteAccount")}
             </button>
           </details>
@@ -233,12 +252,13 @@ export function AccountPanel({
             <summary>{t("removeDevice")}</summary>
             <p className="muted small">{t("removeDeviceBody")}</p>
             <button
-              className="button outline"
+              className="button danger"
               disabled={busy}
               onClick={() => {
                 if (confirm(t("removeDeviceBody"))) void execute(onRemoveDevice);
               }}
             >
+              <MonitorX size={20} aria-hidden="true" />
               {t("removeDevice")}
             </button>
           </details>

@@ -1,6 +1,17 @@
 import { shareOrCopy, supportsNativeShare } from "../foundation/sharing";
 import { useEffect, useRef, useState } from "react";
-import { Users, Copy, Check, Share, Share2, UserPlus } from "lucide-react";
+import {
+  Users,
+  Copy,
+  Check,
+  Share,
+  Share2,
+  UserPlus,
+  Trash2,
+  UserMinus,
+  LogOut,
+  X,
+} from "lucide-react";
 import { z } from "zod";
 import { api, type Account } from "../foundation/sync";
 import { type FamilyCache } from "../foundation/family";
@@ -354,6 +365,7 @@ export function FamilyPanel({
                           void action({ action: "remove", member: member.id });
                       }}
                     >
+                      <UserMinus size={20} aria-hidden="true" />
                       {t("familyRemoveMember")}
                     </button>
                   </div>
@@ -473,7 +485,7 @@ export function FamilyPanel({
                       )}
                     {inviteCode && (
                       <button
-                        className="button quiet"
+                        className="button danger"
                         disabled={busy}
                         onClick={async () => {
                           if (await action({ action: "revoke" })) {
@@ -482,6 +494,7 @@ export function FamilyPanel({
                           }
                         }}
                       >
+                        <X size={20} aria-hidden="true" />
                         {t("familyRevokeInvite")}
                       </button>
                     )}
@@ -503,18 +516,20 @@ export function FamilyPanel({
                     if (confirm(t("familyDeleteConfirm"))) void action({ action: "delete" });
                   }}
                 >
+                  <Trash2 size={20} aria-hidden="true" />
                   {t("familyDelete")}
                 </button>
               </details>
             </>
           ) : (
             <button
-              className="button outline"
+              className="button danger"
               disabled={busy}
               onClick={() => {
                 if (confirm(t("familyLeaveConfirm"))) void action({ action: "leave" });
               }}
             >
+              <LogOut size={20} aria-hidden="true" />
               {t("familyLeave")}
             </button>
           )}
