@@ -2,6 +2,7 @@ import { workspaceHeaders } from "../../shared/families";
 import { PHOTO_BYTES, jpegDimensions } from "../../shared/photos";
 import { getPhoto, makeStoredPhoto, markPhotoUploaded, putPhotos } from "./photo-store";
 export async function preparePhoto(file: File, workspace: string, isCurrent = () => true) {
+  if (!isCurrent()) throw new Error("accountChanged");
   if (!file.type.startsWith("image/") || file.size > 32 * 1024 * 1024)
     throw new Error("invalidPhoto");
   const url = URL.createObjectURL(file),
@@ -9,12 +10,14 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
   try {
     image.src = url;
     await image.decode();
+    if (!isCurrent()) throw new Error("accountChanged");
     if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 80000000)
       throw new Error("invalidPhoto");
     const canvas = document.createElement("canvas"),
       context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("invalidPhoto");
     for (const maximum of [1280, 960, 640]) {
+      if (!isCurrent()) throw new Error("accountChanged");
       const scale = Math.min(1, maximum / Math.max(image.naturalWidth, image.naturalHeight));
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -22,9 +25,11 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.82, 0.65, 0.45]) {
+        if (!isCurrent()) throw new Error("accountChanged");
         const blob = await new Promise<Blob | null>((resolve) =>
           canvas.toBlob(resolve, "image/jpeg", quality),
         );
+        if (!isCurrent()) throw new Error("accountChanged");
         if (blob && blob.size <= PHOTO_BYTES) {
           const photo = await makeStoredPhoto(workspace, crypto.randomUUID(), blob);
           if (!isCurrent()) throw new Error("accountChanged");
@@ -79,5 +84,5 @@ export async function uploadPhoto(workspace: string, id: string, isCurrent = () 
   });
   if (!isCurrent()) throw new Error("accountChanged");
   if (!response.ok) throw new Error(response.status === 413 ? "photoQuota" : "photoUnavailable");
-  await markPhotoUploaded(workspace, id, photo.hash);
+  await markPhotoUploaded(workspace, id, photo.hash, isCurrent);
 }

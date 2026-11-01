@@ -9,6 +9,7 @@ import {
 } from "./library";
 import { z } from "zod";
 import { uploadPhoto, loadPhoto } from "./photos";
+import { workspacePhotoIds } from "./photo-store";
 const errorSchema = z.object({ error: z.string().optional() });
 const mutationResultSchema = z.object({
   accountId: z.string(),
@@ -163,15 +164,25 @@ export async function synchronize(
             r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
           ),
       );
+      const cachedPhotos = photoIds.size ? await workspacePhotoIds(account) : new Set<string>();
+      let missingPhoto = false;
       for (const id of photoIds) {
         if (!isCurrent()) return;
-        await loadPhoto(account, id, isCurrent);
+        if (cachedPhotos.has(id)) continue;
+        try {
+          await loadPhoto(account, id, isCurrent);
+        } catch {
+          if (!isCurrent()) return;
+          missingPhoto = true;
+        }
       }
       if (!isCurrent()) return;
+      const latest = photoIds.size ? await readWorkspace(account) : w;
+      if (!isCurrent()) return;
       onStatus(
-        w.records.some((r) => r.conflict)
+        missingPhoto || latest.records.some((r) => r.conflict)
           ? "actionRequired"
-          : w.records.some((r) => r.dirty)
+          : latest.records.some((r) => r.dirty)
             ? "pending"
             : "synced",
       );

@@ -95,7 +95,7 @@ export async function readWorkspace(key: string) {
 }
 export async function changeWorkspace(
   key: string,
-  update: (w: Workspace) => void,
+  update: (w: Workspace) => void | false,
   clearDraftId?: string,
   isCurrent = () => true,
   importToken?: string,
@@ -104,6 +104,7 @@ export async function changeWorkspace(
     tx = db.transaction(clearDraftId ? ["workspaces", "drafts"] : ["workspaces"], "readwrite");
   const store = tx.objectStore("workspaces");
   const w = (await store.get(key)) ?? seed(key);
+  let modified = false;
   try {
     if (!isCurrent()) throw new Error("accountChanged");
     if (
@@ -112,14 +113,18 @@ export async function changeWorkspace(
       w.importLease.token !== importToken
     )
       throw new Error("syncBusy");
-    update(w);
-    enforceCapacity(w);
-    await store.put(w);
+    modified = update(w) !== false;
+    if (modified) {
+      enforceCapacity(w);
+      await store.put(w);
+    }
     if (clearDraftId) {
       const drafts = tx.objectStore("drafts"),
         draft = await drafts.get(key);
-      if (draft && typeof draft === "object" && "id" in draft && draft.id === clearDraftId)
+      if (draft && typeof draft === "object" && "id" in draft && draft.id === clearDraftId) {
         await drafts.delete(key);
+        modified = true;
+      }
     }
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
@@ -130,7 +135,7 @@ export async function changeWorkspace(
     await tx.done.catch(() => {});
     throw error;
   }
-  changed();
+  if (modified) changed();
   return w;
 }
 function enforceCapacity(w: Workspace) {
@@ -140,10 +145,9 @@ function enforceCapacity(w: Workspace) {
   )
     throw new Error("libraryLimit");
 }
-function write(w: Workspace, e: Entity, deleted = false) {
-  const previous = w.records.find((r) => r.id === e.id);
+function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = false): LocalRecord {
   if (previous && previous.kind !== e.kind) throw new Error("invalidImport");
-  const next: LocalRecord = {
+  return {
     ...entitySchema.parse(e),
     revision: previous?.revision ?? 0,
     generation: (previous?.generation ?? 0) + 1,
@@ -151,9 +155,40 @@ function write(w: Workspace, e: Entity, deleted = false) {
     deleted,
     ...(previous?.conflict ? { conflict: previous.conflict } : {}),
   };
+}
+function write(w: Workspace, e: Entity, deleted = false) {
+  const next = editedRecord(
+    w.records.find((r) => r.id === e.id),
+    e,
+    deleted,
+  );
   w.records = w.records.filter((r) => r.id !== e.id).concat(next);
 }
-export async function saveEntity(key: string, e: Entity, base?: Entity | null, clearDraft = false) {
+// Bulk operations preserve the same replacement order, revisions, generations
+// and conflict metadata as individual writes without rebuilding an array per edit.
+function recordBatch(w: Workspace) {
+  const records = new Map(w.records.map((record) => [record.id, record]));
+  return {
+    get: (id: string) => records.get(id),
+    write(e: Entity, deleted = false) {
+      const next = editedRecord(records.get(e.id), e, deleted);
+      records.delete(e.id);
+      records.set(e.id, next);
+      return next;
+    },
+    commit() {
+      w.records = [...records.values()];
+    },
+  };
+}
+export async function saveEntity(
+  key: string,
+  e: Entity,
+  base?: Entity | null,
+  clearDraft = false,
+  isCurrent = () => true,
+) {
+  if (!isCurrent()) throw new Error("accountChanged");
   if (clearDraft) await flushDrafts().catch(() => {});
   return changeWorkspace(
     key,
@@ -170,6 +205,7 @@ export async function saveEntity(key: string, e: Entity, base?: Entity | null, c
       if (stale && !saved.conflict) saved.conflict = recordSchema.parse(previous);
     },
     clearDraft ? e.id : undefined,
+    isCurrent,
   );
 }
 export async function copyPlaceToWorkspace(
@@ -190,27 +226,32 @@ export async function copyPlaceToWorkspace(
     (r) => r.id === place.value.categoryId && r.kind === "category" && !r.deleted,
   );
   const newId = crypto.randomUUID();
-  return changeWorkspace(to, (w) => {
-    if (!isCurrent()) throw new Error("accountChanged");
-    let categoryId = "other";
-    if (category?.kind === "category") {
-      const same = w.records.find(
-        (r) => r.kind === "category" && !r.deleted && r.value.name === category.value.name,
-      );
-      categoryId = same?.id ?? crypto.randomUUID();
-      if (!same) write(w, { ...category, id: categoryId });
-    }
-    write(w, {
-      id: newId,
-      kind: "place",
-      value: {
-        ...place.value,
-        ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
-        categoryId,
-        updatedAt: new Date().toISOString(),
-      },
-    });
-  });
+  return changeWorkspace(
+    to,
+    (w) => {
+      if (!isCurrent()) throw new Error("accountChanged");
+      let categoryId = "other";
+      if (category?.kind === "category") {
+        const same = w.records.find(
+          (r) => r.kind === "category" && !r.deleted && r.value.name === category.value.name,
+        );
+        categoryId = same?.id ?? crypto.randomUUID();
+        if (!same) write(w, { ...category, id: categoryId });
+      }
+      write(w, {
+        id: newId,
+        kind: "place",
+        value: {
+          ...place.value,
+          ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
+          categoryId,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    },
+    undefined,
+    isCurrent,
+  );
 }
 export async function deleteEntity(key: string, id: string, isCurrent = () => true) {
   await flushDrafts().catch(() => {});
@@ -218,16 +259,18 @@ export async function deleteEntity(key: string, id: string, isCurrent = () => tr
     key,
     (w) => {
       const r = w.records.find((r) => r.id === id);
-      if (!r || id === "other") return;
+      if (!r || id === "other") return false;
+      const batch = recordBatch(w);
       if (r.kind === "category")
         for (const place of w.records.filter((p) => p.kind === "place" && !p.deleted)) {
           if (place.kind === "place" && place.value.categoryId === id)
-            write(w, {
+            batch.write({
               ...place,
               value: { ...place.value, categoryId: "other", updatedAt: new Date().toISOString() },
             });
         }
-      write(w, r, true);
+      batch.write(r, true);
+      batch.commit();
     },
     id,
     isCurrent,
@@ -333,17 +376,18 @@ async function releaseImport(key: string, token: string) {
 }
 
 function applyImport(w: Workspace, b: Backup, replace: boolean) {
+  const batch = recordBatch(w);
   const incoming = new Map([
     ...b.places.map((e) => [e.id, "place"] as const),
     ...b.categories.map((e) => [e.id, "category"] as const),
   ]);
   if (replace)
     for (const r of [...w.records])
-      if (!r.deleted && incoming.get(r.id) !== r.kind) write(w, r, true);
+      if (!r.deleted && incoming.get(r.id) !== r.kind) batch.write(r, true);
   // Merge retains a conflicting local value under its own identity.
   const categoryMap = new Map<string, string>();
   for (const e of b.categories) {
-    const old = w.records.find((r) => r.id === e.id);
+    const old = batch.get(e.id);
     const different =
       old && (old.kind !== "category" || old.deleted || !sameValue(old.value, e.value));
     if (!replace && different && e.id === "other") {
@@ -354,30 +398,62 @@ function applyImport(w: Workspace, b: Backup, replace: boolean) {
       old && (old.kind !== "category" || (!replace && different)) ? crypto.randomUUID() : e.id;
     categoryMap.set(e.id, id);
     if (old?.kind === "category" && !old.deleted && sameValue(old.value, e.value)) continue;
-    write(w, { id, kind: "category", value: e.value });
+    batch.write({ id, kind: "category", value: e.value });
   }
   for (const e of b.places) {
     const value = { ...e.value, categoryId: categoryMap.get(e.value.categoryId) ?? "other" };
-    const old = w.records.find((r) => r.id === e.id);
+    const old = batch.get(e.id);
     if (old?.kind === "place" && !old.deleted && sameValue(old.value, value)) continue;
     const id = old && (old.kind !== "place" || !replace) ? crypto.randomUUID() : e.id;
-    write(w, { id, kind: "place", value });
+    batch.write({ id, kind: "place", value });
   }
+  batch.commit();
 }
 
 type DevicePlace = LocalRecord & { kind: "place" };
 const liveDevicePlaces = (guest: Workspace) =>
   guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
-const valueKey = (value: unknown) => JSON.stringify(Object.entries(value as object).sort());
+// Values use the shared flat place/category schemas. Match their JSON wire
+// representation: member order is irrelevant and undefined members are omitted.
+const valueKey = (value: unknown) => JSON.stringify(value, Object.keys(value as object).sort());
 const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
 function handledDevicePlaces(w: Workspace, guest: Workspace) {
   const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
+  const devicePlaces = liveDevicePlaces(guest);
+  if (devicePlaces.every((r) => receipts.has(r.id))) return receipts;
   const places = w.records.filter((r) => r.kind === "place");
   const values = new Set(places.map((r) => valueKey(r.value)));
   const legacyIds = new Set(w.reconciled && !w.guestPlaces ? places.map((r) => r.id) : []);
-  for (const r of liveDevicePlaces(guest))
+  for (const r of devicePlaces)
     if (legacyIds.has(r.id) || values.has(valueKey(r.value))) receipts.add(r.id);
   return receipts;
+}
+function placeMatches(records: RecordState[]) {
+  const byId = new Map<string, { record: RecordState; order: number }>();
+  const byValue = new Map<string, { record: RecordState; order: number }>();
+  let order = 0;
+  const add = (record: RecordState) => {
+    if (record.kind !== "place") return;
+    const entry = { record, order: order++ };
+    byId.set(record.id, entry);
+    const key = valueKey(record.value);
+    if (!byValue.has(key)) byValue.set(key, entry);
+  };
+  for (const record of records) add(record);
+  return {
+    add,
+    find(id: string, value: unknown) {
+      const identity = byId.get(id),
+        equal = byValue.get(valueKey(value));
+      // Preserve the first matching record, including deletion markers, just
+      // as an array scan did when identity and value match different records.
+      return !identity
+        ? equal?.record
+        : !equal || identity.order < equal.order
+          ? identity.record
+          : equal.record;
+    },
+  };
 }
 function knownAccounts(guest: Workspace, workspaces: Workspace[]) {
   if (guest.deviceAccounts?.length) return guest.deviceAccounts;
@@ -394,7 +470,9 @@ export async function devicePlacePlan(key: string) {
     return { needed: false, ask: false, pending: 0 };
   const guest = await readWorkspace("guest"),
     account = await readWorkspace(key);
-  const accounts = knownAccounts(guest, await (await database()).getAll("workspaces"));
+  const accounts = guest.deviceAccounts?.length
+    ? guest.deviceAccounts
+    : knownAccounts(guest, await (await database()).getAll("workspaces"));
   const handled = handledDevicePlaces(account, guest);
   const pending = liveDevicePlaces(guest).filter((r) => !handled.has(r.id)).length;
   return {
@@ -431,20 +509,17 @@ export async function reconcileDevicePlaces(
     ),
   );
   let photoIds = new Map<string, string>();
-  if (decision !== "skip")
+  if (decision !== "skip") {
+    const existing = placeMatches(account.reconciled ? account.records : cloud);
     photoIds = await copyPhotos(
       "guest",
       key,
       source
-        .filter(
-          (r) =>
-            !(account.reconciled ? account.records : cloud).some(
-              (c) => c.kind === "place" && (c.id === ids.get(r.id) || sameValue(c.value, r.value)),
-            ),
-        )
+        .filter((r) => !existing.find(ids.get(r.id)!, r.value))
         .flatMap((r) => (r.value.photoId ? [r.value.photoId] : [])),
       isCurrent,
     );
+  }
   const db = await database(),
     tx = db.transaction("workspaces", "readwrite");
   let added = 0;
@@ -452,7 +527,9 @@ export async function reconcileDevicePlaces(
     const currentGuest = (await tx.store.get("guest")) ?? seed("guest");
     const w = (await tx.store.get(key)) ?? seed(key);
     if (w.importLease && w.importLease.expiresAt > Date.now()) throw new Error("syncBusy");
-    const accounts = knownAccounts(currentGuest, await tx.store.getAll());
+    const accounts = currentGuest.deviceAccounts?.length
+      ? currentGuest.deviceAccounts
+      : knownAccounts(currentGuest, await tx.store.getAll());
     if (!isCurrent()) throw new Error("accountChanged");
     const handledNow = handledDevicePlaces(w, currentGuest);
     if (
@@ -490,18 +567,21 @@ export async function reconcileDevicePlaces(
       );
     }
     w.guestPlaces ??= {};
+    const guestById = new Map(currentGuest.records.map((record) => [record.id, record]));
+    const existingPlaces = placeMatches(w.records);
+    const existingCategories = new Map<string, LocalRecord>();
+    for (const record of w.records) {
+      if (record.kind !== "category" || record.deleted) continue;
+      const value = valueKey(record.value);
+      if (!existingCategories.has(value)) existingCategories.set(value, record);
+    }
+    const batch = recordBatch(w);
     const categories = new Map<string, string>();
     for (const r of source) {
-      if (
-        !currentGuest.records.some(
-          (c) => c.id === r.id && !c.deleted && c.generation === r.generation,
-        )
-      )
-        continue;
+      const current = guestById.get(r.id);
+      if (!current || current.deleted || current.generation !== r.generation) continue;
       if (Object.hasOwn(w.guestPlaces, r.id)) continue;
-      const existing = w.records.find(
-        (c) => c.kind === "place" && (c.id === ids.get(r.id) || sameValue(c.value, r.value)),
-      );
+      const existing = existingPlaces.find(ids.get(r.id)!, r.value);
       if (existing) {
         w.guestPlaces[r.id] = existing.id;
         continue;
@@ -515,20 +595,19 @@ export async function reconcileDevicePlaces(
       );
       let categoryId = categories.get(r.value.categoryId);
       if (!categoryId) {
-        const existingCategory =
-          category &&
-          w.records.find(
-            (c) => c.kind === "category" && !c.deleted && sameValue(c.value, category.value),
-          );
+        const existingCategory = category && existingCategories.get(valueKey(category.value));
         categoryId =
           existingCategory?.id ??
-          (w.records.some((c) => c.id === category?.id) ? crypto.randomUUID() : category?.id) ??
+          (batch.get(category?.id ?? "") ? crypto.randomUUID() : category?.id) ??
           "other";
-        if (category && !existingCategory) write(w, { ...category, id: categoryId });
+        if (category && !existingCategory) {
+          const added = batch.write({ ...category, id: categoryId });
+          existingCategories.set(valueKey(added.value), added);
+        }
         categories.set(r.value.categoryId, categoryId);
       }
       const id = ids.get(r.id)!;
-      write(w, {
+      const copied = batch.write({
         id,
         kind: "place",
         value: {
@@ -537,15 +616,19 @@ export async function reconcileDevicePlaces(
           categoryId,
         },
       });
+      existingPlaces.add(copied);
       w.guestPlaces[r.id] = id;
       added++;
     }
+    batch.commit();
     w.reconciled = true;
     currentGuest.deviceAccounts = [...accounts.filter((id) => id !== key), key];
     enforceCapacity(w);
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.store.put(w);
+    if (!isCurrent()) throw new Error("accountChanged");
     await tx.store.put(currentGuest);
+    if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
   } catch (error) {
     try {
@@ -574,22 +657,46 @@ export const mergeSnapshot = (key: string, remote: RecordState[], isCurrent = ()
   changeWorkspace(
     key,
     (w) => {
+      const byId = new Map(w.records.map((record) => [record.id, record]));
+      let modified = false;
       for (const r of remote) {
-        const local = w.records.find((l) => l.id === r.id);
+        const local = byId.get(r.id);
         if (!local) {
-          w.records.push({ ...r, generation: 0, dirty: false });
+          const added = { ...r, generation: 0, dirty: false };
+          w.records.push(added);
+          byId.set(r.id, added);
+          modified = true;
           continue;
         }
         if (local.kind !== r.kind) throw new Error("invalidResponse");
         if (r.revision < Math.max(local.revision, local.conflict?.revision ?? 0)) continue;
         if (!local.dirty) {
+          if (
+            !local.conflict &&
+            local.revision === r.revision &&
+            local.deleted === r.deleted &&
+            sameValue(local.value, r.value)
+          )
+            continue;
           Object.assign(local, r);
           delete local.conflict;
+          modified = true;
         } else if (r.deleted === local.deleted && sameValue(r.value, local.value)) {
           Object.assign(local, r, { dirty: false });
           delete local.conflict;
-        } else if (r.revision !== local.revision) local.conflict = r;
+          modified = true;
+        } else if (r.revision !== local.revision) {
+          if (
+            local.conflict?.revision === r.revision &&
+            local.conflict.deleted === r.deleted &&
+            sameValue(local.conflict.value, r.value)
+          )
+            continue;
+          local.conflict = r;
+          modified = true;
+        }
       }
+      if (!modified) return false;
     },
     undefined,
     isCurrent,
@@ -599,12 +706,17 @@ export async function prepareMutation(key: string, isCurrent = () => true) {
   await changeWorkspace(
     key,
     (w) => {
-      if (!w.reconciled) return;
+      if (!w.reconciled) return false;
+      if (w.flight) {
+        flight = structuredClone(w.flight);
+        return false;
+      }
       if (!w.flight) {
         const r =
           w.records.find((r) => r.dirty && r.deleted && !r.conflict) ??
           w.records.find((r) => r.dirty && !r.conflict);
         if (!r) {
+          if (!w.deferredFlights?.length) return false;
           w.flight = w.deferredFlights?.shift();
           flight = structuredClone(w.flight);
           return;
@@ -636,8 +748,8 @@ export const deferCapacityFlight = (key: string, mutationId: string, isCurrent =
   changeWorkspace(
     key,
     (w) => {
-      if (w.flight?.mutation.mutationId !== mutationId) return;
-      if (!w.records.some((r) => r.dirty && r.deleted && !r.conflict)) return;
+      if (w.flight?.mutation.mutationId !== mutationId) return false;
+      if (!w.records.some((r) => r.dirty && r.deleted && !r.conflict)) return false;
       w.deferredFlights ??= [];
       w.deferredFlights.push(w.flight);
       delete w.flight;
@@ -656,7 +768,7 @@ export const acknowledge = (
     key,
     (w) => {
       const flight = w.flight;
-      if (!flight || flight.mutation.mutationId !== mutationId) return;
+      if (!flight || flight.mutation.mutationId !== mutationId) return false;
       if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
         throw new Error("invalidResponse");
       const r = w.records.find((r) => r.id === remote.id);
@@ -696,20 +808,30 @@ export const acknowledge = (
     undefined,
     isCurrent,
   );
-export const resolveConflict = (key: string, id: string, choice: "device" | "cloud" | "both") =>
-  changeWorkspace(key, (w) => {
-    const r = w.records.find((r) => r.id === id);
-    if (!r?.conflict) return;
-    const cloud = r.conflict;
-    if (choice === "both" && !r.deleted) write(w, { ...r, id: crypto.randomUUID() });
-    if (choice === "cloud" || choice === "both") Object.assign(r, cloud, { dirty: false });
-    else {
-      r.revision = cloud.revision;
-      r.generation++;
-      r.dirty = true;
-    }
-    delete r.conflict;
-  });
+export const resolveConflict = (
+  key: string,
+  id: string,
+  choice: "device" | "cloud" | "both",
+  isCurrent = () => true,
+) =>
+  changeWorkspace(
+    key,
+    (w) => {
+      const r = w.records.find((r) => r.id === id);
+      if (!r?.conflict) return false;
+      const cloud = r.conflict;
+      if (choice === "both" && !r.deleted) write(w, { ...r, id: crypto.randomUUID() });
+      if (choice === "cloud" || choice === "both") Object.assign(r, cloud, { dirty: false });
+      else {
+        r.revision = cloud.revision;
+        r.generation++;
+        r.dirty = true;
+      }
+      delete r.conflict;
+    },
+    undefined,
+    isCurrent,
+  );
 export async function getDraft(key: string) {
   return (await database()).get("drafts", key);
 }

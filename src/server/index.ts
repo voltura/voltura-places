@@ -1,4 +1,5 @@
 import { handleAccounts } from "./accounts.js";
+import { Buffer } from "node:buffer";
 import { handleSync } from "./sync";
 import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
@@ -51,8 +52,7 @@ export function createWorker(assets: AssetMap, version: string) {
         const asset = assets[path];
         if (!asset) return new Response("Not found", { status: 404, headers: security });
         const [type, data] = asset;
-        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
-        return new Response(request.method === "HEAD" ? null : bytes, {
+        return new Response(request.method === "HEAD" ? null : Buffer.from(data, "base64"), {
           headers: {
             ...security,
             "Content-Type": type,

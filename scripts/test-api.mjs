@@ -23,6 +23,22 @@ const check = (condition, message) => {
   checks++;
 };
 try {
+  const html = await readFile(".artifacts/client/index.html", "utf8");
+  const mainPath = html.match(/<script[^>]*src="([^"]*\/assets\/index-[^"]+\.js)"/)?.[1];
+  assert.ok(mainPath);
+  const asset = await mf.dispatchFetch(origin + mainPath);
+  check(asset.status === 200, "The runtime serves the embedded main script");
+  check(
+    Buffer.from(await asset.arrayBuffer()).equals(await readFile(".artifacts/client" + mainPath)),
+    "Native decoding preserves the exact validated asset bytes",
+  );
+  const head = await mf.dispatchFetch(origin + mainPath, { method: "HEAD" });
+  check(
+    head.status === 200 &&
+      (await head.arrayBuffer()).byteLength === 0 &&
+      head.headers.get("Content-Type") === asset.headers.get("Content-Type"),
+    "HEAD retains asset headers with no binary body",
+  );
   const db = await mf.getD1Database("DB");
   for (const file of [
     "0000_accounts.sql",
@@ -33,6 +49,7 @@ try {
     "0005_multiple_groups.sql",
     "0006_code_invitations_only.sql",
     "0007_usage_statistics.sql",
+    "0008_record_counts.sql",
   ]) {
     if (file === "0005_multiple_groups.sql") {
       await db.batch([
@@ -51,6 +68,17 @@ try {
       .split("--> statement-breakpoint")
       .filter((s) => s.trim()))
       await db.prepare(statement).run();
+  }
+  for (const sql of [
+    "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='place' AND deleted=0",
+    "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='category' AND deleted=0",
+    "SELECT count(*) FROM places_records WHERE kind='place' AND deleted=0",
+  ]) {
+    const plan = await db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all();
+    check(
+      plan.results.some((row) => row.detail.includes("COVERING INDEX")),
+      "Record counts use a covering index instead of scanning deletion history",
+    );
   }
   check(
     !!(await db

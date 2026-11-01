@@ -37,6 +37,10 @@ export function watchPhoto(workspace: string, id: string, onChange: () => void) 
 export async function workspacePhotos(workspace: string) {
   return (await database()).getAllFromIndex("photos", "workspace", workspace);
 }
+export async function workspacePhotoIds(workspace: string) {
+  const keys = await (await database()).getAllKeysFromIndex("photos", "workspace", workspace);
+  return new Set(keys.map((key) => key[1]));
+}
 export async function getPhoto(workspace: string, id: string) {
   return (await database()).get("photos", [workspace, id]);
 }
@@ -114,12 +118,28 @@ export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
     throw error;
   }
 }
-export async function markPhotoUploaded(workspace: string, id: string, hash: string) {
+export async function markPhotoUploaded(
+  workspace: string,
+  id: string,
+  hash: string,
+  isCurrent = () => true,
+) {
+  if (!isCurrent()) throw new Error("accountChanged");
   const db = await database(),
-    tx = db.transaction("photos", "readwrite"),
-    photo = await tx.store.get([workspace, id]);
-  if (photo?.hash === hash) await tx.store.put({ ...photo, uploaded: true });
-  await tx.done;
+    tx = db.transaction("photos", "readwrite");
+  try {
+    const photo = await tx.store.get([workspace, id]);
+    if (!isCurrent()) throw new Error("accountChanged");
+    if (photo?.hash === hash && !photo.uploaded) await tx.store.put({ ...photo, uploaded: true });
+    if (!isCurrent()) throw new Error("accountChanged");
+    await tx.done;
+  } catch (error) {
+    try {
+      tx.abort();
+    } catch {}
+    await tx.done.catch(() => {});
+    throw error;
+  }
 }
 export async function copyPhotos(from: string, to: string, ids: string[], isCurrent = () => true) {
   const photos = await Promise.all([...new Set(ids)].map((id) => getPhoto(from, id)));

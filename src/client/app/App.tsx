@@ -551,13 +551,15 @@ export function App() {
   }, []);
   async function save(entity: Entity, base?: Entity | null, clearDraft = false) {
     const key = scopeRef.current;
+    const isCurrent = () => scopeRef.current === key && writeAllowed.current;
     if (!writeAllowed.current) throw new Error("familyAccessEnded");
     if (!(await readWorkspace(key)).reconciled) throw new Error("syncBusy");
     if (scopeRef.current !== key) throw new Error("accountChanged");
-    await saveEntity(key, entity, base, clearDraft);
-    if (scopeRef.current !== key) return;
+    await saveEntity(key, entity, base, clearDraft, isCurrent);
+    if (!isCurrent()) return;
     if (entity.kind === "place") setPrefs((p) => ({ ...p, lastCategory: entity.value.categoryId }));
     await refresh();
+    if (!isCurrent()) return;
     setStatus(scopeRef.current === "guest" ? "localOnly" : "pending");
     sync();
   }
@@ -587,15 +589,18 @@ export function App() {
       }),
     };
     try {
-      await saveEntity(key, entity);
-      if (key === scopeRef.current) {
+      const isCurrent = () =>
+        operation === capture.current && key === scopeRef.current && writeAllowed.current;
+      await saveEntity(key, entity, undefined, false, isCurrent);
+      if (isCurrent()) {
         await refresh();
+        if (!isCurrent()) return;
         setSelected(entity.id);
         setEditor({ entity, fresh: true });
         sync();
       }
     } catch {
-      notify("storageFailure", true);
+      if (operation === capture.current && key === scopeRef.current) notify("storageFailure", true);
     } finally {
       if (operation === capture.current) setLocating(false);
     }
@@ -1051,14 +1056,23 @@ export function App() {
         onResolve={(id, choice) =>
           void (
             canWrite
-              ? resolveConflict(scope, id, choice)
+              ? resolveConflict(
+                  scope,
+                  id,
+                  choice,
+                  () => scopeRef.current === scope && writeAllowed.current,
+                )
               : Promise.reject(new Error("familyAccessEnded"))
           )
             .then(() => {
+              if (scopeRef.current !== scope) return;
               void refresh();
               sync();
             })
-            .catch(() => notify(canWrite ? "storageFailure" : "familyAccessEnded", true))
+            .catch(() => {
+              if (scopeRef.current === scope)
+                notify(writeAllowed.current ? "storageFailure" : "familyAccessEnded", true);
+            })
         }
       />
 

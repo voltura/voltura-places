@@ -12,6 +12,10 @@ Client composition → features → shared UI. Composition/features may use brow
 
 Browser database infrastructure lazily shares one connection promise per record/photo database, including concurrent first operations. Failed opens and browser-terminated connections can retry; version changes close the old connection so another tab can upgrade. Connection reuse does not cache workspace values or bypass transactions. Library queries memoize their derived results and index categories; sorting computes timestamps/distances once per matching record and reuses locale formatters. The photo GPS parser loads as a separate precached chunk on first photo selection, keeping it out of startup JavaScript while preserving offline use.
 
+Snapshot merging and device copying index identities and canonical values rather than repeatedly scanning whole libraries. Bulk imports and category deletion batch record replacements while retaining record order, generations, revisions, flights and conflict metadata. Idle mutation checks and unchanged pulls do not write or broadcast a workspace. Photo synchronization reads cached identities without loading each blob and continues past an unavailable attachment to recover the rest.
+
+Embedded public assets use the runtime's native base64 decoder through `node:buffer`; HEAD serves metadata without decoding a payload. The existing Node compatibility configuration remains in use. Static cache/security headers and exact asset bytes are unchanged.
+
 D1 uses prepared statements. Better Auth is request-scoped and verifies provider proofs. Separate Places identities/sessions prevent implicit account merges by email text. Server authorization derives ownership from HttpOnly sessions and verifies the expected account header on private reads/writes.
 
 The app and its service worker exist only on the Places Sites origin. The static promo builds separately and uploads only to one.com's places directory. It has no service worker or sibling-repository runtime dependencies.

@@ -130,12 +130,15 @@ export default function PlacesMap({
   const mapRef = useRef<L.Map | null>(null);
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
   const markersRef = useRef(new Map<string, L.Marker>());
+  const pinsRef = useRef(new Map<string, HTMLSpanElement>());
+  const previousSelected = useRef<string | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [tileFailed, setTileFailed] = useState(false);
   const [choices, setChoices] = useState<string[]>([]);
   const [allVisible, setAllVisible] = useState(true);
   const start = useMemo(() => longitudeArcStart(places.map((p) => p.value.longitude)), [places]);
-  const choiceRecords = places.filter((place) => choices.includes(place.id));
+  const choiceIds = useMemo(() => new Set(choices), [choices]);
+  const choiceRecords = places.filter((place) => choiceIds.has(place.id));
   const dataKey = JSON.stringify(
     places.map((place) => [
       place.id,
@@ -289,6 +292,7 @@ export default function PlacesMap({
       map.off("moveend zoomend resize", visibilityChanged);
       map.remove();
       markersRef.current.clear();
+      pinsRef.current.clear();
       mapRef.current = null;
       groupRef.current = null;
     };
@@ -319,12 +323,37 @@ export default function PlacesMap({
   useEffect(() => {
     const group = groupRef.current!;
     const { places, categoryColor, start } = live();
-    group.clearLayers();
-    markersRef.current.clear();
-    const markers = places.map((place) => {
+    const ids = new Set(places.map((place) => place.id));
+    const removed: L.Marker[] = [],
+      added: L.Marker[] = [];
+    const moved: { marker: L.Marker; position: L.LatLngTuple }[] = [];
+    for (const [id, marker] of markersRef.current) {
+      if (ids.has(id)) continue;
+      removed.push(marker);
+      markersRef.current.delete(id);
+      pinsRef.current.delete(id);
+    }
+    for (const place of places) {
+      const position = point(place, start);
+      const className = `places-map-dot ${categoryColor(place.value.categoryId)}`;
+      const existing = markersRef.current.get(place.id);
+      if (existing) {
+        const pin = pinsRef.current.get(place.id)!;
+        if (pin.className !== className) pin.className = className;
+        if (existing.options.title !== place.value.name) {
+          existing.options.title = existing.options.alt = place.value.name;
+          existing.getElement()?.setAttribute("title", place.value.name);
+        }
+        if (!existing.getLatLng().equals(L.latLng(position), 0)) {
+          removed.push(existing);
+          moved.push({ marker: existing, position });
+          added.push(existing);
+        }
+        continue;
+      }
       const pin = document.createElement("span");
-      pin.className = `places-map-dot ${categoryColor(place.value.categoryId)}`;
-      const marker = L.marker(point(place, start), {
+      pin.className = className;
+      const marker = L.marker(position, {
         title: place.value.name,
         alt: place.value.name,
         keyboard: !preview,
@@ -351,9 +380,12 @@ export default function PlacesMap({
         marker.getElement()?.setAttribute("aria-pressed", String(active));
       });
       markersRef.current.set(place.id, marker);
-      return marker;
-    });
-    group.addLayers(markers);
+      pinsRef.current.set(place.id, pin);
+      added.push(marker);
+    }
+    if (removed.length) group.removeLayers(removed);
+    for (const { marker, position } of moved) marker.setLatLng(position);
+    if (added.length) group.addLayers(added);
     updateVisibility();
   }, [dataKey]);
 
@@ -362,12 +394,26 @@ export default function PlacesMap({
     fit();
   }, [fitKey]);
   useEffect(() => {
-    for (const [id, marker] of markersRef.current) {
-      const element = marker.getElement();
+    for (const id of new Set([previousSelected.current, selected])) {
+      const element = id ? markersRef.current.get(id)?.getElement() : undefined;
       element?.classList.toggle("is-selected", id === selected);
       element?.setAttribute("aria-pressed", String(id === selected));
     }
+    previousSelected.current = selected;
   }, [selected, dataKey]);
+  useEffect(() => {
+    const surface = container.current;
+    for (const [selector, label] of [
+      [".leaflet-control-zoom-in", t("zoomIn")],
+      [".leaflet-control-zoom-out", t("zoomOut")],
+    ]) {
+      const button = surface?.querySelector(selector);
+      button?.setAttribute("title", label);
+      button?.setAttribute("aria-label", label);
+    }
+    for (const count of surface?.querySelectorAll(".places-map-cluster > span") ?? [])
+      count.setAttribute("aria-label", `${count.textContent} ${t("mapPlaces")}`);
+  }, [t]);
   const focusPlace = useEffectEvent(() => {
     const place = places.find((place) => place.id === focusId);
     if (place) {
