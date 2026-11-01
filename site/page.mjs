@@ -33,28 +33,15 @@ export function renderPromo({
   desktopName,
   cssName,
   themeScript,
+  mainHtml,
+  statistics = false,
 }) {
   const asset = (name) => `${prefix}assets/${name}`;
   const brand = `<img src="${asset("icon.svg")}" width="38" height="38" alt=""><span>voltura <strong>places</strong></span>`;
   const appButton = `<a class="button primary" href="${appUrl}">${c.open}${icon("arrow")}</a>`;
-  return `<!doctype html>
-<html lang="${language}" data-theme="dark"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#111b17"><script>${themeScript}</script>
-<title>Voltura Places — ${c.title}</title><meta name="description" content="${c.description}">
-<link rel="canonical" href="${pageUrl}"><link rel="alternate" hreflang="en" href="https://voltura.se/places/"><link rel="alternate" hreflang="sv" href="https://voltura.se/places/sv/">
-<meta property="og:title" content="Voltura Places — ${c.title}"><meta property="og:description" content="${c.description}"><meta property="og:type" content="website"><meta property="og:site_name" content="Voltura Places"><meta property="og:url" content="${pageUrl}"><meta property="og:locale" content="${language === "sv" ? "sv_SE" : "en_GB"}"><meta property="og:image" content="${imageUrl}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${imageAlt}">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Voltura Places — ${c.title}"><meta name="twitter:description" content="${c.description}"><meta name="twitter:image" content="${imageUrl}"><meta name="twitter:image:alt" content="${imageAlt}">
-<link rel="icon" href="${asset("icon.svg")}"><link rel="stylesheet" href="${asset(cssName)}">
-</head><body>
-<a class="skip-link" href="#main">${c.skip}</a>
-<header class="site-header"><div class="container header-inner">
-  <a class="brand" href="${language === "sv" ? "./" : "./"}" aria-label="Voltura Places">${brand}</a>
-  <nav class="main-nav" aria-label="${c.navLabel}"><a href="#features">${c.featuresNav}</a><a href="#sharing">${c.sharingNav}</a><a href="#install">${c.installNav}</a></nav>
-  <div class="header-actions"><a class="language" href="${language === "sv" ? "../" : "sv/"}" lang="${language === "sv" ? "en" : "sv"}">${language === "sv" ? "English" : "Svenska"}</a><button class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="${c.darkTheme}" data-light-label="${c.lightThemeAction}" data-dark-label="${c.darkThemeAction}">${icon("sun", "theme-sun")}${icon("moon", "theme-moon")}</button><a class="header-open" href="${appUrl}">${c.open}${icon("external")}</a></div>
-</div></header>
-<main id="main">
-<section class="hero container">
+  const main =
+    mainHtml ??
+    `<section class="hero container">
   <div class="hero-copy"><p class="eyebrow"><span class="status-dot"></span>${c.platforms}</p><h1>${c.title}<br><span>${c.titleSecond}</span></h1><p class="hero-description">${c.description}</p><div class="cta">${appButton}<a class="button secondary" href="https://github.com/voltura/voltura-places">${icon("code")}${c.github}</a></div><p class="free">${icon("check")}${c.free}</p></div>
   <div class="product-stage"><div class="stage-glow"></div><div class="desktop-device hero-desktop"><div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span>places.voltura.se</span>${icon("lock")}</div><img src="${asset(desktopName)}" width="1000" height="871" alt="${c.desktopAlt}" fetchpriority="high"></div><div class="phone-device"><img src="${asset(screenshotName)}" width="390" height="844" alt="${c.screenshotAlt}" fetchpriority="high"></div></div>
 </section>
@@ -68,6 +55,25 @@ export function renderPromo({
 <section class="container offline-section"><div class="offline-panel"><div class="offline-symbol">${icon("wifi")}</div><div class="offline-copy"><p class="eyebrow">${c.offlineLabel}</p><h2>${c.offlineTitle}</h2><p>${c.offlineShort}</p><ul class="check-list">${c.offlinePoints.map((text) => `<li>${icon("check")}${text}</li>`).join("")}</ul><details><summary>${c.backupLabel}</summary><p>${c.offlineText}</p></details></div></div></section>
 <section id="install" class="section container install-section"><div class="install-copy"><img class="install-icon" src="${asset("icon.svg")}" alt="" width="72" height="72"><p class="eyebrow">${c.installLabel}</p><h2>${c.installTitle}</h2><p>${c.installShort}</p><div class="cta">${appButton}</div><p class="free">${c.free}</p></div><div class="install-guide"><div>${icon("phone")}<p>${c.ios}</p></div><div>${icon("phone")}<p>${c.android}</p></div><p class="install-note">${c.installText}</p></div></section>
 <section id="privacy" class="container privacy-section"><div class="privacy-copy">${icon("lock")}<div><h3>${c.privacyTitle}</h3><p>${c.privacyText}</p></div></div><details><summary>${c.privacy}</summary><p>${c.privacyDetail}</p><p>${c.sourceText}</p></details></section>
-</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="${pageUrl}">${brand}</a><nav aria-label="${c.privacy}"><a href="#privacy">${c.privacy}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
+`;
+  return `<!doctype html>
+<html lang="${language}" data-theme="dark"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111b17"><script>${themeScript}</script>
+<title>Voltura Places — ${c.title}</title><meta name="description" content="${c.description}">
+<link rel="canonical" href="${pageUrl}"><link rel="alternate" hreflang="en" href="https://voltura.se/places/${statistics ? "stats.html" : ""}"><link rel="alternate" hreflang="sv" href="https://voltura.se/places/sv/${statistics ? "stats.html" : ""}">
+<meta property="og:title" content="Voltura Places — ${c.title}"><meta property="og:description" content="${c.description}"><meta property="og:type" content="website"><meta property="og:site_name" content="Voltura Places"><meta property="og:url" content="${pageUrl}"><meta property="og:locale" content="${language === "sv" ? "sv_SE" : "en_GB"}"><meta property="og:image" content="${imageUrl}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${imageAlt}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Voltura Places — ${c.title}"><meta name="twitter:description" content="${c.description}"><meta name="twitter:image" content="${imageUrl}"><meta name="twitter:image:alt" content="${imageAlt}">
+<link rel="icon" href="${asset("icon.svg")}"><link rel="stylesheet" href="${asset(cssName)}">
+</head><body>
+<a class="skip-link" href="#main">${c.skip}</a>
+<header class="site-header"><div class="container header-inner">
+  <a class="brand" href="${language === "sv" ? "./" : "./"}" aria-label="Voltura Places">${brand}</a>
+  <nav class="main-nav" aria-label="${c.navLabel}"><a href="${statistics ? "./#features" : "#features"}">${c.featuresNav}</a><a href="${statistics ? "./#sharing" : "#sharing"}">${c.sharingNav}</a><a href="${statistics ? "./#install" : "#install"}">${c.installNav}</a></nav>
+  <div class="header-actions"><a class="language" href="${language === "sv" ? "../" : "sv/"}${statistics ? "stats.html" : ""}" lang="${language === "sv" ? "en" : "sv"}">${language === "sv" ? "English" : "Svenska"}</a><button class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="${c.darkTheme}" data-light-label="${c.lightThemeAction}" data-dark-label="${c.darkThemeAction}">${icon("sun", "theme-sun")}${icon("moon", "theme-moon")}</button><a class="header-open" href="${appUrl}">${c.open}${icon("external")}</a></div>
+</div></header>
+<main id="main">
+${main}
+</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="${statistics ? "./" : pageUrl}">${brand}</a><nav aria-label="${c.privacy}"><a href="${statistics ? "./#privacy" : "#privacy"}">${c.privacy}</a><a href="stats.html"${statistics ? ' aria-current="page"' : ""}>${language === "sv" ? "Kodstatistik" : "Code statistics"}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
 </body></html>`;
 }

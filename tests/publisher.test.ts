@@ -15,9 +15,15 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
     "places/assets/social-sv.png",
     "places/assets/desktop-fr.0123456789abcdef.png",
     "places/assets/desktop-en.png",
+    "places/sv/../stats.html",
+    "places/fr/stats.html",
+    "air/stats.html",
+    "places/stats.php",
   ])
     expect(() => assertDestination(path)).toThrow();
   expect(assertDestination("places/index.html")).toBe("places/index.html");
+  expect(assertDestination("places/stats.html")).toBe("places/stats.html");
+  expect(assertDestination("places/sv/stats.html")).toBe("places/sv/stats.html");
   expect(assertDestination("places/assets/site.0123456789abcdef.css")).toContain("places/assets/");
   expect(assertDestination("places/assets/social-sv.0123456789abcdef.png")).toContain(
     "places/assets/",

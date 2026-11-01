@@ -1,9 +1,12 @@
+import { collectStatistics } from "./code-statistics.mjs";
+import { renderStatistics } from "../site/statistics.mjs";
 import { renderPromo } from "../site/page.mjs";
 import { readFile, writeFile, mkdir, cp, rm, lstat, realpath } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { socialImage } from "./branding.mjs";
 const themeScript = await readFile("site/theme.js", "utf8");
+const statistics = await collectStatistics();
 const content = JSON.parse(await readFile("site/content.json", "utf8"));
 const output = resolve(".artifacts/promo");
 await mkdir(resolve(".artifacts"), { recursive: true });
@@ -61,5 +64,29 @@ for (const [language, c] of Object.entries(content)) {
     themeScript,
   });
   await writeFile(`.artifacts/promo/${language === "sv" ? "sv/" : ""}index.html`, html);
+  const statsTitle = language === "sv" ? "Kodstatistik" : "Code statistics";
+  const statsHtml = renderPromo({
+    language,
+    c: {
+      ...c,
+      title: statsTitle,
+      description:
+        language === "sv"
+          ? "Källkoden bakom Voltura Places i siffror."
+          : "The code behind Voltura Places, in numbers.",
+    },
+    prefix,
+    appUrl,
+    pageUrl: `${pageUrl}stats.html`,
+    imageUrl,
+    imageAlt,
+    screenshotName,
+    desktopName,
+    cssName: `site.${hash}.css`,
+    themeScript,
+    mainHtml: renderStatistics(statistics, language),
+    statistics: true,
+  });
+  await writeFile(`.artifacts/promo/${language === "sv" ? "sv/" : ""}stats.html`, statsHtml);
 }
 console.log("Built isolated English/Swedish promotional pages.");
