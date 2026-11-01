@@ -668,6 +668,9 @@ test("camera and library inputs support a durable offline photo and removable dr
   await page.getByRole("button", { name: "Edit place: Photo fixture", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".photo-picker img")).toBeVisible();
+  // After an offline reload, the deferred GPS parser must load from precache.
+  await picker.setInputFiles("tests/fixtures/photo-gps.jpg");
+  await expect(page.getByRole("button", { name: "Use photo location", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Remove photo", exact: true }).click();
   await expect(page.locator(".photo-picker legend")).toHaveText("Photo (optional)");
   await expect(page.locator(".photo-picker img")).toHaveCount(0);

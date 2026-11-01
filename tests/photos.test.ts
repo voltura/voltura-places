@@ -19,6 +19,53 @@ import { validateBackup, type Entity } from "../src/shared/model";
 import { photoPosition } from "../src/client/foundation/photo-location";
 import { loadPhoto, uploadPhoto } from "../src/client/foundation/photos";
 
+test("a discarded photo request does not start a download or return a cached image", async () => {
+  const key = crypto.randomUUID(),
+    id = crypto.randomUUID();
+  vi.stubGlobal("window", new EventTarget());
+  const network = vi.spyOn(globalThis, "fetch");
+  try {
+    await expect(loadPhoto(key, id, () => false)).rejects.toThrow("accountChanged");
+    const photo = await makeStoredPhoto(
+      key,
+      id,
+      new Blob([await readFile("tests/fixtures/photo.jpg")]),
+    );
+    await putPhotos([photo]);
+    let current = true;
+    const pending = loadPhoto(key, id, () => current);
+    current = false;
+    await expect(pending).rejects.toThrow("accountChanged");
+    expect(network).not.toHaveBeenCalled();
+  } finally {
+    network.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a cancelled upload response cannot mark the discarded workspace photo uploaded", async () => {
+  const key = crypto.randomUUID(),
+    id = crypto.randomUUID();
+  vi.stubGlobal("window", new EventTarget());
+  await putPhotos([
+    await makeStoredPhoto(key, id, new Blob([await readFile("tests/fixtures/photo.jpg")])),
+  ]);
+  let current = true;
+  const network = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    current = false;
+    return new Response(null, { status: 204 });
+  });
+  try {
+    await expect(uploadPhoto(key, id, () => current)).rejects.toThrow("accountChanged");
+    expect((await getPhoto(key, id))?.uploaded).toBe(false);
+    await uploadPhoto(key, id);
+    expect((await getPhoto(key, id))?.uploaded).toBe(true);
+  } finally {
+    network.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("an edited cloud place recovers a missing local photo before synchronization", async () => {
   const key = crypto.randomUUID(),
     id = crypto.randomUUID();

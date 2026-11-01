@@ -39,7 +39,9 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
   }
 }
 export async function loadPhoto(workspace: string, id: string, isCurrent = () => true) {
+  if (!isCurrent()) throw new Error("accountChanged");
   const cached = await getPhoto(workspace, id);
+  if (!isCurrent()) throw new Error("accountChanged");
   if (cached) return cached.blob;
   if (workspace === "guest" || !navigator.onLine) throw new Error("photoUnavailable");
   const response = await fetch(`/api/v1/photos/${id}`, {
@@ -48,6 +50,7 @@ export async function loadPhoto(workspace: string, id: string, isCurrent = () =>
     headers: workspaceHeaders(workspace),
     signal: AbortSignal.timeout(20000),
   });
+  if (!isCurrent()) throw new Error("accountChanged");
   if (!response.ok) throw new Error("photoUnavailable");
   const buffer = await response.arrayBuffer();
   jpegDimensions(new Uint8Array(buffer));
@@ -74,6 +77,7 @@ export async function uploadPhoto(workspace: string, id: string, isCurrent = () 
     body: photo.blob,
     signal: AbortSignal.timeout(20000),
   });
+  if (!isCurrent()) throw new Error("accountChanged");
   if (!response.ok) throw new Error(response.status === 413 ? "photoQuota" : "photoUnavailable");
   await markPhotoUploaded(workspace, id, photo.hash);
 }

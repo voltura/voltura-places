@@ -1,5 +1,5 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
 import { Plus, Search, X, ArrowDownUp, Map, List, MoreHorizontal } from "lucide-react";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
@@ -82,6 +82,14 @@ export function LibraryView({
   prefs,
 }: Props) {
   const [fitRequest, setFitRequest] = useState(0);
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(prefs.language, { day: "numeric", month: "short" }),
+    [prefs.language],
+  );
+  const usedCategories = useMemo(
+    () => new Set(places.map((p) => categoryFor(p.value.categoryId)?.id ?? "other")),
+    [places, categoryFor],
+  );
   return (
     <main
       className={`app-main${current ? "" : " library-only"}${view === "map" ? " map-view" : ""}`}
@@ -166,9 +174,7 @@ export function LibraryView({
                 {t("all")}
               </button>
               {categories
-                .filter((c) =>
-                  places.some((p) => (categoryFor(p.value.categoryId)?.id ?? "other") === c.id),
-                )
+                .filter((c) => usedCategories.has(c.id))
                 .map((c) => (
                   <button
                     key={c.id}
@@ -237,10 +243,7 @@ export function LibraryView({
                         <>
                           <span className="middle-dot">·</span>
                           <span className="card-date">
-                            {new Intl.DateTimeFormat(prefs.language, {
-                              day: "numeric",
-                              month: "short",
-                            }).format(new Date(p.value.capturedAt))}
+                            {dateFormat.format(new Date(p.value.capturedAt))}
                           </span>
                         </>
                       )}

@@ -1,4 +1,5 @@
-import { openDB, type DBSchema } from "idb";
+import { type DBSchema } from "idb";
+import { localDatabase } from "./database";
 import { workspaceIdentity } from "../../shared/families";
 import { PHOTO_BYTES, PHOTO_QUOTA, jpegDimensions, photoHash } from "../../shared/photos";
 export type StoredPhoto = {
@@ -11,15 +12,12 @@ export type StoredPhoto = {
 interface PhotoDB extends DBSchema {
   photos: { key: [string, string]; value: StoredPhoto; indexes: { workspace: string } };
 }
-const database = () =>
-  openDB<PhotoDB>("voltura-places-photos", 1, {
-    upgrade(db) {
-      db.createObjectStore("photos", { keyPath: ["workspace", "id"] }).createIndex(
-        "workspace",
-        "workspace",
-      );
-    },
-  });
+const database = localDatabase<PhotoDB>("voltura-places-photos", 1, (db) => {
+  db.createObjectStore("photos", { keyPath: ["workspace", "id"] }).createIndex(
+    "workspace",
+    "workspace",
+  );
+});
 const photoChannel =
   typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("places-photos") : null;
 export function watchPhoto(workspace: string, id: string, onChange: () => void) {
@@ -100,9 +98,8 @@ export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
     }
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
-    const ids = [
-      ...new Set(photos.filter((p) => !existing.some((e) => e.id === p.id)).map((p) => p.id)),
-    ];
+    const existingIds = new Set(existing.map((p) => p.id));
+    const ids = [...new Set(photos.filter((p) => !existingIds.has(p.id)).map((p) => p.id))];
     if (ids.length) {
       const detail = { workspace, ids };
       if (typeof window !== "undefined")

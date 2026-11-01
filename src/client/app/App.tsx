@@ -283,29 +283,45 @@ export function App() {
         : "",
     [t],
   );
-  const categoryFor = (id: string) =>
-    categories.find((c) => c.id === id) ?? categories.find((c) => c.id === "other");
+  const categoryIndex = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const categoryFor = useCallback(
+    (id: string) => categoryIndex.get(id) ?? categoryIndex.get("other"),
+    [categoryIndex],
+  );
   const places = useMemo(
     () => workspace?.records.filter(isPlace).filter((p) => !p.deleted) ?? [],
     [workspace],
   );
-  const filtered = places
-    .filter(
-      (p) =>
-        (filter === "all" || (categoryFor(p.value.categoryId)?.id ?? "other") === filter) &&
-        `${p.value.name} ${categoryFor(p.value.categoryId) ? categoryLabel(categoryFor(p.value.categoryId)!) : ""}`
-          .toLocaleLowerCase(prefs.language)
-          .includes(search.toLocaleLowerCase(prefs.language)),
-    )
-    .sort((a, b) =>
-      sort === "name"
-        ? a.value.name.localeCompare(b.value.name, prefs.language)
-        : sort === "closest" && currentPosition
-          ? distanceMetres(currentPosition.coords, a.value) -
-              distanceMetres(currentPosition.coords, b.value) ||
-            Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt)
-          : Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt),
-    );
+  const filtered = useMemo(() => {
+    const query = search.toLocaleLowerCase(prefs.language);
+    const matches = places.filter((p) => {
+      const category = categoryFor(p.value.categoryId);
+      return (
+        (filter === "all" || (category?.id ?? "other") === filter) &&
+        (!query ||
+          `${p.value.name} ${category ? categoryLabel(category) : ""}`
+            .toLocaleLowerCase(prefs.language)
+            .includes(query))
+      );
+    });
+    if (sort === "name") {
+      const collator = new Intl.Collator(prefs.language);
+      return matches.sort((a, b) => collator.compare(a.value.name, b.value.name));
+    }
+    // Compute dates and great-circle distances once per place, rather than
+    // repeating parsing/trigonometry for each comparison in the sort.
+    return matches
+      .map((place) => ({
+        place,
+        captured: Date.parse(place.value.capturedAt),
+        distance:
+          sort === "closest" && currentPosition
+            ? distanceMetres(currentPosition.coords, place.value)
+            : 0,
+      }))
+      .sort((a, b) => a.distance - b.distance || b.captured - a.captured)
+      .map(({ place }) => place);
+  }, [places, filter, search, sort, currentPosition, prefs.language, categoryFor, categoryLabel]);
   useEffect(() => {
     if (!filtered.length) setFullscreenScope(null);
   }, [filtered.length]);
@@ -515,7 +531,9 @@ export function App() {
     let disposed = false;
     if (import.meta.env.PROD)
       swUpdate.current = registerSW({
-        onNeedRefresh: () => setUpdate(true),
+        // Workbox's time-based "external install" heuristic can also fire on
+        // a slow first installation. Only the monitor's actual active+waiting
+        // replacement state may offer an update; Workbox still owns activation.
         onRegisteredSW: (_url, registration) => {
           if (registration && !disposed)
             updateMonitor.current = watchForUpdates(registration, () => setUpdate(true));

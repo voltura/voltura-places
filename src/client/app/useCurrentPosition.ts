@@ -32,25 +32,34 @@ export function useCurrentPosition() {
         return;
       }
       const request = generation;
-      const locate = () =>
-        navigator.geolocation.getCurrentPosition(
-          (next) => {
-            if (active && request === generation) rememberPosition(next);
-          },
-          () => {
-            if (active && request === generation) rememberPosition(null);
-          },
-          { maximumAge: 0, timeout: 15000, enableHighAccuracy: false },
-        );
+      const locate = () => {
+        const failed = () => {
+          if (active && request === generation) rememberPosition(null);
+        };
+        try {
+          navigator.geolocation.getCurrentPosition(
+            (next) => {
+              if (active && request === generation) rememberPosition(next);
+            },
+            failed,
+            { maximumAge: 0, timeout: 15000, enableHighAccuracy: false },
+          );
+        } catch {
+          failed();
+        }
+      };
       locate();
       poll = setInterval(locate, 30000);
     };
     // Save position can supply a fix even without a usable Permissions API.
     document.addEventListener("visibilitychange", update);
     // Querying permission never opens the browser's location prompt.
-    if (typeof navigator.geolocation?.getCurrentPosition === "function" && navigator.permissions) {
-      void navigator.permissions
-        .query({ name: "geolocation" })
+    if (
+      typeof navigator.geolocation?.getCurrentPosition === "function" &&
+      typeof navigator.permissions?.query === "function"
+    ) {
+      void Promise.resolve()
+        .then(() => navigator.permissions.query({ name: "geolocation" }))
         .then((result) => {
           if (!active) return;
           permission = result;

@@ -87,45 +87,14 @@ test("snapshot writes recheck cancellation after database opening and cannot rec
   const key = crypto.randomUUID(),
     p = place();
   await reconcileAccount(key, [], false);
+  await removeWorkspace(key);
   let active = true;
-  const original = IDBFactory.prototype.open;
-  let gate = true;
-  const spy = vi.spyOn(IDBFactory.prototype, "open").mockImplementation(function (
-    this: IDBFactory,
-    name,
-    version,
-  ) {
-    const request = original.call(this, name, version);
-    if (gate && name === "voltura-places") {
-      gate = false;
-      const add = request.addEventListener.bind(request);
-      request.addEventListener = ((
-        type: string,
-        listener: EventListenerOrEventListenerObject | null,
-        options?: boolean | AddEventListenerOptions,
-      ) => {
-        if (!listener) return;
-        if (type !== "success") return add(type, listener, options);
-        add(
-          type,
-          (event) => {
-            void (async () => {
-              active = false;
-              await removeWorkspace(key);
-              if (typeof listener === "function") listener.call(request, event);
-              else listener.handleEvent(event);
-            })();
-          },
-          options,
-        );
-      }) as typeof request.addEventListener;
-    }
-    return request;
-  });
-  await expect(
+  // Cancellation can happen while even a reused database promise is awaited.
+  const rejected = expect(
     mergeSnapshot(key, [{ ...p, revision: 1, deleted: false }], () => active),
   ).rejects.toThrow("accountChanged");
-  spy.mockRestore();
+  active = false;
+  await rejected;
   const db = await openDB("voltura-places", 1);
   expect(await db.get("workspaces", key)).toBeUndefined();
   db.close();

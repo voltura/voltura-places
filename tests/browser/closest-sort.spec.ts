@@ -2,17 +2,48 @@ import { test, expect } from "./fixtures";
 
 test.use({ serviceWorkers: "block" });
 
-for (const permissions of ["unavailable", "rejected"] as const) {
+test("a synchronous background location failure keeps the app usable", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    const permission = Object.assign(new EventTarget(), { state: "granted" });
+    Object.defineProperty(navigator, "permissions", { value: { query: async () => permission } });
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        getCurrentPosition: () => {
+          throw new Error("Location provider unavailable");
+        },
+      },
+    });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+for (const permissions of ["unavailable", "rejected", "throwing", "missing-query"] as const) {
   test(`Closest clears a saved fix on hide when Permissions API is ${permissions}`, async ({
     page,
   }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript((permissions) => {
       let requests = 0;
       Object.defineProperty(navigator, "permissions", {
         value:
           permissions === "unavailable"
             ? undefined
-            : { query: async () => Promise.reject(new Error("Unsupported permission")) },
+            : permissions === "missing-query"
+              ? {}
+              : {
+                  query: () => {
+                    if (permissions === "throwing") throw new Error("Unsupported permission");
+                    return Promise.reject(new Error("Unsupported permission"));
+                  },
+                },
       });
       Object.defineProperty(navigator, "geolocation", {
         value: {
@@ -55,6 +86,7 @@ for (const permissions of ["unavailable", "rejected"] as const) {
     await savePosition.click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(sort.locator('option[value="closest"]')).toHaveCount(1);
+    expect(errors).toEqual([]);
   });
 }
 

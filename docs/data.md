@@ -70,6 +70,8 @@ Account metadata changes in another tab trigger a fresh account check. Browser s
 
 ## Photos
 
+Photo reads check workspace cancellation before storage access and again before returning cached bytes or starting a download. Download responses recheck cancellation before decoding/persistence; upload responses recheck it before marking local bytes uploaded. Discarded operations leave the existing image and pending upload available for retry.
+
 Photo writes recheck cancellation inside their transaction. Open photo views observe newly stored bytes and retry on reconnection. Upload preparation recovers an already-cloud-backed photo when its local blob is missing. Copying into another workspace remaps colliding photo IDs when the bytes differ, reuses an equal destination image when available, and preserves both original images.
 
 Places optionally reference one immutable `photoId`. Camera/library inputs decode and re-encode to JPEG (maximum 1280 pixels per side, 256 KiB), stripping source metadata. Separate IndexedDB `voltura-places-photos` version 1 stores workspace-partitioned blobs without blocking older tabs on a main-database upgrade. Persist the photo before its place/draft reference; interrupted writes can leave an unreferenced photo, never a successful place save without its local photo.

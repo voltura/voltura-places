@@ -192,7 +192,10 @@ test("library selector keeps long group destinations explicit and private places
     const menu = page.getByRole("group", { name: "Choose group", exact: true });
     const longName = "Averylonggroupnamewhichwrapswithouttruncatingthelabelorbreakingthelayout";
     await selector.click();
-    await expect(menu.locator(".library-option")).toHaveCount(4);
+    await expect(menu.locator(".library-option[aria-pressed]")).toHaveCount(4);
+    await expect(
+      menu.getByRole("button", { name: "Create new group…", exact: true }),
+    ).toBeVisible();
     await expect(page.locator(".account-indicator .status-dot")).toBeVisible();
     await menu.getByRole("button", { name: longName, exact: true }).click();
     await expect(page.locator(".save-destination")).toHaveText(longName);
@@ -308,6 +311,10 @@ test("library selector keeps long group destinations explicit and private places
     expect(menuBox.x).toBe(triggerBox.x);
     expect(menuBox.width).toBe(triggerBox.width);
     await page.keyboard.press("End");
+    await expect(
+      menu.getByRole("button", { name: "Create new group…", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowUp");
     await expect(menu.getByRole("button", { name: "Shared parking", exact: true })).toBeFocused();
     await page.keyboard.press("Home");
     await expect(menu.getByRole("button", { name: "Private places", exact: true })).toBeFocused();

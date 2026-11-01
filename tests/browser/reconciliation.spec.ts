@@ -82,6 +82,13 @@ for (const mode of ["empty", "deleted", "add", "skip", "close", "retry", "wrong-
           .getByRole("dialog", { name: "Delete this place?", exact: true })
           .getByRole("button", { name: "Delete", exact: true })
           .click();
+        // Sign in only after the asynchronous deletion has committed locally.
+        await expect(
+          page.getByRole("dialog", { name: "Delete this place?", exact: true }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole("button", { name: "Edit place: Device fixture", exact: true }),
+        ).toHaveCount(0);
       }
       if (mode === "skip" || mode === "close") {
         await page.evaluate(async () => {

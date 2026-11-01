@@ -1,5 +1,6 @@
 import { workspaceIdentity } from "../../shared/families";
-import { openDB, type DBSchema } from "idb";
+import { type DBSchema } from "idb";
+import { localDatabase } from "./database";
 import {
   copyPhotos,
   clearPhotos,
@@ -38,13 +39,10 @@ interface PlacesDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
   drafts: { key: string; value: unknown };
 }
-const database = () =>
-  openDB<PlacesDB>("voltura-places", 1, {
-    upgrade(db) {
-      db.createObjectStore("workspaces", { keyPath: "key" });
-      db.createObjectStore("drafts");
-    },
-  });
+const database = localDatabase<PlacesDB>("voltura-places", 1, (db) => {
+  db.createObjectStore("workspaces", { keyPath: "key" });
+  db.createObjectStore("drafts");
+});
 const seed = (key: string): Workspace => ({
   key,
   reconciled: key === "guest" || !!workspaceIdentity(key).family,
