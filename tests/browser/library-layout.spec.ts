@@ -97,7 +97,7 @@ for (const [width, scale] of [
       const option = page.getByRole("combobox", { name: "Category", exact: true });
       if (await option.locator(`option[value="${category}"]`).count())
         await option.selectOption(category);
-      await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+      await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
       await expect(
         page.getByRole("dialog", { name: /^(Edit place|Place saved)$/, exact: true }),
       ).toBeHidden();

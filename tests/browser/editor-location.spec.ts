@@ -42,7 +42,7 @@ test("editor location update reports progress, cancellation, success and bounded
   const editor = page.getByRole("dialog", { name: /^(Edit place|Place saved)$/, exact: true });
   const update = editor.getByRole("button", { name: "Update location", exact: true });
   const cancel = editor.getByRole("button", { name: "Cancel location update", exact: true });
-  const save = editor.getByRole("button", { name: /^(Save changes|Done)$/, exact: true });
+  const save = editor.getByRole("button", { name: /^(Save|Done)$/, exact: true });
   await update.click();
   await expect(update).toBeDisabled();
   await expect(save).toBeDisabled();

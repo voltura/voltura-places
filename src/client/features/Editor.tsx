@@ -1,6 +1,14 @@
 import { CategoryIcon } from "./CategoryAppearance";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LocateFixed, LoaderCircle, MapPin } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  LocateFixed,
+  LoaderCircle,
+  MapPin,
+  Trash2,
+} from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { clearDraft, getDraft, setDraft } from "../foundation/library";
 import {
@@ -23,6 +31,7 @@ const draftSchema = z.object({
   categoryId: z.string(),
   latitude: z.string(),
   longitude: z.string(),
+  manualLocation: z.boolean().optional(),
   photoId: z.string().uuid().nullable().optional(),
   accuracy: z.number().nullable().optional(),
   capturedAt: z.string().datetime().optional(),
@@ -35,6 +44,7 @@ export function Editor({
   onClose,
   onSave,
   onDiscardPlace,
+  onDelete,
   workspace,
   fresh = false,
   draftId,
@@ -50,6 +60,7 @@ export function Editor({
   onClose: () => void;
   onSave: (entity: Entity, base: Entity | null) => Promise<void>;
   onDiscardPlace: (id: string) => Promise<void>;
+  onDelete?: () => void;
   workspace: string;
   reviewGps: boolean;
   units: DistanceUnits;
@@ -64,6 +75,14 @@ export function Editor({
     [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
   const [latitude, setLat] = useState(initial ? String(initial.latitude) : ""),
     [longitude, setLng] = useState(initial ? String(initial.longitude) : "");
+  const [manualLocation, setManualLocation] = useState(!initial);
+  const [coordinatesExpanded, setCoordinatesExpanded] = useState(false);
+  const hasValidCoordinates =
+    [latitude, longitude].every((value) =>
+      /^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(value.trim()),
+    ) &&
+    Math.abs(Number(latitude.replace(",", "."))) <= 90 &&
+    Math.abs(Number(longitude.replace(",", "."))) <= 180;
   const [accuracy, setAccuracy] = useState<number | null>(initial?.accuracy ?? null),
     [capturedAt, setCapturedAt] = useState(initial?.capturedAt ?? new Date().toISOString());
   const [error, setError] = useState(""),
@@ -89,6 +108,7 @@ export function Editor({
     [],
   );
   const selectPosition = (p: GeolocationPosition) => {
+    setManualLocation(false);
     setLat(String(p.coords.latitude));
     setLng(String(p.coords.longitude));
     setAccuracy(p.coords.accuracy);
@@ -104,6 +124,7 @@ export function Editor({
     categoryId,
     latitude,
     longitude,
+    manualLocation,
     photoId,
     accuracy,
     capturedAt,
@@ -123,6 +144,7 @@ export function Editor({
           setCategory(v.categoryId);
           setLat(v.latitude);
           setLng(v.longitude);
+          setManualLocation(v.manualLocation ?? (!initial && !v.latitude && !v.longitude));
           setPhoto(v.photoId !== undefined ? v.photoId : (initial?.photoId ?? null));
           setAccuracy(v.accuracy !== undefined ? v.accuracy : (initial?.accuracy ?? null));
           setCapturedAt(v.capturedAt ?? initial?.capturedAt ?? new Date().toISOString());
@@ -153,18 +175,35 @@ export function Editor({
   }, [ready, workspace]);
   useEffect(() => {
     if (ready) void setDraft(workspace, latest.current).catch(() => {});
-  }, [name, categoryId, latitude, longitude, photoId, accuracy, capturedAt, workspace, ready]);
+  }, [
+    name,
+    categoryId,
+    latitude,
+    longitude,
+    manualLocation,
+    photoId,
+    accuracy,
+    capturedAt,
+    workspace,
+    ready,
+  ]);
   const save = async () => {
     if (!latitude.trim() || !longitude.trim()) {
+      if (manualLocation) setCoordinatesExpanded(true);
       setError(t("chooseLocation"));
+      return;
+    }
+    if (manualLocation && !hasValidCoordinates) {
+      setCoordinatesExpanded(true);
+      setError(t("invalidCoordinates"));
       return;
     }
     const now = new Date().toISOString();
     const parsed = placeSchema.safeParse({
       name,
       categoryId,
-      latitude: latitude.trim() ? Number(latitude) : NaN,
-      longitude: longitude.trim() ? Number(longitude) : NaN,
+      latitude: Number(latitude.replace(",", ".")),
+      longitude: Number(longitude.replace(",", ".")),
       accuracy,
       capturedAt,
       updatedAt: now,
@@ -306,8 +345,11 @@ export function Editor({
               </select>
             </label>
           </div>
-          <div className={latitude && longitude ? "editor-location" : "stack"}>
-            {latitude && longitude && (
+          <div
+            className={`editor-location-controls ${!manualLocation && latitude && longitude ? "editor-location" : "stack"}`}
+            hidden={!initial && manualLocation && coordinatesExpanded}
+          >
+            {!manualLocation && latitude && longitude && (
               <p className="muted small" role="status">
                 <MapPin size={15} aria-hidden="true" />{" "}
                 {accuracy != null
@@ -318,9 +360,13 @@ export function Editor({
             <button
               type="button"
               className={
-                latitude && longitude ? "icon-button editor-location-update" : "button outline"
+                !manualLocation && latitude && longitude
+                  ? "icon-button editor-location-update"
+                  : "button outline"
               }
-              aria-label={latitude && longitude ? t("updateLocation") : undefined}
+              aria-label={
+                !manualLocation && latitude && longitude ? t("updateLocation") : undefined
+              }
               aria-busy={locating}
               disabled={locating}
               onClick={() => {
@@ -351,7 +397,7 @@ export function Editor({
                 );
               }}
             >
-              {latitude && longitude ? (
+              {!manualLocation && latitude && longitude ? (
                 locating ? (
                   <LoaderCircle className="editor-location-spinner" size={22} aria-hidden="true" />
                 ) : (
@@ -396,6 +442,63 @@ export function Editor({
               {t("editorLocationUpdated")}
             </p>
           )}
+          {!initial && manualLocation && !locating && !gpsReview && (
+            <div className="stack">
+              {hasValidCoordinates && (
+                <p className="muted small editor-location-feedback" role="status">
+                  <MapPin size={15} aria-hidden="true" /> {t("manualLocation")}
+                </p>
+              )}
+              <button
+                type="button"
+                className="button outline editor-coordinate-toggle"
+                aria-expanded={coordinatesExpanded}
+                aria-controls={`coordinates-${id.current}`}
+                onClick={() => setCoordinatesExpanded((expanded) => !expanded)}
+              >
+                <span>{t("enterCoordinates")}</span>
+                {coordinatesExpanded ? (
+                  <ChevronUp size={20} aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={20} aria-hidden="true" />
+                )}
+              </button>
+              <div
+                id={`coordinates-${id.current}`}
+                className="stack editor-coordinates"
+                hidden={!coordinatesExpanded}
+              >
+                <label>
+                  {t("latitude")}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={latitude}
+                    onChange={(e) => {
+                      setLat(e.target.value);
+                      setAccuracy(null);
+                      setError("");
+                    }}
+                  />
+                </label>
+                <label>
+                  {t("longitude")}
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={longitude}
+                    onChange={(e) => {
+                      setLng(e.target.value);
+                      setAccuracy(null);
+                      setError("");
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
           <PhotoPicker
             workspace={workspace}
             id={photoId}
@@ -407,6 +510,7 @@ export function Editor({
               stopRefinement.current();
               setLocating(false);
               setLocationUpdated(false);
+              setManualLocation(false);
               setLat(String(position.latitude));
               setLng(String(position.longitude));
               setAccuracy(null);
@@ -424,11 +528,23 @@ export function Editor({
             className="button primary"
             disabled={busy || photoBusy || locating || !ready}
           >
+            {!fresh && !busy && <Check size={20} aria-hidden="true" />}
             {t(busy ? "working" : fresh ? "done" : "save")}
           </button>
           {!fresh && (
-            <button type="button" className="button quiet" onClick={dismiss}>
+            <button type="button" className="button editor-secondary" onClick={dismiss}>
               {t("cancel")}
+            </button>
+          )}
+          {!fresh && initial && onDelete && (
+            <button
+              type="button"
+              className="button editor-secondary editor-delete"
+              disabled={busy || photoBusy || !ready}
+              onClick={onDelete}
+            >
+              <Trash2 size={18} aria-hidden="true" />
+              {t("delete")}
             </button>
           )}
           {fresh && (

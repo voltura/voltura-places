@@ -163,7 +163,7 @@ test("changing a preset's appearance preserves its translated name", async ({ pa
   await settings.selectOption("categories");
   await page.getByRole("button", { name: "Edit category Mushrooms", exact: true }).click();
   await page.getByRole("button", { name: "Blue", exact: true }).click();
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await settings.selectOption("preferences");
   await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
@@ -324,7 +324,7 @@ test("an open editor preserves a cloud edit that arrives before Save", async ({
       }, account),
     )
     .toBe(2);
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator(".conflict-notice")).toContainText("My editor name");
   await expect(page.locator(".conflict-notice")).toContainText("Other device's name");
   await page
@@ -423,7 +423,7 @@ test("typing waits for draft restoration instead of being overwritten by its lat
   await page.reload();
   const name = page.getByRole("textbox", { name: "Name", exact: true });
   await name.fill("Fast typing");
-  await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
   await expect(name).toHaveValue("Fast typing");
 });
 

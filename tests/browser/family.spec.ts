@@ -59,7 +59,7 @@ test("two signed-in family members share photos and offline saves while private 
       .locator('input[type="file"][accept="image/*"]:not([capture])')
       .setInputFiles("tests/fixtures/photo.jpg");
     await expect(a.page.locator(".photo-picker img")).toBeVisible();
-    await a.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await a.page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await a.page.getByRole("button", { name: "Settings", exact: true }).click();
     await a.page
@@ -286,7 +286,7 @@ test("two signed-in family members share photos and offline saves while private 
     await b.page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
     await expect(b.page.locator(".photo-picker img")).toBeVisible();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Shared chanterelles");
-    await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await b.page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toContainText(
       "Synced",
     );
@@ -324,7 +324,7 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page
       .getByRole("textbox", { name: "Name", exact: true })
       .fill("Offline mushroom clearing");
-    await a.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await a.page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await expect(
       a.page.getByRole("heading", { name: "Forest family 2", exact: true }),
@@ -371,7 +371,7 @@ test("two signed-in family members share photos and offline saves while private 
     await b.context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 6 });
     await b.page.getByRole("button", { name: "Save position", exact: true }).click();
     await b.page.getByRole("textbox", { name: "Name", exact: true }).fill("Family picnic");
-    await b.page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await b.page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toContainText(
       "Synced",

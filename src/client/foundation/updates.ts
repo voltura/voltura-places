@@ -5,11 +5,14 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
   let disposed = false;
   let installing: ServiceWorker | null = null;
   const announce = () => {
-    if (registration.waiting && registration.waiting !== announced && !disposed) {
+    // First installation briefly passes through waiting before activating itself.
+    // A replacement needs an existing active worker as well as a waiting one.
+    const replacement = Boolean(registration.active && registration.waiting);
+    if (replacement && registration.waiting !== announced && !disposed) {
       announced = registration.waiting;
       onReady();
     }
-    return Boolean(registration.waiting);
+    return replacement;
   };
   const stateChanged = () => {
     announce();
@@ -39,7 +42,9 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
       await registration.update();
       trackInstallation();
       if (announce()) return "ready" as const;
-      return registration.installing ? ("checking" as const) : ("current" as const);
+      return registration.installing || registration.waiting
+        ? ("checking" as const)
+        : ("current" as const);
     })().finally(() => {
       pending = undefined;
     });

@@ -54,7 +54,7 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Save position", exact: true }).click();
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("Private copy source");
-    await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await page
       .getByRole("button", { name: "Edit place: Private copy source", exact: true })

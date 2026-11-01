@@ -1,5 +1,34 @@
 import { test, expect, vi } from "vitest";
 import { watchForUpdates } from "../src/client/foundation/updates";
+
+test("first installation waits for activation without offering a replacement update", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "hidden" }));
+  vi.stubGlobal("navigator", { onLine: true });
+  const worker = Object.assign(new EventTarget(), { state: "installed" });
+  const registration = Object.assign(new EventTarget(), {
+    active: null as typeof worker | null,
+    waiting: worker as typeof worker | null,
+    installing: null,
+    update: vi.fn(async () => {}),
+  });
+  const ready = vi.fn();
+  const monitor = watchForUpdates(registration as unknown as ServiceWorkerRegistration, ready);
+  try {
+    expect(ready).not.toHaveBeenCalled();
+    expect(await monitor.check(true)).toBe("checking");
+    registration.active = worker;
+    registration.waiting = null;
+    expect(await monitor.check(true)).toBe("current");
+    expect(ready).not.toHaveBeenCalled();
+    registration.waiting = Object.assign(new EventTarget(), { state: "installed" });
+    expect(await monitor.check(true)).toBe("ready");
+    expect(ready).toHaveBeenCalledTimes(1);
+  } finally {
+    monitor.dispose();
+    vi.unstubAllGlobals();
+  }
+});
 test("visible tabs check on return and each minute, deduplicate work and announce once", async () => {
   vi.useFakeTimers();
   const window = new EventTarget(),
@@ -12,6 +41,7 @@ test("visible tabs check on return and each minute, deduplicate work and announc
     ready = vi.fn();
   const registration = Object.assign(new EventTarget(), {
     update,
+    active: {},
     waiting: null,
     installing: null,
   }) as unknown as ServiceWorkerRegistration;
@@ -51,6 +81,7 @@ test("tracks delayed installations, including one already running, and detaches 
   const worker = Object.assign(new EventTarget(), { state: "installing" });
   const registration = Object.assign(new EventTarget(), {
     installing: worker as typeof worker | null,
+    active: {},
     waiting: null as typeof worker | null,
     update: vi.fn(async () => {}),
   });

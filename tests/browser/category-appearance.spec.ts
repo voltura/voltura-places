@@ -27,7 +27,7 @@ for (const theme of ["dark", "light"])
         .evaluate((el) => el.scrollWidth <= el.clientWidth),
     ).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("category-picker.png") });
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("heading", { name: "New category", exact: true })).toHaveCount(0);
     await page.reload();
     await page.getByRole("button", { name: "Settings", exact: true }).click();

@@ -2842,6 +2842,38 @@ button.save-destination > svg {
 .editor-form {
   gap: 12px;
 }
+.button.editor-coordinate-toggle {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+.editor-coordinate-toggle svg {
+  flex-shrink: 0;
+}
+.editor-coordinates[hidden],
+.editor-location-controls[hidden] {
+  display: none;
+}
+.button.editor-secondary {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.button.editor-delete {
+  margin-top: 4px;
+  color: var(--danger);
+}
+.button.editor-secondary:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.button.editor-secondary:active {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.button.editor-secondary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -3px;
+}
 .editor-discard-place {
   align-self: center;
   min-height: 48px;

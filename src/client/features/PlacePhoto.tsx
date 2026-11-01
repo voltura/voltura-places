@@ -101,8 +101,8 @@ export function PhotoPicker({
     }
   };
   return (
-    <fieldset className="photo-picker">
-      <legend>{t("photo")}</legend>
+    <fieldset className="photo-picker" aria-label={id ? t("photo") : undefined}>
+      {!id && <legend>{t("photo")}</legend>}
       <PlacePhoto {...{ workspace, id, t }} />
       <div className="action-pair">
         <button

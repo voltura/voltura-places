@@ -1,5 +1,7 @@
 import { applyAppearance, validSkin } from "../foundation/appearance";
 import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
+import { useCurrentPosition } from "./useCurrentPosition";
+import { distanceMetres } from "../foundation/distance";
 import { shareOrCopy } from "../foundation/sharing";
 import { categoryAppearance, CategoryAppearancePicker } from "../features/CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
@@ -113,6 +115,7 @@ function loadPreferences(): Preferences {
 type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
+  const { position: currentPosition, rememberPosition } = useCurrentPosition();
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -195,6 +198,9 @@ export function App() {
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest"),
     [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => {
+    if (!currentPosition && sort === "closest") setSort("newest");
+  }, [currentPosition, sort]);
   const [libraryView, setLibraryView] = useState<"list" | "map">("list");
   const [fullscreenDetails, setFullscreenDetails] = useState(false);
   const [fullscreenScope, setFullscreenScope] = useState<string | null>(null);
@@ -286,7 +292,11 @@ export function App() {
     .sort((a, b) =>
       sort === "name"
         ? a.value.name.localeCompare(b.value.name, prefs.language)
-        : Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt),
+        : sort === "closest" && currentPosition
+          ? distanceMetres(currentPosition.coords, a.value) -
+              distanceMetres(currentPosition.coords, b.value) ||
+            Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt)
+          : Date.parse(b.value.capturedAt) - Date.parse(a.value.capturedAt),
     );
   useEffect(() => {
     if (!filtered.length) setFullscreenScope(null);
@@ -532,6 +542,7 @@ export function App() {
       notify("gpsUnavailable", true);
       return;
     }
+    rememberPosition(position);
     const now = new Date().toISOString(),
       categoryId = categories.some((c) => c.id === prefs.lastCategory)
         ? prefs.lastCategory
@@ -611,6 +622,7 @@ export function App() {
       if (scopeRef.current !== key) return;
       setSelected(null);
       setMenu(null);
+      setEditor((current) => (current?.entity?.id === p.id ? null : current));
       await refresh();
       sync();
     } catch {
@@ -978,6 +990,7 @@ export function App() {
           if (mapFullscreen) setFullscreenDetails(true);
         }}
         mapFocus={mapFocus}
+        onClearMapFocus={() => setMapFocus(null)}
         workspace={scope}
         canWrite={canWrite}
         title={selectedFamily ? (selectedGroup?.name ?? t("familyLibrary")) : undefined}
@@ -991,6 +1004,7 @@ export function App() {
           search,
           setSearch,
           sort,
+          canSortClosest: !!currentPosition,
           setSort,
           selected,
           categoryLabel,
@@ -1158,6 +1172,14 @@ export function App() {
             if (scopeRef.current === scope) setEditor(null);
           }}
           onSave={(value, base) => save(value, base, true)}
+          onDelete={
+            canWrite && editor.entity && !editor.fresh
+              ? () => {
+                  const place = places.find((p) => p.id === editor.entity?.id);
+                  if (place) setDeletePlace({ place, scope });
+                }
+              : undefined
+          }
           onDiscardPlace={async (id) => {
             const key = scope;
             if (scopeRef.current !== key || !writeAllowed.current)

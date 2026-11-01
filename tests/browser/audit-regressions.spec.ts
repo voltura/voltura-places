@@ -178,7 +178,7 @@ for (const deleted of [false, true])
     await expect(page.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
       "My restored edit",
     );
-    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.locator(".conflict-notice")).toContainText("My restored edit");
     await expect(page.locator(".conflict-notice")).toContainText(deleted ? "Deleted" : "New cloud");
   });

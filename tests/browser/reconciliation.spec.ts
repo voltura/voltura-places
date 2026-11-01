@@ -73,7 +73,7 @@ for (const mode of ["empty", "deleted", "add", "skip", "close", "retry", "wrong-
     if (!["empty", "retry", "wrong-account"].includes(mode)) {
       await page.getByRole("button", { name: "Save position", exact: true }).click();
       await page.getByRole("textbox", { name: "Name", exact: true }).fill("Device fixture");
-      await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+      await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
       if (mode === "deleted") {
         await page.getByRole("button", { name: "Edit place: Device fixture", exact: true }).click();

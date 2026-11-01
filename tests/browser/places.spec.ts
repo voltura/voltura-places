@@ -124,7 +124,7 @@ test("saved-place editor refines only better GPS fixes and saves the matching co
     "Refined position",
   );
   await page.screenshot({ path: testInfo.outputPath("gps-refinement.png") });
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(dialog).toBeHidden();
   await emit(1, 3); // A browser may deliver a queued callback after clearWatch.
   await expect
@@ -302,7 +302,7 @@ test("an account change clears an open private map dialog", async ({ page }) => 
   await page.goto("/");
   await page.getByRole("button", { name: "Save position", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Private review fixture");
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Open maps", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Choose map app", exact: true })).toBeVisible();
@@ -456,7 +456,7 @@ test("desktop stays focused on the library and opens details only for a selected
   await expect(page.locator(".detail-welcome, .trail-art, .library-title .eyebrow")).toHaveCount(0);
   await page.getByRole("button", { name: "Save position", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Desktop trailhead");
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(page.getByRole("complementary")).toContainText("Desktop trailhead");
 });
@@ -632,16 +632,21 @@ test.beforeEach(async ({ context }) => {
 test("camera and library inputs support a durable offline photo and removable draft", async ({
   page,
   context,
-}) => {
+}, testInfo) => {
   await page.goto("/");
   await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
-  await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toBeHidden();
+  await expect(page.locator(".photo-picker legend")).toHaveText("Photo (optional)");
   await expect(page.locator('input[capture="environment"]')).toHaveAttribute("accept", "image/*");
   const picker = page.locator('input[type="file"][accept="image/*"]:not([capture])');
   await picker.setInputFiles("tests/fixtures/photo-gps.jpg");
   await expect(page.locator(".photo-picker img")).toBeVisible();
+  await expect(page.locator(".photo-picker legend")).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Photo (optional)", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("selected-photo-header-hidden.png") });
   await page.getByRole("button", { name: "Use photo location", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toHaveCount(0);
   await expect(page.getByText("Location selected", { exact: true })).toBeVisible();
   await picker.setInputFiles({
     name: "invalid.jpg",
@@ -650,7 +655,7 @@ test("camera and library inputs support a durable offline photo and removable dr
   });
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.locator(".photo-picker img")).toBeVisible();
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
@@ -664,6 +669,7 @@ test("camera and library inputs support a durable offline photo and removable dr
   await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".photo-picker img")).toBeVisible();
   await page.getByRole("button", { name: "Remove photo", exact: true }).click();
+  await expect(page.locator(".photo-picker legend")).toHaveText("Photo (optional)");
   await expect(page.locator(".photo-picker img")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo removed draft");
   await expect
@@ -691,7 +697,7 @@ test("camera and library inputs support a durable offline photo and removable dr
     "Photo removed draft",
   );
   await expect(page.locator(".photo-picker img")).toHaveCount(0);
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
 });
 test("GPS denial leaves the library intact and offers recovery", async ({ page }) => {
@@ -765,7 +771,7 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Offline clearing");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your places 2" })).toBeVisible();
   await context.setOffline(false);
   await expect(page.locator(".save-dock .dock-hint")).toHaveCount(0);
@@ -774,12 +780,13 @@ test("location is required and GPS places search and edit", async ({ page }) => 
   await page.goto("/");
   await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Trailhead");
-  await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toBeHidden();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Choose a photo location");
+  await page.getByRole("button", { name: "Enter coordinates manually", exact: true }).click();
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("combobox", { name: "Category", exact: true }).selectOption("mushrooms");
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("textbox", { name: "Search your places" }).fill("missing");
   await expect(page.getByRole("heading", { name: "No matching places" })).toBeVisible();
@@ -862,7 +869,7 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Copy example");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
-  await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+  await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await page.getByRole("button", { name: "Open maps", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Choose map app", exact: true });
@@ -958,7 +965,7 @@ for (const [width, scale] of [
       "A long location name beside the old forest trail ".repeat(2) +
       "UnbrokenLocationName".repeat(3);
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
-    await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     if (scale !== 1)
       await page.evaluate((scale) => {
         document.documentElement.style.fontSize = `${scale * 100}%`;
@@ -1037,7 +1044,7 @@ for (const [width, scale] of [
     if (width === 430) {
       await details.getByRole("button", { name: "Edit", exact: true }).click();
       await page.getByRole("textbox", { name: "Name", exact: true }).fill("Svamp");
-      await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+      await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
       await expect(details.getByRole("heading", { name: "Svamp", exact: true })).toBeVisible();
       await page.screenshot({ path: ".artifacts/position-card-compact.png", fullPage: true });
     }
@@ -1157,7 +1164,7 @@ for (const android of [true, false]) {
       2,
     );
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
-    await page.getByRole("button", { name: /^(Save changes|Done)$/, exact: true }).click();
+    await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await expect(page.locator('.details-map-picker option[value="geo"]')).toHaveCount(
       android ? 1 : 0,
     );

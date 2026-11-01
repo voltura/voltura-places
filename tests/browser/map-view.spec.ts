@@ -1,5 +1,8 @@
 import { chromium, webkit, devices, expect, test, type Page } from "./fixtures";
 
+// Update dialogs are covered separately and must not interrupt map interactions.
+test.use({ serviceWorkers: "block" });
+
 const record = (id: string, latitude = 59.33, longitude = 18.07, deleted = false) => ({
   id,
   kind: "place",
@@ -64,6 +67,7 @@ for (const engine of [chromium, webkit]) {
     const browser = await engine.launch();
     try {
       const context = await browser.newContext({
+        serviceWorkers: "block",
         ...devices["iPhone 13"],
         baseURL: "http://127.0.0.1:5174",
         locale: "en-US",
@@ -268,6 +272,41 @@ for (const width of [375, 390, 1280]) {
         }),
       )
       .toBeLessThan(4);
+    const allPlaces = page.getByRole("button", { name: "All places", exact: true });
+    await expect(allPlaces).toHaveAttribute("aria-pressed", "true");
+    const showAll = page.getByRole("button", { name: "Show all", exact: true });
+    await expect(showAll).toBeVisible();
+    await allPlaces.click();
+    await expect(showAll).toHaveCount(0);
+    const expectBothPinsInMap = async () => {
+      await expect
+        .poll(() =>
+          page.locator(".library-pane .places-map").evaluate((element) => {
+            const map = element.getBoundingClientRect();
+            const pins = [...element.querySelectorAll(".places-map-pin")];
+            return (
+              pins.length === 2 &&
+              pins.every((pin) => {
+                const bounds = pin.getBoundingClientRect();
+                return (
+                  bounds.left >= map.left &&
+                  bounds.right <= map.right &&
+                  bounds.top >= map.top &&
+                  bounds.bottom <= map.bottom
+                );
+              })
+            );
+          }),
+        )
+        .toBe(true);
+    };
+    await expectBothPinsInMap();
+    // Repeated activation and remounting must not restore the preview target.
+    await allPlaces.click();
+    await expectBothPinsInMap();
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await page.getByRole("button", { name: "Map", exact: true }).click();
+    await expectBothPinsInMap();
   });
 }
 
@@ -571,6 +610,7 @@ test("WebKit phone fullscreen keeps focus and exits through Escape", async () =>
   const browser = await webkit.launch();
   try {
     const context = await browser.newContext({
+      serviceWorkers: "block",
       ...devices["iPhone 13"],
       baseURL: "http://127.0.0.1:5174",
       locale: "en-US",

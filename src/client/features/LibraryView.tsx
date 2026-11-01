@@ -1,5 +1,5 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 import { Plus, Search, X, ArrowDownUp, Map, List, MoreHorizontal } from "lucide-react";
 import type { LocalRecord, Place } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
@@ -15,6 +15,7 @@ type Props = {
   onFullscreenChange: (value: boolean) => void;
   onBrowse?: () => void;
   mapFocus: { workspace: string; id: string; request: number } | null;
+  onClearMapFocus: () => void;
   workspace: string;
   canWrite: boolean;
   title?: string;
@@ -27,6 +28,7 @@ type Props = {
   search: string;
   setSearch: (value: string) => void;
   sort: string;
+  canSortClosest: boolean;
   setSort: (value: string) => void;
   selected: string | null;
   setSelected: (id: string) => void;
@@ -50,6 +52,7 @@ export function LibraryView({
   onFullscreenChange,
   onBrowse,
   mapFocus,
+  onClearMapFocus,
   workspace,
   canWrite,
   title,
@@ -62,6 +65,7 @@ export function LibraryView({
   search,
   setSearch,
   sort,
+  canSortClosest,
   setSort,
   selected,
   setSelected,
@@ -77,6 +81,7 @@ export function LibraryView({
   renderDetails,
   prefs,
 }: Props) {
+  const [fitRequest, setFitRequest] = useState(0);
   return (
     <main
       className={`app-main${current ? "" : " library-only"}${view === "map" ? " map-view" : ""}`}
@@ -143,6 +148,7 @@ export function LibraryView({
                   >
                     <option value="newest">{t("newest")}</option>
                     <option value="name">{t("byName")}</option>
+                    {canSortClosest && <option value="closest">{t("closest")}</option>}
                   </select>
                 </label>
               )}
@@ -151,7 +157,11 @@ export function LibraryView({
               <button
                 aria-pressed={filter === "all"}
                 className={filter === "all" ? "active" : ""}
-                onClick={() => setFilter("all")}
+                onClick={() => {
+                  setFilter("all");
+                  onClearMapFocus();
+                  setFitRequest((request) => request + 1);
+                }}
               >
                 {t("all")}
               </button>
@@ -202,7 +212,7 @@ export function LibraryView({
               focusRequest={mapFocus?.workspace === workspace ? mapFocus.request : 0}
               key={workspace}
               places={filtered}
-              fitKey={`${search}\u0000${filter}`}
+              fitKey={`${search}\u0000${filter}\u0000${fitRequest}`}
               selected={selected}
               onSelect={setSelected}
               categoryColor={categoryColor}
