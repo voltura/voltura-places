@@ -40,6 +40,7 @@ import { LibraryView } from "../features/LibraryView";
 import { LibrarySelector } from "../features/LibrarySelector";
 import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
 import { FamilyPanel } from "../features/Family";
+import { JoinRequests } from "../features/JoinRequests";
 import {
   cachedFamily,
   fetchFamily,
@@ -191,6 +192,8 @@ export function App() {
     if (account.account) completeAccountChoice();
   }, [account.account?.id]);
   const familyRequest = useRef(0);
+  const familyActionPending = useRef(false);
+  const [verifiedFamilyAccount, setVerifiedFamilyAccount] = useState<string | null>(null);
   authRef.current = account.account?.id;
   const [familyCache, setFamilyCache] = useState<FamilyCache>(() =>
     cachedFamily(cachedAccount().account?.id),
@@ -388,7 +391,7 @@ export function App() {
     setWorkspace(w);
     setReconciling(plan.needed);
     const familyCheck = ++familyRequest.current;
-    if (next.account)
+    if (next.account && !familyActionPending.current)
       void fetchFamily(next.account.id)
         .then((value) => {
           if (
@@ -397,10 +400,53 @@ export function App() {
             workspaceIdentity(scopeRef.current).account === next.account!.id
           ) {
             setFamilyCache((previous) => storeFamilies(next.account!.id, value, previous));
+            setVerifiedFamilyAccount(next.account!.id);
           }
         })
         .catch(() => {});
   }, []);
+  useEffect(() => {
+    const id = account.account?.id;
+    setVerifiedFamilyAccount(null);
+    familyActionPending.current = false;
+    if (!id) return;
+    let active = true,
+      inFlight = false;
+    const refreshGroups = async () => {
+      if (
+        !active ||
+        inFlight ||
+        familyActionPending.current ||
+        !navigator.onLine ||
+        document.visibilityState !== "visible"
+      )
+        return;
+      inFlight = true;
+      const version = ++familyRequest.current;
+      try {
+        const groups = await fetchFamily(id);
+        if (active && authRef.current === id && version === familyRequest.current) {
+          setFamilyCache((previous) => storeFamilies(id, groups, previous));
+          setVerifiedFamilyAccount(id);
+        }
+      } catch {
+      } finally {
+        inFlight = false;
+      }
+    };
+    void refreshGroups();
+    const timer = setInterval(() => void refreshGroups(), 5000);
+    window.addEventListener("online", refreshGroups);
+    window.addEventListener("focus", refreshGroups);
+    document.addEventListener("visibilitychange", refreshGroups);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("online", refreshGroups);
+      window.removeEventListener("focus", refreshGroups);
+      document.removeEventListener("visibilitychange", refreshGroups);
+    };
+  }, [account.account?.id]);
   useEffect(() => {
     void refresh();
     const listener = () => void refresh();
@@ -1232,6 +1278,19 @@ export function App() {
           e.target.value = "";
         }}
       />
+      {account.account && verifiedFamilyAccount === account.account.id && (
+        <JoinRequests
+          key={`join-requests:${account.account.id}`}
+          account={account.account.id}
+          families={familyCache.families}
+          t={t}
+          onChanged={familyChanged}
+          onPending={(pending) => {
+            familyActionPending.current = pending;
+            familyRequest.current++;
+          }}
+        />
+      )}
       {editor && (
         <Editor
           key={`${scope}-${editor.entity?.id ?? editor.draftId ?? "new"}`}

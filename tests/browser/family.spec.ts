@@ -293,14 +293,13 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       b.page.getByRole("button", { name: "Edit place: Private chanterelles", exact: true }),
     ).toHaveCount(0);
-    await a.page.getByRole("button", { name: "Settings", exact: true }).click();
-    await a.page
-      .getByRole("combobox", { name: "Settings", exact: true })
-      .selectOption("familySharing");
-    await a.page
-      .getByRole("button", { name: "Approve · family-1@example.invalid", exact: true })
-      .click();
-    await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
+    const joinPrompt = a.page.getByRole("dialog", { name: "Join requests", exact: true });
+    await expect(joinPrompt).toContainText(
+      "family-1@example.invalid wants to join Forest family.",
+      { timeout: 10000 },
+    );
+    await joinPrompt.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(joinPrompt).toBeHidden();
     await b.page.clock.fastForward(5000);
     await b.page.getByRole("button", { name: "Open shared places", exact: true }).click();
     await expect(

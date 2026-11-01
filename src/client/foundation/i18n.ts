@@ -52,8 +52,9 @@ export const en = {
     "Open Places from your Home Screen, sign in and enter the four-digit code here. The family owner must approve your request before any shared places become visible.",
   familyRequestJoin: "Request to join",
   familyRequestSent:
-    "Request sent. Ask the family owner to approve you in Family sharing. Keep this screen open; it updates automatically.",
+    "Request sent. The group owner will be notified in Places and can approve you. Keep this screen open; it updates automatically.",
   familyRequests: "Join requests",
+  familyWantsToJoin: "{person} wants to join {group}.",
   familyApproveNotice:
     "Approve only the person you invited. Approval gives them access to all shared places and photos.",
   familyApprove: "Approve",
@@ -527,8 +528,9 @@ export const sv: Record<Message, string> = {
     "Öppna Places från hemskärmen, logga in och skriv in den fyrsiffriga koden här. Familjens ägare måste godkänna din förfrågan innan några gemensamma platser visas.",
   familyRequestJoin: "Be om att få gå med",
   familyRequestSent:
-    "Förfrågan skickad. Be familjens ägare att godkänna dig under Familjedelning. Låt sidan vara öppen så uppdateras den automatiskt.",
+    "Förfrågan skickad. Gruppens ägare får ett meddelande i Places och kan godkänna dig. Låt sidan vara öppen så uppdateras den automatiskt.",
   familyRequests: "Förfrågningar om att gå med",
+  familyWantsToJoin: "{person} vill gå med i {group}.",
   familyApproveNotice:
     "Godkänn bara personen du bjöd in. Godkännandet ger tillgång till alla gemensamma platser och foton.",
   familyApprove: "Godkänn",

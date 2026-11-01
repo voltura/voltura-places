@@ -3911,3 +3911,16 @@ select option .category-icon {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.join-request-reminder {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 80px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: calc(100% - 24px);
+  box-shadow: 0 4px 20px #0003;
+}
+.join-request-message {
+  overflow-wrap: anywhere;
+}
