@@ -52,9 +52,9 @@ export function socialImage(language) {
     <path d="M826 0H1200V630H826Z" fill="#192720"/>
     ${mark(64, 58, 80)}
     <text x="164" y="111" fill="#eef5ed" font-family="Inter" font-size="36">voltura places</text>
-    <text x="64" y="262" fill="#eef5ed" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Spara en plats." : "Save a place."}</text>
-    <text x="64" y="340" fill="#8dd7ad" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Hitta tillbaka." : "Find your way back."}</text>
-    <text x="68" y="418" fill="#eef5ed" font-family="Inter" font-size="28">${swedish ? "Privata platser. Delade grupper." : "Private places. Shared groups."}</text>
+    <text x="64" y="262" fill="#eef5ed" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Spara dina platser." : "Save your places."}</text>
+    <text x="64" y="340" fill="#8dd7ad" font-family="Inter" font-size="60" font-weight="700">${swedish ? "Se dem på kartan." : "See them on the map."}</text>
+    <text x="68" y="418" fill="#eef5ed" font-family="Inter" font-size="28">${swedish ? "Behåll dem för dig själv eller dela med en grupp." : "Keep them private or share with a group."}</text>
     <text x="68" y="464" fill="#b0c4b6" font-family="Inter" font-size="25">GPS · ${swedish ? "Foton" : "Photos"} · Offline</text>
     <text x="68" y="564" fill="#8dd7ad" font-family="Inter" font-size="24">voltura.se/places</text>
     <image x="880" y="48" width="248" height="537" clip-path="url(#screen)" href="data:image/png;base64,${screenshots[language]}"/>

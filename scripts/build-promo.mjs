@@ -52,8 +52,8 @@ for (const [language, c] of Object.entries(content)) {
   const imageUrl = `https://voltura.se/places/assets/${socialName}`;
   const imageAlt =
     language === "sv"
-      ? "Voltura Places — spara platser och hitta tillbaka"
-      : "Voltura Places — save your places and find your way back";
+      ? "Voltura Places — spara platser och hitta dem på din karta"
+      : "Voltura Places — save places and find them on your map";
   const screenshot = await readFile(`site/assets/app-mobile${language === "sv" ? "-sv" : ""}.png`);
   const screenshotName = `app-${language}.${createHash("sha256").update(screenshot).digest("hex").slice(0, 16)}.png`;
   await writeFile(`.artifacts/promo/assets/${screenshotName}`, screenshot);
