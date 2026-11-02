@@ -1,4 +1,4 @@
-import { digest } from "./auth.js";
+import { digest } from "../shared/digest";
 import { WorkspaceError } from "./workspace";
 import type { Environment } from "./types";
 

@@ -1,5 +1,5 @@
-import { readJSON, RequestError } from "./accounts.js";
-import { digest } from "./auth.js";
+import { readJSON, RequestError, hasCanonicalOrigin } from "./http";
+import { digest } from "../shared/digest";
 import type { Environment } from "./types";
 
 const minute = 60_000;
@@ -41,12 +41,7 @@ export async function handleStatistics(request: Request, env: Environment) {
   const json = (body: unknown, status = 200) => Response.json(body, { status, headers });
   if (activity ? request.method !== "POST" : request.method !== "GET")
     return json({ error: "methodNotAllowed" }, 405);
-  if (
-    activity &&
-    (origin !== env.AUTH_ORIGIN ||
-      new URL(request.url).origin !== env.AUTH_ORIGIN ||
-      request.headers.get("Sec-Fetch-Site") === "cross-site")
-  )
+  if (activity && !hasCanonicalOrigin(request, env.AUTH_ORIGIN))
     return json({ error: "invalidOrigin" }, 403);
   if (!activity && origin && !allowed) return json({ error: "invalidOrigin" }, 403);
   if (!env.DB || !env.AUTH_SECRET) return json({ error: "serviceUnavailable" }, 503);

@@ -9,7 +9,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
   const bundle = await build({
     stdin: {
       contents:
-        "import {handleAccounts} from './src/server/accounts.js';export default {fetch:handleAccounts};",
+        "import {handleAccounts} from './src/server/accounts.ts';export default {fetch:handleAccounts};",
       resolveDir: process.cwd(),
     },
     bundle: true,
@@ -182,6 +182,15 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
             /Secure/.test(value),
         ),
     );
+    for (const provider of ["constructor", "__proto__", "unknown", null, 42]) {
+      for (const route of ["/api/account/link", "/api/account/connect"]) {
+        assert.equal(
+          (await call(route, { provider })).status,
+          400,
+          "unknown providers fail before property lookup or persistence",
+        );
+      }
+    }
     assert.notEqual((await sign("listener@example.com", mails[0].code)).status, 200, "single use");
     nativeId = "separate-native-same-email";
     const separate = await call("/api/account/connect", { provider: "chatgpt" });

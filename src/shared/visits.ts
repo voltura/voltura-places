@@ -1,3 +1,4 @@
+import { digest } from "./digest";
 import { workspaceIdentity } from "./families";
 import type { Entity, LocalRecord, VisitStatus } from "./model";
 
@@ -8,12 +9,7 @@ export async function visitEntity(
   status: VisitStatus,
 ): Promise<Extract<Entity, { kind: "visit" }>> {
   const libraryId = workspaceIdentity(workspace).family;
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(JSON.stringify([libraryId, placeId])),
-  );
-  const id =
-    "visit-" + [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, "0")).join("");
+  const id = "visit-" + (await digest(JSON.stringify([libraryId, placeId])));
   return {
     id,
     kind: "visit",

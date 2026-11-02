@@ -267,9 +267,7 @@ test("an active import reservation prevents another tab consuming its validated 
     (w) => {
       w.importLease!.expiresAt = 0;
     },
-    undefined,
-    () => true,
-    "active",
+    { isCurrent: () => true, importToken: "active" },
   );
   await expect(saveEntity(key, place())).resolves.toBeDefined();
 });

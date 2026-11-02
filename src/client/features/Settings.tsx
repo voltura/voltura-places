@@ -1,3 +1,4 @@
+import type { Preferences } from "../foundation/preferences";
 import { skins, type Skin } from "../foundation/appearance";
 import { activityEnabled, setActivityEnabled } from "../foundation/activity";
 import { CategoryIcon } from "./CategoryAppearance";
@@ -35,16 +36,6 @@ const sectionIcons = {
   familySharing: Users,
 };
 type Section = keyof typeof sectionIcons;
-export type Preferences = {
-  language: Language;
-  theme: "light" | "dark" | "system";
-  skin: Skin;
-  provider: "google" | "apple" | "geo" | "";
-  lastCategory: string;
-  reviewGps: boolean;
-  autoHideControls: boolean;
-  units: DistanceUnits;
-};
 export function Settings({
   canWrite,
   t,

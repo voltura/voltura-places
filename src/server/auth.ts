@@ -1,12 +1,11 @@
+import { digest, hex } from "../shared/digest";
+import type { Environment } from "./types";
 import { betterAuth } from "better-auth";
-import { emailOTP } from "better-auth/plugins/email-otp";
+import { emailOTP, type EmailOTPOptions } from "better-auth/plugins/email-otp";
 
-export const hex = (bytes) =>
-  [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, "0")).join("");
-export const digest = async (value) =>
-  hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+export type SignInCode = Parameters<EmailOTPOptions["sendVerificationOTP"]>[0];
 
-export async function sendSignInCode(env, { email, otp, type }) {
+export async function sendSignInCode(env: Environment, { email, otp, type }: SignInCode) {
   if (type !== "sign-in" || !env.MAIL_RELAY_URL || !env.MAIL_RELAY_SECRET)
     throw new Error("Email sign-in unavailable");
   const target = new URL(env.MAIL_RELAY_URL);
@@ -36,13 +35,16 @@ export async function sendSignInCode(env, { email, otp, type }) {
 }
 
 // Request-scoped: a D1 binding or a visitor's session must never leak into another request.
-export function createAuth(env, sendCode = (data) => sendSignInCode(env, data)) {
+export function createAuth(
+  env: Environment,
+  sendCode: (data: SignInCode) => Promise<void> = (data) => sendSignInCode(env, data),
+) {
   return betterAuth({
     appName: "Voltura Places",
     baseURL: env.AUTH_ORIGIN,
     basePath: "/api/auth",
     secret: env.AUTH_SECRET,
-    database: env.DB.sqlite || env.DB,
+    database: env.DB,
     trustedOrigins: [env.AUTH_ORIGIN],
     logger: { disabled: true },
     // Better Auth also filters input:false fields from trusted provider profiles.

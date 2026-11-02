@@ -41,6 +41,108 @@ const category = (id: string): Extract<Entity, { kind: "category" }> => ({
   value: { name: "Category", color: "green" },
 });
 
+test("a current sync request survives cancellation of the running view's request", async () => {
+  const key = crypto.randomUUID();
+  await changeWorkspace(key, (workspace) => {
+    workspace.reconciled = true;
+    workspace.records = [];
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let current = true;
+  let firstRead = true;
+  const remote: unknown[] = [];
+  const statuses: string[] = [];
+  const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      const mutation = JSON.parse(String(init.body));
+      const record = { ...mutation.entity, revision: 1, deleted: mutation.deleted };
+      remote.push(record);
+      return Response.json({ accountId: key, record });
+    }
+    if (firstRead) {
+      firstRead = false;
+      await gate;
+    }
+    return Response.json({ version: 1, accountId: key, records: remote, nextCursor: null });
+  });
+  vi.stubGlobal("navigator", { onLine: true });
+  vi.stubGlobal("fetch", fetcher);
+  const running = synchronize(
+    key,
+    () => {},
+    () => current,
+  );
+  try {
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    const saved = place();
+    await saveEntity(key, saved);
+    current = false;
+    await synchronize(key, (status) => statuses.push(status));
+    let supersededCurrent = true;
+    await synchronize(
+      key,
+      () => {},
+      () => supersededCurrent,
+    );
+    supersededCurrent = false;
+    await synchronize(
+      key,
+      () => {},
+      () => false,
+    );
+    release();
+    await running;
+    expect(statuses.at(-1)).toBe("synced");
+    expect((await readWorkspace(key)).records.find((record) => record.id === saved.id)?.dirty).toBe(
+      false,
+    );
+    expect(remote).toHaveLength(1);
+  } finally {
+    release();
+    await running;
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a cancelled queued sync does not schedule another network pull", async () => {
+  const key = crypto.randomUUID();
+  await changeWorkspace(key, (workspace) => {
+    workspace.reconciled = true;
+    workspace.records = [];
+  });
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let queuedCurrent = true;
+  const fetcher = vi.fn(async () => {
+    await gate;
+    return Response.json({ version: 1, accountId: key, records: [], nextCursor: null });
+  });
+  vi.stubGlobal("navigator", { onLine: true });
+  vi.stubGlobal("fetch", fetcher);
+  const running = synchronize(key, () => {});
+  try {
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    await synchronize(
+      key,
+      () => {},
+      () => queuedCurrent,
+    );
+    queuedCurrent = false;
+    release();
+    await running;
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  } finally {
+    release();
+    await running;
+    vi.unstubAllGlobals();
+  }
+});
+
 test("merge imports preserve a deleted place's tombstone and recover under a new identity", async () => {
   const key = crypto.randomUUID(),
     p = place();

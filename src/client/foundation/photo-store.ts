@@ -1,5 +1,5 @@
 import { type DBSchema } from "idb";
-import { localDatabase } from "./database";
+import { abortTransaction, localDatabase } from "./database";
 import { workspaceIdentity } from "../../shared/families";
 import { PHOTO_BYTES, PHOTO_QUOTA, jpegDimensions, photoHash } from "../../shared/photos";
 export type StoredPhoto = {
@@ -111,10 +111,7 @@ export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
       photoChannel?.postMessage(detail);
     }
   } catch (error) {
-    try {
-      tx.abort();
-    } catch {}
-    await tx.done.catch(() => {});
+    await abortTransaction(tx);
     throw error;
   }
 }
@@ -134,10 +131,7 @@ export async function markPhotoUploaded(
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
   } catch (error) {
-    try {
-      tx.abort();
-    } catch {}
-    await tx.done.catch(() => {});
+    await abortTransaction(tx);
     throw error;
   }
 }
@@ -169,14 +163,24 @@ export async function copyPhotos(from: string, to: string, ids: string[], isCurr
 export async function clearPhotos(workspace: string) {
   const db = await database(),
     tx = db.transaction("photos", "readwrite");
-  for (const key of await tx.store.index("workspace").getAllKeys(workspace))
-    await tx.store.delete(key);
-  await tx.done;
+  try {
+    for (const key of await tx.store.index("workspace").getAllKeys(workspace))
+      await tx.store.delete(key);
+    await tx.done;
+  } catch (error) {
+    await abortTransaction(tx);
+    throw error;
+  }
 }
 export async function clearAccountPhotos(account: string) {
   const db = await database(),
     tx = db.transaction("photos", "readwrite");
-  for (const key of await tx.store.getAllKeys())
-    if (workspaceIdentity(key[0]).account === account) await tx.store.delete(key);
-  await tx.done;
+  try {
+    for (const key of await tx.store.getAllKeys())
+      if (workspaceIdentity(key[0]).account === account) await tx.store.delete(key);
+    await tx.done;
+  } catch (error) {
+    await abortTransaction(tx);
+    throw error;
+  }
 }

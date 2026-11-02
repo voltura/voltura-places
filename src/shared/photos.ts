@@ -1,3 +1,4 @@
+import { hex } from "./digest";
 export const PHOTO_BYTES = 256 * 1024;
 export const PHOTO_QUOTA = 50 * 1024 * 1024;
 export const BACKUP_BYTES = 80 * 1024 * 1024;
@@ -109,10 +110,7 @@ export function jpegDimensions(bytes: Uint8Array) {
 }
 
 export async function photoHash(bytes: Uint8Array) {
-  return Array.from(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>)),
-    (b) => b.toString(16).padStart(2, "0"),
-  ).join("");
+  return hex(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
 }
 export function decodePhoto(data: string) {
   if (

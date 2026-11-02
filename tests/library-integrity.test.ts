@@ -5,6 +5,7 @@ import {
   saveEntity,
   setDraft,
   getDraft,
+  clearDraft,
   readWorkspace,
   copyPlaceToWorkspace,
   reconcileAccount,
@@ -17,7 +18,12 @@ import {
   acknowledge,
   reconcileDevicePlaces,
 } from "../src/client/foundation/library";
-import { getPhoto, makeStoredPhoto, putPhotos } from "../src/client/foundation/photo-store";
+import {
+  clearPhotos,
+  getPhoto,
+  makeStoredPhoto,
+  putPhotos,
+} from "../src/client/foundation/photo-store";
 import { synchronize } from "../src/client/foundation/sync";
 import { preparePhoto, uploadPhoto } from "../src/client/foundation/photos";
 import { starters, type Entity } from "../src/shared/model";
@@ -39,6 +45,82 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+
+test("an aborted initial transaction read retains the record and draft without a stray rejection", async () => {
+  const key = crypto.randomUUID();
+  const original = place();
+  await saveEntity(key, original);
+  await setDraft(key, { id: original.id, name: "Recovery draft" });
+  const get = IDBObjectStore.prototype.get;
+  let abort = true;
+  vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(function (
+    this: IDBObjectStore,
+    query,
+  ) {
+    const request = get.call(this, query);
+    if (abort && this.name === "workspaces" && query === key) {
+      abort = false;
+      queueMicrotask(() => this.transaction.abort());
+    }
+    return request;
+  });
+  await expect(
+    saveEntity(
+      key,
+      { ...original, value: { ...original.value, name: "Uncommitted" } },
+      original,
+      true,
+    ),
+  ).rejects.toMatchObject({ name: "AbortError" });
+  expect(
+    (await readWorkspace(key)).records.find((record) => record.id === original.id)?.value,
+  ).toEqual(original.value);
+  expect(await getDraft(key)).toMatchObject({ id: original.id, name: "Recovery draft" });
+});
+
+test.each(["draft", "photos"] as const)(
+  "an aborted %s cleanup preserves recoverable data",
+  async (kind) => {
+    const key = crypto.randomUUID();
+    const id = crypto.randomUUID();
+    if (kind === "draft") {
+      await setDraft(key, { id, name: "Recovery draft" });
+      const get = IDBObjectStore.prototype.get;
+      let abort = true;
+      vi.spyOn(IDBObjectStore.prototype, "get").mockImplementation(function (
+        this: IDBObjectStore,
+        query,
+      ) {
+        const request = get.call(this, query);
+        if (abort && this.name === "drafts" && query === key) {
+          abort = false;
+          queueMicrotask(() => this.transaction.abort());
+        }
+        return request;
+      });
+      await expect(clearDraft(key, id)).rejects.toMatchObject({ name: "AbortError" });
+      expect(await getDraft(key)).toMatchObject({ id, name: "Recovery draft" });
+    } else {
+      const jpeg = await readFile("tests/fixtures/photo.jpg");
+      await putPhotos([await makeStoredPhoto(key, id, new Blob([jpeg], { type: "image/jpeg" }))]);
+      const get = IDBIndex.prototype.getAllKeys;
+      let abort = true;
+      vi.spyOn(IDBIndex.prototype, "getAllKeys").mockImplementation(function (
+        this: IDBIndex,
+        ...args
+      ) {
+        const request = get.apply(this, args);
+        if (abort && this.objectStore.name === "photos") {
+          abort = false;
+          queueMicrotask(() => this.objectStore.transaction.abort());
+        }
+        return request;
+      });
+      await expect(clearPhotos(key)).rejects.toMatchObject({ name: "AbortError" });
+      expect((await getPhoto(key, id))?.blob.size).toBe(jpeg.byteLength);
+    }
+  },
+);
 
 test("a cancelled editor save retains both the original record and its draft", async () => {
   const key = crypto.randomUUID(),

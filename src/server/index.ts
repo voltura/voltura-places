@@ -1,4 +1,4 @@
-import { handleAccounts } from "./accounts.js";
+import { handleAccounts } from "./accounts";
 import { Buffer } from "node:buffer";
 import { handleSync } from "./sync";
 import { handleFamilies } from "./families";

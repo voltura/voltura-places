@@ -27,7 +27,16 @@ export async function collectStatistics(cwd = process.cwd()) {
     if (extension === ".md") documents++;
     if ([".png", ".svg", ".jpg", ".webp", ".ico"].includes(extension)) assets++;
     if (!sourceExtensions.has(extension)) continue;
-    const lines = physicalLines(await readFile(resolve(cwd, path), "utf8"));
+    let text;
+    try {
+      text = await readFile(resolve(cwd, path), "utf8");
+    } catch (error) {
+      // Renames/deletions remain in the Git index until staged. Local builds
+      // count the present tracked source rather than failing on its former path.
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+    const lines = physicalLines(text);
     for (const [collection, key] of [
       [areas, sourceArea(path)],
       [languages, extension],

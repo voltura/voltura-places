@@ -1,31 +1,22 @@
-import { createAuth, digest, sendSignInCode } from "./auth.js";
+import { digest } from "../shared/digest";
+import type { Environment } from "./types";
+import { privateJSON as json, readJSON, RequestError } from "./http";
+import { createAuth, sendSignInCode } from "./auth";
+type Database = D1Database | D1DatabaseSession;
+type Provider = "chatgpt" | "google" | "email";
+type SessionRow = { account_id: string; created_at: number };
+type LinkTicket = SessionRow & { provider: string };
 
 const lifetime = 30 * 86400000;
-const json = (body, status = 200, headers = {}) =>
-  Response.json(body, {
-    status,
-    headers: {
-      "Cache-Control": "private, no-store",
-      Vary: "Cookie",
-      "X-Content-Type-Options": "nosniff",
-      ...headers,
-    },
-  });
-export class RequestError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-const fail = (status, message) => {
+function fail(status: number, message: string): never {
   throw new RequestError(status, message);
-};
+}
 const token = () => crypto.randomUUID() + crypto.randomUUID();
-const cookieName = (env, name) =>
+const cookieName = (env: Environment, name: string) =>
   `${env.AUTH_ORIGIN?.startsWith("https:") ? "__Host-" : ""}places-${name}`;
-const cookie = (env, name, value, maxAge) =>
+const cookie = (env: Environment, name: string, value: string, maxAge: number) =>
   `${cookieName(env, name)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${env.AUTH_ORIGIN?.startsWith("https:") ? "; Secure" : ""}`;
-const readCookie = (request, env, name) =>
+const readCookie = (request: Request, env: Environment, name: string) =>
   (request.headers.get("Cookie") || "")
     .split(";")
     .map((part) => part.trim())
@@ -33,7 +24,7 @@ const readCookie = (request, env, name) =>
     ?.split("=")
     .slice(1)
     .join("=") || "";
-export function accountConfiguration(env, request) {
+export function accountConfiguration(env: Environment, request?: Request) {
   const testers = (env.ACCOUNTS_TEST_EMAILS || "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
@@ -60,40 +51,7 @@ export function accountConfiguration(env, request) {
       : {},
   };
 }
-export async function readJSON(request, limit) {
-  if (
-    request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !==
-    "application/json"
-  )
-    fail(415, "JSON required.");
-  const reader = request.body?.getReader();
-  if (!reader) fail(400, "Request required.");
-  let size = 0,
-    text = "";
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > limit) {
-        await reader.cancel();
-        fail(
-          413,
-          "The synced library is too large. Nothing was changed. Export a backup and reduce the collection before trying again.",
-        );
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    const value = JSON.parse(text + decoder.decode());
-    if (!value || typeof value !== "object" || Array.isArray(value)) fail(400, "Invalid request.");
-    return value;
-  } catch (error) {
-    if (error instanceof RequestError) throw error;
-    fail(400, "Invalid request.");
-  }
-}
-export async function sessionFor(request, env, db) {
+export async function sessionFor(request: Request, env: Environment, db: Database) {
   const raw = readCookie(request, env, "session");
   if (!raw || raw.length > 100) return null;
   return db
@@ -101,9 +59,14 @@ export async function sessionFor(request, env, db) {
       "SELECT account_id, created_at FROM places_sessions WHERE token_hash = ? AND expires_at > ?",
     )
     .bind(await digest(raw), Date.now())
-    .first();
+    .first<SessionRow>();
 }
-async function proofFor(request, env, auth, provider) {
+async function proofFor(
+  request: Request,
+  env: Environment,
+  auth: ReturnType<typeof createAuth> | null,
+  provider: Provider,
+) {
   if (provider === "chatgpt") {
     const subject =
       env.SITES_NATIVE_AUTH === "true" && request.headers.get("oai-authenticated-user-id");
@@ -111,13 +74,14 @@ async function proofFor(request, env, auth, provider) {
     const label = request.headers.get("oai-authenticated-user-email") || "ChatGPT";
     return { provider, subject, label: label.slice(0, 320), authUser: null, createdAt: Date.now() };
   }
+  if (!auth) fail(401, "Sign in again.");
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session || !["google", "email"].includes(provider)) fail(401, "Sign in again.");
   const google = await env.DB.prepare(
     "SELECT accountId FROM auth_account WHERE userId = ? AND providerId = 'google'",
   )
     .bind(session.user.id)
-    .first();
+    .first<{ accountId: string }>();
   if ((provider === "google") !== !!google || (!google && !session.user.emailVerified))
     fail(401, "Sign in again.");
   return {
@@ -128,14 +92,14 @@ async function proofFor(request, env, auth, provider) {
     createdAt: new Date(session.session.createdAt).getTime(),
   };
 }
-async function accountDetails(db, id) {
+async function accountDetails(db: Database, id: string) {
   const methods = await db
     .prepare("SELECT provider, label FROM places_identities WHERE account_id = ? ORDER BY provider")
     .bind(id)
-    .all();
+    .all<{ provider: string; label: string }>();
   return { id, methods: methods.results };
 }
-export async function handleAccounts(request, env) {
+export async function handleAccounts(request: Request, env: Environment) {
   const url = new URL(request.url),
     path = url.pathname,
     config = accountConfiguration(env, request);
@@ -152,7 +116,7 @@ export async function handleAccounts(request, env) {
     )
       fail(403, "Invalid request origin.");
     const db = env.DB.withSession?.("first-primary") || env.DB;
-    let deliveryError;
+    let deliveryError: unknown;
     const getAuth = async () => {
       const auth = createAuth(env, async (data) => {
         try {
@@ -169,7 +133,7 @@ export async function handleAccounts(request, env) {
     };
     if (path.startsWith("/api/auth/")) {
       const route = path.slice("/api/auth".length);
-      const methods = {
+      const methods: Record<string, string> = {
         "/sign-in/social": "POST",
         "/sign-in/email-otp": "POST",
         "/email-otp/send-verification-otp": "POST",
@@ -269,6 +233,8 @@ export async function handleAccounts(request, env) {
     }
     if (path === "/api/account/connect" && request.method === "POST") {
       const body = await readJSON(request, 2048);
+      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email")
+        fail(400, "Sign-in method unavailable.");
       if (!config.providers[body.provider]) fail(400, "Sign-in method unavailable.");
       const proof = await proofFor(
         request,
@@ -285,7 +251,7 @@ export async function handleAccounts(request, env) {
           (await db
             .prepare("SELECT * FROM places_link_tickets WHERE token_hash = ? AND expires_at > ?")
             .bind(hash, Date.now())
-            .first());
+            .first<LinkTicket>());
         if (
           !ticket ||
           ticket.provider !== proof.provider ||
@@ -295,7 +261,7 @@ export async function handleAccounts(request, env) {
         const existing = await db
           .prepare("SELECT account_id FROM places_identities WHERE provider = ? AND subject = ?")
           .bind(proof.provider, proof.subject)
-          .first();
+          .first<{ account_id: string }>();
         if (existing && existing.account_id !== ticket.account_id)
           fail(
             409,
@@ -321,7 +287,7 @@ export async function handleAccounts(request, env) {
         const linked = await db
           .prepare("SELECT account_id FROM places_identities WHERE provider = ? AND subject = ?")
           .bind(proof.provider, proof.subject)
-          .first();
+          .first<{ account_id: string }>();
         if (linked?.account_id !== ticket.account_id)
           fail(
             409,
@@ -346,8 +312,9 @@ export async function handleAccounts(request, env) {
           await db
             .prepare("SELECT account_id FROM places_identities WHERE provider = ? AND subject = ?")
             .bind(proof.provider, proof.subject)
-            .first()
-        ).account_id;
+            .first<{ account_id: string }>()
+        )?.account_id;
+        if (!accountId) fail(503, "Account service unavailable.");
       }
       const raw = token(),
         now = Date.now();
@@ -378,6 +345,8 @@ export async function handleAccounts(request, env) {
       fail(409, "The signed-in account changed. Reconcile its library before synchronizing.");
     if (path === "/api/account/link" && request.method === "POST") {
       const body = await readJSON(request, 2048);
+      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email")
+        fail(400, "Sign-in method unavailable.");
       if (!config.providers[body.provider]) fail(400, "Sign-in method unavailable.");
       const raw = token(),
         now = Date.now();
@@ -413,11 +382,12 @@ export async function handleAccounts(request, env) {
   } catch (error) {
     return json(
       {
-        error: error.status
-          ? error.message
-          : "Account service unavailable. Your places remain saved on this device.",
+        error:
+          error instanceof RequestError
+            ? error.message
+            : "Account service unavailable. Your places remain saved on this device.",
       },
-      error.status || 503,
+      error instanceof RequestError ? error.status : 503,
     );
   }
 }

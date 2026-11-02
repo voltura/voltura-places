@@ -1,3 +1,4 @@
+import { readBytes, RequestError, hasCanonicalOrigin } from "./http";
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
 import { jpegDimensions, photoHash, PHOTO_BYTES, PHOTO_QUOTA } from "../shared/photos";
 import type { Environment } from "./types";
@@ -32,33 +33,16 @@ export async function handlePhoto(request: Request, env: Environment) {
       : json("photoUnavailable", 404);
   }
   if (request.method !== "PUT") return json("methodNotAllowed", 405);
-  if (
-    request.headers.get("Origin") !== env.AUTH_ORIGIN ||
-    new URL(request.url).origin !== env.AUTH_ORIGIN ||
-    request.headers.get("Sec-Fetch-Site") === "cross-site"
-  )
-    return json("invalidOrigin", 403);
+  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) return json("invalidOrigin", 403);
   if (request.headers.get("Content-Type") !== "image/jpeg") return json("invalidPhoto", 415);
-  const reader = request.body?.getReader();
-  if (!reader) return json("invalidPhoto", 422);
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    length += value.length;
-    if (length > PHOTO_BYTES) {
-      await reader.cancel();
-      return json("invalidPhoto", 413);
-    }
-    chunks.push(value);
+  let bytes;
+  try {
+    bytes = await readBytes(request, PHOTO_BYTES, 422);
+  } catch (error) {
+    if (!(error instanceof RequestError)) throw error;
+    return json("invalidPhoto", error.status);
   }
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
+  const length = bytes.byteLength;
   try {
     jpegDimensions(bytes);
   } catch {
@@ -73,7 +57,7 @@ export async function handlePhoto(request: Request, env: Environment) {
       id,
       hash,
       length,
-      bytes.buffer,
+      bytes,
       identity.storage,
       length,
       PHOTO_QUOTA,

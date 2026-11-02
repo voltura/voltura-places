@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { readJSON, RequestError } from "./accounts.js";
+import { readJSON, RequestError } from "./http";
 import { authorizedWorkspace, requireOrigin, WorkspaceError } from "./workspace";
 import { starters } from "../shared/model";
 import type { Environment } from "./types";

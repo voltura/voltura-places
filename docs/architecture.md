@@ -1,5 +1,26 @@
 # Architecture
 
+## Module boundaries
+
+| Owner               | Responsibility                                                                    | May depend on                          |
+| ------------------- | --------------------------------------------------------------------------------- | -------------------------------------- |
+| `client/app`        | Workspace/account composition, browser lifecycle hooks and feature loading        | Features, foundation, UI, shared       |
+| `client/features`   | User flows and their transient form state                                         | Other features, foundation, UI, shared |
+| `client/foundation` | Browser persistence, synchronization, preferences and in-memory record operations | Foundation, shared                     |
+| `client/ui`         | Domain-neutral interaction and dialog primitives                                  | UI                                     |
+| `shared`            | Schemas, protocol capacities, canonical identities and image validation           | Shared                                 |
+| `server`            | Session/provider verification, authorization, D1 and HTTP endpoints               | Server, shared                         |
+
+`npm run check` enforces these runtime import boundaries using the production build parser, including re-exports and literal dynamic imports. Type-only imports are erased by that parser; TypeScript checks their types. All server source, including the Better Auth adapter and account endpoints, is strict TypeScript. Transport parsing in `server/http.ts` has no account dependency; endpoints retain their own authorization and domain-error translation.
+
+`library-types.ts` owns browser workspace metadata. `library-records.ts` owns in-memory edits, capacity checks and cloud record transitions; `library.ts` owns their IndexedDB transaction/cancellation boundaries and multi-workspace orchestration. The category editor owns its transient draft, so typing and appearance selection do not update app-wide state. Preference types/parsing belong to browser foundation; the app hook owns appearance and persistence effects.
+
+Settings, group management and both editors are part of the initial app bundle. Core interactions never wait for another feature module or loading dialog. The existing optional Leaflet map and photo GPS parser retain their established lazy-loading/offline-precache behavior.
+
+Capacity validation counts live entities in one pass without filtered arrays; single-record replacement retains order/revision semantics without rebuilding the entire records array. Shared digest helpers preserve the existing UTF-8 SHA-256 identities and photo/receipt hashes.
+
+## Runtime and integration
+
 Browser installation infrastructure captures install offers before React renders and exposes a session-only external store to the shared InstallPlaces feature used by Settings and mobile first-use onboarding. It owns browser listeners, single-use offers, pending/error state and display-mode detection independently of presentation, accounts and persistence. Development hot replacement disposes its listeners.
 
 Place details reuse the lazy-loaded map feature in a non-interactive 180px preview. Only visible details mount a preview; mobile does not mount the hidden desktop pane. The app owns the List/Map mode and workspace-scoped expansion target so expanding a preview shows the selected place in the main map without carrying targets across account/library changes. Map previews use the same tile/privacy/security/cache rules as the main map. Composition also owns workspace-scoped fullscreen state. The main map promotes its existing inline dialog to a viewport-filling native modal without remounting Leaflet; desktop pin details use the existing sheet while fullscreen. Nested sheets remain above the map, and workspace/view changes or an empty result set end fullscreen.

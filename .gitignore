@@ -9,4 +9,5 @@ node_modules/
 .openai/.local/
 playwright-report/
 test-results/
+.playwright-cli/
 worker-configuration.d.ts

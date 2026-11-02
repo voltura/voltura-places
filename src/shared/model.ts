@@ -1,3 +1,4 @@
+import { entityLimits, syncLimits } from "./limits";
 import { z } from "zod";
 import { decodePhoto, PHOTO_QUOTA } from "./photos";
 
@@ -122,7 +123,7 @@ export const recordSchema = z.intersection(
 export const snapshotSchema = z.object({
   version: z.literal(1),
   accountId: z.string(),
-  records: z.array(recordSchema).max(250),
+  records: z.array(recordSchema).max(syncLimits.pageSize),
   nextCursor: z.string().nullable().optional(),
 });
 export type LocalRecord = RecordState & {
@@ -130,6 +131,8 @@ export type LocalRecord = RecordState & {
   dirty: boolean;
   conflict?: RecordState;
 };
+export type PlaceRecord = Extract<LocalRecord, { kind: "place" }>;
+
 export const mutationSchema = z
   .object({
     version: z.literal(1),
@@ -149,11 +152,15 @@ export const backupSchema = z
       .max(1000)
       .optional(),
     exportedAt: z.string().datetime(),
-    places: z.array(z.object({ id: idSchema, value: placeSchema }).strict()).max(5000),
-    categories: z.array(z.object({ id: idSchema, value: categorySchema }).strict()).max(200),
+    places: z
+      .array(z.object({ id: idSchema, value: placeSchema }).strict())
+      .max(entityLimits.place),
+    categories: z
+      .array(z.object({ id: idSchema, value: categorySchema }).strict())
+      .max(entityLimits.category),
     visits: z
       .array(z.object({ placeId: idSchema, status: visitStatusSchema }).strict())
-      .max(5000)
+      .max(entityLimits.place)
       .optional(),
   })
   .strict()

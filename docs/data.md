@@ -8,7 +8,7 @@ Places contain name, optional trimmed description (up to 1,000 characters), cate
 
 Preset revision 2 adds Mushrooms/Svampar to existing workspaces atomically on first read, without changing renamed categories, tombstones, drafts or in-flight requests. It queues the new category for reconciled accounts. Full category libraries defer the addition until a slot is available. Later deletion of this preset is respected. New workspaces start with all six presets.
 
-Editor saves commit the record, pending state and removal of that record's matching draft in one transaction. Place deletion also removes only its matching draft atomically. Queued draft writes settle before these operations and before account/device removal enumerates partitions. A draft cleanup failure rolls back the record change rather than leaving a successful save behind an error. Local entity writes validate the shared schema before committing.
+Editor saves commit the record, pending state and removal of that record's matching draft in one transaction. Place deletion also removes only its matching draft atomically. Queued draft writes settle before these operations and before account/device removal enumerates partitions. A draft cleanup failure rolls back the record change rather than leaving a successful save behind an error. Explicit transaction failure paths abort and consume transaction completion failures, including failure of the initial read; draft/photo cleanup failures retain their original data and report the operation failure. Local entity writes validate the shared schema before committing.
 
 An editor retains its original value as a comparison base. If a clean cloud record changes or is deleted while the editor is open, saving preserves both the edited and current cloud versions as a conflict. A stale editor cannot overwrite a newer unsynced edit from another tab. Editing an existing conflict retains its recovery version; Keep both creates a fresh record without inheriting the original conflict metadata.
 
@@ -28,7 +28,9 @@ New descriptions and the new entity kind require current clients before synchron
 
 GET /api/v1/sync returns `{version:1,accountId,records}`. POST accepts `{version:1,mutationId,baseRevision,deleted,entity}` and returns the accepted record or 409/current record. Require a Places session and matching X-Places-Account header. Writes also require the canonical Origin.
 
-Reads use 250-record pages with `nextCursor`; pass it as `?after=` for the next page. Pull up to 50,000 records including deletion history, so tombstones do not consume the live-place capacity. A boundary failure preserves the local workspace.
+Reads use 250-record pages with `nextCursor`; pass it as `?after=` for the next page. Pull up to 200,000 records including personal statuses and deletion history, so tombstones do not consume the live-place capacity. A boundary failure preserves the local workspace. `shared/limits.ts` owns page, snapshot, mutation-batch and live-entity capacities for schemas, browser persistence and server enforcement.
+
+Per-workspace sync requests coalesce while a run is active. A current queued request survives cancellation of the previous view; cancelled callers cannot replace or restart queued work. An active caller retains its status subscription across the follow-up run.
 
 Persist exact in-flight bodies before network access. D1 atomically commits CAS record changes and body-hashed receipts. Same-ID/same-body retries return receipts; changed bodies are rejected. Tombstones/receipts persist until account deletion. Device clocks never select winners.
 
@@ -86,7 +88,17 @@ Sign-out invalidates both the Places session and the short-lived Better Auth pro
 
 Account metadata changes in another tab trigger a fresh account check. Browser settings-storage failures do not prevent online account discovery; a failed logout retains an in-memory retry marker when browser settings cannot persist it. Export preparation and photo retrieval stop when their originating account is discarded.
 
+## Database structure and normalization
+
+Accounts, provider identities, sessions, groups, memberships and invitation requests are relational, with foreign keys and account-deletion cascades. Group storage has a separate account identity; membership authorizes access rather than duplicating records per member. Personal visit records remain in private storage even when their place belongs to a group. Photos are separate immutable blobs referenced by ID, keeping binary data out of ordinary record snapshots.
+
+The record value is intentionally a validated JSON aggregate with a stable identity, kind, revision, tombstone and last mutation. The whole aggregate is the compare-and-swap unit. Splitting its fields into separate tables would require joins/reassembly for every offline snapshot and would not remove a demonstrated update anomaly in this access pattern. Category references deliberately tolerate missing/deleted categories and display Other, because independently synchronized records and tombstones can arrive in either order. A strict cross-record foreign key would prevent those valid recovery states.
+
+Receipts deliberately retain the accepted record as an immutable response snapshot: a retry must return its original result even after the live record changes. Their duplication is required by idempotency. Browser workspaces similarly retain records, pending flights, conflicts and transfer receipts together for atomic recovery; photos remain in their separate store. This refactor introduces no migration, database version or persisted-format change. Very large workspace documents still incur IndexedDB structured-clone costs; changing that layout requires a separately measured, migration-tested design.
+
 ## Photos
+
+JSON and JPEG bodies share a bounded byte reader. It checks actual streamed byte counts rather than trusting Content-Length, avoids an unbounded array of chunks, cancels failed/oversized reads and releases its reader lock. Malformed UTF-8 remains a client error. Endpoint-specific status codes and photo validation remain separate from transport parsing.
 
 Photo reads check workspace cancellation before storage access and again before returning cached bytes or starting a download. Download responses recheck cancellation before decoding/persistence; upload responses recheck it before marking local bytes uploaded. Discarded operations leave the existing image and pending upload available for retry.
 
@@ -108,7 +120,7 @@ Editor drafts retain the original entity comparison base; legacy restored drafts
 
 A capacity-rejected exact mutation can be deferred durably while freeing deletion mutations run, then resumes with its original request ID/body. Uncertain network failures retain the original flight. Deferred flights block imports just like active flights.
 
-Imports validate the merged capacity before persisting photo bytes and reserve that capacity against other current-client tabs during the photo/record commit phase. Reservations expire after five minutes after interruption and are removed without recreating a deleted workspace. Concurrent writes during an active reservation return syncBusy. Browser decoding verifies imported/downloaded image data in addition to shared JPEG table/frame/scan structural checks; photo decoding is sequential to bound phone memory. Photo ID collisions reuse equal destination bytes so repeating the same backup does not add duplicate places. Group copying recovers cloud-backed source photos and reuses categories by name.
+Imports validate the merged capacity before persisting photo bytes and reserve that capacity against other current-client tabs during the photo/record commit phase. Imports recheck currently known group write access during asynchronous photo preparation and inside the record transaction; revoked access disables confirmation and prevents record changes. Reservations expire after five minutes after interruption and are removed without recreating a deleted workspace. Concurrent writes during an active reservation return syncBusy. Browser decoding verifies imported/downloaded image data in addition to shared JPEG table/frame/scan structural checks; photo decoding is sequential to bound phone memory. Photo ID collisions reuse equal destination bytes so repeating the same backup does not add duplicate places. Group copying recovers cloud-backed source photos and reuses categories by name.
 
 Group responses expose an opaque, secret-derived invitation version to the current owner only, or null when no active invitation remains. It cannot be used as an invitation code. The owner UI compares it while polling to invalidate consumed, cancelled or rotated in-memory codes; numeric codes are still never stored in browser settings. Membership refreshes preserve the composition's in-memory inactive groups when settings storage is unavailable.
 

@@ -54,6 +54,11 @@ test("inventory excludes untracked files, dependencies, assets and lockfiles fro
     expect(stats.commands).toBe(1);
     expect(stats.dependencies).toBe(1);
     expect(stats.dirty).toBe(true);
+    await rm(join(cwd, "src", "client", "app.ts"));
+    const afterDeletion = await collectStatistics(cwd);
+    expect(afterDeletion.files).toBe(1);
+    expect(afterDeletion.lines).toBe(1);
+    expect(afterDeletion.areas.client).toBeUndefined();
   } finally {
     if (
       !resolve(cwd).startsWith(resolve(tmpdir()) + sep) ||

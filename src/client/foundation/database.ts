@@ -1,5 +1,13 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
+/** Settle a failed write without replacing its original error with an abort error. */
+export async function abortTransaction(transaction: { abort(): void; done: Promise<unknown> }) {
+  try {
+    transaction.abort();
+  } catch {}
+  await transaction.done.catch(() => {});
+}
+
 // Share one connection per store, including concurrent first reads. A rejected
 // open or browser-terminated connection must remain recoverable on the next use.
 export function localDatabase<T extends DBSchema>(

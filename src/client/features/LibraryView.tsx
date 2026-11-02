@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { LocalRecord, Place, VisitStatus } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
-import type { PlaceRecord } from "./PlaceDetails";
+import type { PlaceRecord } from "../../shared/model";
 import { Tooltip } from "../ui/Tooltip";
 import { dateAppearsInPlaceName } from "../foundation/place-labels";
 const PlacesMap = lazy(() => import("./PlacesMap"));

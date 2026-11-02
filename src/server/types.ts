@@ -6,6 +6,7 @@ export type Environment = Omit<
   AUTH_ORIGIN: string;
   AUTH_SECRET: string;
   ACCOUNTS_ENABLED: string;
+  ACCOUNTS_TEST_EMAILS?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   MAIL_RELAY_URL?: string;

@@ -1,26 +1,20 @@
+import { Editor } from "../features/Editor";
+import { CategoryEditor } from "../features/CategoryEditor";
+import { Settings } from "../features/Settings";
+import { FamilyPanel } from "../features/Family";
 import { visitOwner, visitStatuses } from "../../shared/visits";
 import { GroupCopyPicker } from "../features/GroupCopyPicker";
-import {
-  categoryName,
-  categoryNameDraft,
-  categoryNameValue,
-  type CategoryLanguage,
-} from "../../shared/category-names";
-import { applyAppearance, validSkin } from "../foundation/appearance";
+import { categoryName } from "../../shared/category-names";
+import { distanceMetres } from "../foundation/distance";
+import { usePreferences } from "./usePreferences";
 import { startActivityReporting } from "../foundation/activity";
 import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
 import { useCurrentPosition } from "./useCurrentPosition";
-import { distanceMetres } from "../foundation/distance";
 import { shareOrCopy } from "../foundation/sharing";
-import {
-  categoryAppearance,
-  CategoryAppearancePicker,
-  CategoryIcon,
-} from "../features/CategoryAppearance";
+import { categoryAppearance } from "../features/CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Check,
   LocateFixed,
   ChevronDown,
   MapPin,
@@ -36,9 +30,9 @@ import {
   UserRound,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
+import { watchForUpdates } from "../foundation/updates";
 import { Sheet } from "../ui/Sheet";
 import { Toast } from "../ui/Toast";
-import { watchForUpdates } from "../foundation/updates";
 import { exportWithPhotos } from "../foundation/photo-backup";
 import { BACKUP_BYTES } from "../../shared/photos";
 import { Brand } from "../ui/Brand";
@@ -47,7 +41,6 @@ import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { LibrarySelector } from "../features/LibrarySelector";
 import { ImportDialog, DevicePlaceTransfer } from "../features/LibraryTransfers";
-import { FamilyPanel } from "../features/Family";
 import { JoinRequests } from "../features/JoinRequests";
 import {
   cachedFamily,
@@ -59,9 +52,7 @@ import {
 import { familyKey, workspaceIdentity, type Family } from "../../shared/families";
 import { LocationReview } from "../features/LocationReview";
 import { validPosition, captureLocation } from "../foundation/location-review";
-import { Editor } from "../features/Editor";
 import { InstallPlaces } from "../features/InstallPlaces";
-import { Settings, type Preferences } from "../features/Settings";
 import { libraryErrorMessage, messages, type Message } from "../foundation/i18n";
 import { keepOfflineData } from "../foundation/storage";
 import { api, synchronize, type AccountState } from "../foundation/sync";
@@ -81,7 +72,6 @@ import {
   type Workspace,
 } from "../foundation/library";
 import {
-  categorySchema,
   mapURL,
   directionsURL,
   type MapAction,
@@ -89,47 +79,13 @@ import {
   placeSchema,
   shareURL,
   validateBackup,
-  type Category,
   type Backup,
   type Entity,
   type LocalRecord,
   type Place,
+  type PlaceRecord,
 } from "../../shared/model";
 
-function loadPreferences(): Preferences {
-  const requested = new URLSearchParams(location.search).get("lang");
-  const linkedLanguage = requested === "sv" || requested === "en" ? requested : null;
-  const defaults: Preferences = {
-    language: linkedLanguage ?? (/^sv(?:-|$)/i.test(navigator.language ?? "") ? "sv" : "en"),
-    theme: "dark",
-    skin: "forest",
-    provider: "",
-    lastCategory: "other",
-    reviewGps: false,
-    autoHideControls: false,
-    units: "metric",
-  };
-  try {
-    const v = JSON.parse(localStorage.getItem("places-preferences") ?? "null");
-    if (
-      v &&
-      ["en", "sv"].includes(v.language) &&
-      ["light", "dark", "system"].includes(v.theme) &&
-      ["", "google", "apple", "geo"].includes(v.provider)
-    )
-      return {
-        ...defaults,
-        ...v,
-        language: linkedLanguage ?? v.language,
-        skin: validSkin(v.skin),
-        reviewGps: v.reviewGps === true,
-        autoHideControls: v.autoHideControls === true,
-        units: v.units === "imperial" ? "imperial" : "metric",
-      };
-  } catch {}
-  return defaults;
-}
-type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const isPlace = (r: LocalRecord): r is PlaceRecord => r.kind === "place";
 export function App() {
   useEffect(() => startActivityReporting(), []);
@@ -164,15 +120,8 @@ export function App() {
     } catch {}
     setAccountChoice(false);
   };
-  const [prefs, setPrefs] = useState(loadPreferences),
-    t = useMemo(() => messages(prefs.language), [prefs.language]);
-  useEffect(() => {
-    const url = new URL(location.href);
-    if (["sv", "en"].includes(url.searchParams.get("lang") ?? "")) {
-      url.searchParams.delete("lang");
-      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
-    }
-  }, []);
+  const [prefs, setPrefs] = usePreferences();
+  const t = useMemo(() => messages(prefs.language), [prefs.language]);
   const [personalWorkspace, setPersonalWorkspace] = useState<Workspace | null>(null);
   const [visitFilter, setVisitFilter] = useState("all");
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
@@ -242,22 +191,13 @@ export function App() {
     } | null>(null),
     [settings, setSettings] = useState<string | null>(null),
     [maps, setMaps] = useState<{ place: Place; action: MapAction } | null>(null);
-  const [categoryEdit, setCategoryEdit] = useState<{
-      entity?: LocalRecord;
-      names: Partial<Record<CategoryLanguage, string>>;
-      nameLanguage: CategoryLanguage;
-      namesChanged: boolean;
-      color: string;
-      icon: NonNullable<Category["icon"]>;
-    } | null>(null),
-    [backup, setBackup] = useState<Backup | null>(null);
-  const [savingCategory, setSavingCategory] = useState(false);
-  const categorySavePending = useRef(false);
+  const [categoryEdit, setCategoryEdit] = useState<{ entity?: LocalRecord } | null>(null);
+  const [backup, setBackup] = useState<Backup | null>(null);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [locating, setLocating] = useState(false),
     [gpsReview, setGpsReview] = useState(false),
-    [status, setStatus] = useState(() => (cachedAccount().account ? "pending" : "localOnly")),
-    [update, setUpdate] = useState(false);
+    [status, setStatus] = useState(() => (cachedAccount().account ? "pending" : "localOnly"));
+  const [update, setUpdate] = useState(false);
   const [shared, setShared] = useState(() => parseShare(location.hash)),
     [sharePlace, setSharePlace] = useState<PlaceRecord | null>(null);
   const [savingShared, setSavingShared] = useState(false);
@@ -293,7 +233,10 @@ export function App() {
     [categoryIndex],
   );
   const places = useMemo(
-    () => workspace?.records.filter(isPlace).filter((p) => !p.deleted) ?? [],
+    () =>
+      workspace?.records.filter(
+        (record): record is PlaceRecord => isPlace(record) && !record.deleted,
+      ) ?? [],
     [workspace],
   );
   const visits = useMemo(() => {
@@ -599,17 +542,6 @@ export function App() {
       document.removeEventListener("visibilitychange", foreground);
     };
   }, [sync, refreshAccount]);
-  useEffect(() => {
-    document.documentElement.lang = prefs.language;
-    const m = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => applyAppearance(prefs.theme, prefs.skin, m.matches);
-    apply();
-    m.addEventListener("change", apply);
-    try {
-      localStorage.setItem("places-preferences", JSON.stringify(prefs));
-    } catch {}
-    return () => m.removeEventListener("change", apply);
-  }, [prefs]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), notice.error ? 12000 : 5000);
@@ -1479,7 +1411,7 @@ export function App() {
           onCheckUpdates={() => {
             void updateMonitor.current
               ?.check(true)
-              .then((result) => {
+              ?.then((result) => {
                 if (result === "ready") {
                   setNotice(null);
                   setUpdate(true);
@@ -1502,17 +1434,7 @@ export function App() {
           }}
           categories={categories}
           categoryLabel={categoryLabel}
-          onCategory={(entity) =>
-            canWrite &&
-            setCategoryEdit({
-              entity,
-              ...categoryNameDraft(
-                entity?.kind === "category" ? entity.value : undefined,
-                prefs.language,
-              ),
-              ...categoryAppearance(entity),
-            })
-          }
+          onCategory={(entity) => canWrite && setCategoryEdit({ entity })}
           onDeleteCategory={(entity) => {
             if (canWrite && entity.id !== "other") setDeleteCategory({ entity, scope });
           }}
@@ -1543,123 +1465,15 @@ export function App() {
         />
       )}
       {categoryEdit && (
-        <Sheet
-          title={t(categoryEdit.entity ? "editCategory" : "newCategory")}
-          onClose={() => {
-            if (!savingCategory) setCategoryEdit(null);
-          }}
-          className="category-editor-sheet"
-          closeLabel={t("close")}
-        >
-          <form
-            className="category-editor-form"
-            inert={savingCategory}
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (categorySavePending.current) return;
-              const original = categoryEdit.entity;
-              const parsed = categorySchema.safeParse({
-                ...categoryNameValue(
-                  original?.kind === "category" ? original.value : undefined,
-                  categoryEdit,
-                ),
-                color: categoryEdit.color,
-                icon: categoryEdit.icon,
-              });
-              if (!parsed.success) return;
-              categorySavePending.current = true;
-              setSavingCategory(true);
-              const key = scopeRef.current;
-              void save(
-                {
-                  id: categoryEdit.entity?.id ?? crypto.randomUUID(),
-                  kind: "category",
-                  value: parsed.data,
-                },
-                original,
-              )
-                .then(() => {
-                  if (scopeRef.current === key) setCategoryEdit(null);
-                })
-                .catch((error) => {
-                  if (scopeRef.current === key) notify(libraryErrorMessage(error), true);
-                })
-                .finally(() => {
-                  categorySavePending.current = false;
-                  setSavingCategory(false);
-                });
-            }}
-          >
-            <div className="stack category-editor-body">
-              <div className="category-name-editor">
-                <div className="category-name-heading">
-                  <label htmlFor="category-name">{t("name")}</label>
-                  <div className="category-name-language">
-                    <img
-                      className="language-flag"
-                      src={`/flags/${categoryEdit.nameLanguage === "sv" ? "se" : "gb"}.svg`}
-                      alt=""
-                      width="24"
-                      height="18"
-                    />
-                    <select
-                      aria-label={t("categoryNameLanguage")}
-                      value={categoryEdit.nameLanguage}
-                      onChange={(event) =>
-                        setCategoryEdit({
-                          ...categoryEdit,
-                          nameLanguage: event.target.value as CategoryLanguage,
-                        })
-                      }
-                    >
-                      <option value="en">English</option>
-                      <option value="sv">Svenska</option>
-                    </select>
-                  </div>
-                </div>
-                <span
-                  className={`category-name-field ${categoryEdit.icon === "none" ? "no-icon" : ""}`}
-                >
-                  {categoryEdit.icon !== "none" && (
-                    <span className="category-name-preview" aria-hidden="true">
-                      <CategoryIcon icon={categoryEdit.icon} color={categoryEdit.color} size={22} />
-                    </span>
-                  )}
-                  <input
-                    id="category-name"
-                    value={categoryEdit.names[categoryEdit.nameLanguage] ?? ""}
-                    placeholder={categoryEdit.names.en || categoryEdit.names.sv || ""}
-                    maxLength={60}
-                    required={!Object.values(categoryEdit.names).some((name) => name?.trim())}
-                    onChange={(e) =>
-                      setCategoryEdit({
-                        ...categoryEdit,
-                        names: {
-                          ...categoryEdit.names,
-                          [categoryEdit.nameLanguage]: e.target.value,
-                        },
-                        namesChanged: true,
-                      })
-                    }
-                  />
-                </span>
-                <p className="muted small category-name-hint">{t("categoryNameHint")}</p>
-              </div>
-              <CategoryAppearancePicker
-                icon={categoryEdit.icon}
-                color={categoryEdit.color}
-                t={t}
-                onChange={(change) => setCategoryEdit({ ...categoryEdit, ...change })}
-              />
-            </div>
-            <div className="category-editor-footer">
-              <button className="button primary" disabled={savingCategory}>
-                {!savingCategory && <Check size={20} aria-hidden="true" />}
-                {t(savingCategory ? "working" : "save")}
-              </button>
-            </div>
-          </form>
-        </Sheet>
+        <CategoryEditor
+          key={`${scope}:${categoryEdit.entity?.id ?? "new"}`}
+          entity={categoryEdit.entity}
+          language={prefs.language}
+          t={t}
+          onSave={save}
+          onClose={() => setCategoryEdit(null)}
+          onError={(error) => notify(libraryErrorMessage(error), true)}
+        />
       )}
       {deleteCategory && deleteCategory.scope === scope && (
         <Sheet
@@ -1841,6 +1655,7 @@ export function App() {
       {backup && (
         <ImportDialog
           key={scope}
+          canWrite={canWrite}
           backup={backup}
           workspace={scope}
           t={t}

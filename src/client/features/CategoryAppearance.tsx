@@ -164,8 +164,8 @@ export function CategoryAppearancePicker({
   t,
 }: {
   icon: NonNullable<Category["icon"]>;
-  color: string;
-  onChange: (c: { icon?: NonNullable<Category["icon"]>; color?: string }) => void;
+  color: Category["color"];
+  onChange: (c: { icon?: NonNullable<Category["icon"]>; color?: Category["color"] }) => void;
   t: (key: Message) => string;
 }) {
   const ref = useRef<HTMLDivElement>(null);

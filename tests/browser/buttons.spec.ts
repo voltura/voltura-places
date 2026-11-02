@@ -4,6 +4,9 @@ import { skins } from "../../src/client/foundation/appearance";
 for (const engine of [chromium, webkit]) {
   for (const desktop of [false, true]) {
     test(`${engine.name()} ${desktop ? "mouse" : "touch"}: shared action hierarchy`, async ({}, testInfo) => {
+      // This flow checks every skin/mode and captures seven screenshots. Keep
+      // individual assertion timeouts while allowing the complete WebKit flow.
+      test.setTimeout(60000);
       const browser = await engine.launch();
       const context = await browser.newContext({
         ...(desktop ? { viewport: { width: 1280, height: 900 } } : devices["iPhone 13"]),
@@ -145,6 +148,7 @@ for (const engine of [chromium, webkit]) {
           "Button review fixture",
         );
         await saved.getByRole("button", { name: "Done", exact: true }).click();
+        await expect(saved).toBeHidden();
         if (!desktop)
           await page
             .getByRole("dialog")

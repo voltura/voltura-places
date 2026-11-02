@@ -75,6 +75,7 @@ try {
     "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='place' AND deleted=0",
     "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='category' AND deleted=0",
     "SELECT count(*) FROM places_records WHERE kind='place' AND deleted=0",
+    "SELECT count(*) FROM places_visits WHERE account_id='index-fixture' AND deleted=0",
   ]) {
     const plan = await db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all();
     check(

@@ -1,8 +1,9 @@
+import { entityLimits, syncLimits } from "../shared/limits";
 import { visitEntity } from "../shared/visits";
 import { mutationSchema, recordSchema, type RecordState } from "../shared/model";
-import { readJSON, RequestError } from "./accounts.js";
+import { readJSON, RequestError, privateJSON as json, hasCanonicalOrigin } from "./http";
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
-import { digest } from "./auth.js";
+import { digest } from "../shared/digest";
 import type { Environment } from "./types";
 
 type Row = {
@@ -12,15 +13,6 @@ type Row = {
   revision: number;
   deleted: number;
 };
-const json = (data: unknown, status = 200) =>
-  Response.json(data, {
-    status,
-    headers: {
-      "Cache-Control": "private, no-store",
-      Vary: "Cookie",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 const decode = (r: Row): RecordState =>
   recordSchema.parse({
     id: r.id,
@@ -53,8 +45,8 @@ export async function handleSync(request: Request, env: Environment) {
     if (after.length > 80) return json({ error: "invalidCursor", accountId: identity.key }, 400);
     const rows = await env.DB.prepare(
       identity.family
-        ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT 251`
-        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? ORDER BY id LIMIT 251`,
+        ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`
+        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? ORDER BY id LIMIT ${syncLimits.pageSize + 1}`,
     )
       .bind(
         ...(identity.family
@@ -62,21 +54,16 @@ export async function handleSync(request: Request, env: Environment) {
           : [account, account, after]),
       )
       .all<Row>();
-    const records = rows.results.slice(0, 250);
+    const records = rows.results.slice(0, syncLimits.pageSize);
     return json({
       version: 1,
       accountId: identity.key,
       records: records.map((r) => present(decode(r))),
-      nextCursor: rows.results.length > 250 ? records.at(-1)!.id : null,
+      nextCursor: rows.results.length > syncLimits.pageSize ? records.at(-1)!.id : null,
     });
   }
   if (request.method !== "POST") return json({ error: "methodNotAllowed" }, 405);
-  if (
-    request.headers.get("Origin") !== env.AUTH_ORIGIN ||
-    new URL(request.url).origin !== env.AUTH_ORIGIN ||
-    request.headers.get("Sec-Fetch-Site") === "cross-site"
-  )
-    return json({ error: "invalidOrigin" }, 403);
+  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) return json({ error: "invalidOrigin" }, 403);
   let input;
   try {
     input = await readJSON(request, 8192);
@@ -134,12 +121,19 @@ export async function handleSync(request: Request, env: Environment) {
   const value = JSON.stringify(e.value),
     revision = body.baseRevision + 1;
   const resultRecord = { ...e, revision, deleted: body.deleted };
-  const capacity = e.kind === "place" ? 5000 : e.kind === "visit" ? 100000 : 200;
+  const capacity = entityLimits[e.kind];
+  // visits.kind is constrained to 'visit' by the table. Omitting that redundant
+  // predicate lets its existing (account_id,deleted) index cover the count.
+  const liveCount =
+    e.kind === "visit"
+      ? "SELECT count(*) FROM places_visits WHERE account_id=? AND deleted=0"
+      : "SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0";
+  const countArgs = e.kind === "visit" ? [account] : [account, e.kind];
   // Both statements run in one D1 transaction. Only the winning CAS can write a receipt.
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO ${table}(account_id,id,kind,value,revision,deleted,last_mutation)
       SELECT ?,?,?,?,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR (SELECT count(*) FROM ${table} WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}
+      AND (?=1 OR (${liveCount}) < ?) AND ${membershipSQL}
       ON CONFLICT(account_id,id) DO NOTHING`).bind(
       account,
       e.id,
@@ -152,14 +146,13 @@ export async function handleSync(request: Request, env: Environment) {
       account,
       body.mutationId,
       Number(body.deleted),
-      account,
-      e.kind,
+      ...countArgs,
       capacity,
       ...membershipArgs(identity),
     ),
     env.DB.prepare(`UPDATE ${table} SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
       AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR deleted=0 OR (SELECT count(*) FROM ${table} WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}`).bind(
+      AND (?=1 OR deleted=0 OR (${liveCount}) < ?) AND ${membershipSQL}`).bind(
       value,
       revision,
       Number(body.deleted),
@@ -171,8 +164,7 @@ export async function handleSync(request: Request, env: Environment) {
       account,
       body.mutationId,
       Number(body.deleted),
-      account,
-      e.kind,
+      ...countArgs,
       capacity,
       ...membershipArgs(identity),
     ),

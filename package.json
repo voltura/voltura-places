@@ -1,6 +1,6 @@
 {
   "name": "voltura-places",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:ui": "node scripts/dev-ui.mjs",
     "build": "node scripts/build.mjs",
-    "check": "tsc --noEmit && node scripts/check-docs.mjs",
+    "check": "tsc --noEmit && node scripts/check-architecture.mjs && node scripts/check-docs.mjs",
     "test": "vitest run",
     "test:browser": "playwright test",
     "test:api": "node scripts/test-api.mjs",

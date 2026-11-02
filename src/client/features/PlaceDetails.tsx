@@ -3,12 +3,11 @@ import { mapProviders } from "../foundation/map-providers";
 import { placeDetailsName } from "../foundation/place-labels";
 import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info } from "lucide-react";
 import { lazy, Suspense, useId, useState } from "react";
-import type { LocalRecord, Place, Entity, VisitStatus } from "../../shared/model";
+import type { LocalRecord, Place, Entity, VisitStatus, PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 import { Tooltip } from "../ui/Tooltip";
-export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const PlacesMap = lazy(() => import("./PlacesMap"));
 export function PlaceDetails({
   canWrite,

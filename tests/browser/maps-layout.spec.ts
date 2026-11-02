@@ -52,7 +52,13 @@ for (const engine of [webkit, chromium]) {
           const picker = rect(".details-map-picker");
           const actions = rect(".details-map-actions");
           const secondary = rect(".details-secondary-actions");
+          const head = element
+            .closest("dialog")!
+            .querySelector(".sheet-head")!
+            .getBoundingClientRect();
+          const name = rect("h2");
           return {
+            nameGap: name.top - head.bottom,
             selectWidth: select.width,
             pickerWidth: picker.width,
             overflow: select.right - actions.right,
@@ -66,10 +72,8 @@ for (const engine of [webkit, chromium]) {
         expect(bounds.leftOffset).toBeCloseTo(0, 0);
         expect(bounds.rightOffset).toBeCloseTo(0, 0);
         if (width === 375 && scale === 1) {
-          const sheet = page.getByRole("dialog", { name: "Place details", exact: true });
-          const head = (await sheet.locator(".sheet-head").boundingBox())!;
-          const name = (await details.locator("h2").boundingBox())!;
-          expect(name.y - head.y - head.height).toBeCloseTo(8, 0);
+          // Read both positions in the same layout, including while the lazy map mounts.
+          expect(bounds.nameGap).toBeCloseTo(8, 0);
           await page.screenshot({ path: `.artifacts/details-name-${engine.name()}.png` });
         }
       }

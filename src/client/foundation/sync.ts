@@ -1,3 +1,4 @@
+import { syncLimits } from "../../shared/limits";
 import { workspaceHeaders } from "../../shared/families";
 import { recordSchema, snapshotSchema } from "../../shared/model";
 import {
@@ -61,7 +62,7 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
   const records = [];
   const ids = new Set<string>();
   let cursor = "";
-  for (let page = 0; page < 800; page++) {
+  for (let page = 0; page < Math.ceil(syncLimits.snapshotRecords / syncLimits.pageSize); page++) {
     if (!isCurrent()) throw new Error("accountChanged");
     const result = snapshotSchema.parse(
       await api(
@@ -84,7 +85,13 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
   throw new Error("libraryLimit");
 };
 const running = new Map<string, Promise<void>>();
-const requestedAgain = new Set<string>();
+const requestedAgain = new Map<
+  string,
+  {
+    onStatus: (status: string) => void;
+    isCurrent: () => boolean;
+  }[]
+>();
 export async function synchronizeAndWait(
   account: string,
   onStatus: (status: string) => void,
@@ -102,9 +109,13 @@ export async function synchronize(
   onStatus: (s: string) => void,
   isCurrent: () => boolean = () => true,
 ) {
+  if (!isCurrent()) return;
   const previous = running.get(account);
   if (previous) {
-    requestedAgain.add(account);
+    const queued = (requestedAgain.get(account) ?? []).filter((request) => request.isCurrent());
+    if (!queued.some((request) => request.isCurrent === isCurrent))
+      queued.push({ onStatus, isCurrent });
+    requestedAgain.set(account, queued);
     return;
   }
   let complete!: () => void;
@@ -123,7 +134,7 @@ export async function synchronize(
       }
       onStatus("syncing");
       // Persist exact request bodies before network access. A lost response retries the same ID/body.
-      for (let i = 0; i < 105200; i++) {
+      for (let i = 0; i < syncLimits.mutationBatch; i++) {
         if (!isCurrent()) return;
         const flight = await prepareMutation(account, isCurrent);
         if (!flight) break;
@@ -227,6 +238,16 @@ export async function synchronize(
     running.delete(account);
     complete();
   }
-  if (requestedAgain.delete(account) && isCurrent())
-    await synchronize(account, onStatus, isCurrent);
+  const next = requestedAgain.get(account)?.find((request) => request.isCurrent());
+  requestedAgain.delete(account);
+  if (next?.isCurrent()) {
+    // Retain an active caller's status subscription; use the queued caller only
+    // when the previous view has gone away.
+    const continuing = isCurrent();
+    await synchronize(
+      account,
+      continuing ? onStatus : next.onStatus,
+      continuing ? isCurrent : next.isCurrent,
+    );
+  }
 }

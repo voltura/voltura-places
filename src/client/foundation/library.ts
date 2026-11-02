@@ -1,7 +1,19 @@
+import { digest } from "../../shared/digest";
+import type { Workspace, WorkspaceChangeOptions } from "./library-types";
+import {
+  enforceCapacity,
+  write,
+  recordBatch,
+  valueKey,
+  sameValue,
+  mergeRecords,
+  acknowledgeRecord,
+} from "./library-records";
+import { entityLimits } from "../../shared/limits";
 import { workspaceIdentity } from "../../shared/families";
 import { visitEntity, visitOwner, visitStatuses } from "../../shared/visits";
 import { type DBSchema } from "idb";
-import { localDatabase } from "./database";
+import { abortTransaction, localDatabase } from "./database";
 import {
   copyPhotos,
   clearPhotos,
@@ -15,29 +27,17 @@ import { loadPhoto } from "./photos";
 import { decodePhoto } from "../../shared/photos";
 import {
   starters,
-  entitySchema,
   recordSchema,
   validateBackup,
   type Backup,
   type Entity,
   type LocalRecord,
-  type Mutation,
   type RecordState,
   type VisitStatus,
 } from "../../shared/model";
 
-export type Workspace = {
-  key: string;
-  records: LocalRecord[];
-  flight?: { mutation: Mutation; generation: number };
-  deferredFlights?: NonNullable<Workspace["flight"]>[];
-  importLease?: { token: string; expiresAt: number };
-  reconciled: boolean;
-  presetRevision?: number;
-  deviceAccounts?: string[];
-  guestPlaces?: Record<string, string | null>;
-  deviceTransfers?: Record<string, { account: string; destination: string; generation: number }>;
-};
+export type { Workspace } from "./library-types";
+
 interface PlacesDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
   drafts: { key: string; value: unknown };
@@ -78,13 +78,17 @@ export async function readWorkspace(key: string) {
   // Add the new preset once, preserving custom names, tombstones and in-flight writes.
   if (
     !existing.records.some((r) => r.id === "mushrooms") &&
-    existing.records.filter((r) => r.kind === "category" && !r.deleted).length >= 200
+    existing.records.filter((r) => r.kind === "category" && !r.deleted).length >=
+      entityLimits.category
   )
     return existing;
   return changeWorkspace(key, (w) => {
     if ((w.presetRevision ?? 1) >= 2) return;
     if (!w.records.some((r) => r.id === "mushrooms")) {
-      if (w.records.filter((r) => r.kind === "category" && !r.deleted).length >= 200) return;
+      if (
+        w.records.filter((r) => r.kind === "category" && !r.deleted).length >= entityLimits.category
+      )
+        return;
       w.records.push({
         ...structuredClone(starters.find((e) => e.id === "mushrooms")!),
         revision: 0,
@@ -99,18 +103,22 @@ export async function readWorkspace(key: string) {
 export async function changeWorkspace(
   key: string,
   update: (w: Workspace) => void | false,
-  clearDraftId?: string,
-  isCurrent = () => true,
-  importToken?: string,
-  personalVisit?: Entity | Entity[],
-  preservePersonalVisits = false,
+  options: WorkspaceChangeOptions = {},
 ) {
+  const {
+    clearDraftId,
+    isCurrent = () => true,
+    importToken,
+    personalVisit,
+    preservePersonalVisits = false,
+  } = options;
   const db = await database(),
     tx = db.transaction(clearDraftId ? ["workspaces", "drafts"] : ["workspaces"], "readwrite");
   const store = tx.objectStore("workspaces");
-  const w = (await store.get(key)) ?? seed(key);
+  let w: Workspace;
   let modified = false;
   try {
+    w = (await store.get(key)) ?? seed(key);
     if (!isCurrent()) throw new Error("accountChanged");
     if (
       w.importLease &&
@@ -148,61 +156,11 @@ export async function changeWorkspace(
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
   } catch (error) {
-    try {
-      tx.abort();
-    } catch {}
-    await tx.done.catch(() => {});
+    await abortTransaction(tx);
     throw error;
   }
   if (modified) changed();
   return w;
-}
-function enforceCapacity(w: Workspace) {
-  if (workspaceIdentity(w.key).family && w.records.some((r) => r.kind === "visit"))
-    throw new Error("invalidImport");
-  if (
-    w.records.filter((r) => r.kind === "place" && !r.deleted).length > 5000 ||
-    w.records.filter((r) => r.kind === "category" && !r.deleted).length > 200 ||
-    w.records.filter((r) => r.kind === "visit" && !r.deleted).length > 100000
-  )
-    throw new Error("libraryLimit");
-}
-function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = false): LocalRecord {
-  if (e.kind !== "visit" && e.id.startsWith("visit-")) throw new Error("invalidImport");
-  if (previous && previous.kind !== e.kind) throw new Error("invalidImport");
-  return {
-    ...entitySchema.parse(e),
-    revision: previous?.revision ?? 0,
-    generation: (previous?.generation ?? 0) + 1,
-    dirty: true,
-    deleted,
-    ...(previous?.conflict ? { conflict: previous.conflict } : {}),
-  };
-}
-function write(w: Workspace, e: Entity, deleted = false) {
-  const next = editedRecord(
-    w.records.find((r) => r.id === e.id),
-    e,
-    deleted,
-  );
-  w.records = w.records.filter((r) => r.id !== e.id).concat(next);
-}
-// Bulk operations preserve the same replacement order, revisions, generations
-// and conflict metadata as individual writes without rebuilding an array per edit.
-function recordBatch(w: Workspace) {
-  const records = new Map(w.records.map((record) => [record.id, record]));
-  return {
-    get: (id: string) => records.get(id),
-    write(e: Entity, deleted = false) {
-      const next = editedRecord(records.get(e.id), e, deleted);
-      records.delete(e.id);
-      records.set(e.id, next);
-      return next;
-    },
-    commit() {
-      w.records = [...records.values()];
-    },
-  };
 }
 export async function saveEntity(
   key: string,
@@ -224,14 +182,17 @@ export async function saveEntity(
         (base === null || previous.deleted || !sameValue(previous.value, base.value)) &&
         (previous.deleted || !sameValue(previous.value, e.value));
       if (stale && previous.dirty) throw new Error("placeChanged");
-      write(w, e);
-      const saved = w.records.find((r) => r.id === e.id)!;
+      const saved = write(w, e);
       if (stale && !saved.conflict) saved.conflict = recordSchema.parse(previous);
     },
-    clearDraft ? e.id : undefined,
-    isCurrent,
-    undefined,
-    e.kind === "place" && personalStatus ? await visitEntity(key, e.id, personalStatus) : undefined,
+    {
+      clearDraftId: clearDraft ? e.id : undefined,
+      isCurrent,
+      personalVisit:
+        e.kind === "place" && personalStatus
+          ? await visitEntity(key, e.id, personalStatus)
+          : undefined,
+    },
   );
 }
 export async function saveVisit(
@@ -284,8 +245,7 @@ export async function copyPlaceToWorkspace(
         },
       });
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
 }
 export async function deleteEntity(key: string, id: string, isCurrent = () => true) {
@@ -307,8 +267,7 @@ export async function deleteEntity(key: string, id: string, isCurrent = () => tr
       batch.write(r, true);
       batch.commit();
     },
-    id,
-    isCurrent,
+    { clearDraftId: id, isCurrent },
   );
 }
 export function exportBackup(
@@ -404,8 +363,7 @@ export async function importBackup(
       enforceCapacity(planned);
       w.importLease = { token, expiresAt: Date.now() + 300000 };
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
   try {
     await putPhotos(stored, isCurrent);
@@ -416,11 +374,12 @@ export async function importBackup(
         personalVisits.push(...applyImport(w, b, replace, placeRemaps, visitImports));
         delete w.importLease;
       },
-      undefined,
-      isCurrent,
-      token,
-      personalVisits,
-      !replace,
+      {
+        isCurrent,
+        importToken: token,
+        personalVisit: personalVisits,
+        preservePersonalVisits: !replace,
+      },
     );
   } finally {
     // Never seed a removed account while releasing an interrupted reservation.
@@ -430,12 +389,17 @@ export async function importBackup(
 async function releaseImport(key: string, token: string) {
   const db = await database(),
     tx = db.transaction("workspaces", "readwrite");
-  const w = await tx.store.get(key);
-  if (w?.importLease?.token === token) {
-    delete w.importLease;
-    await tx.store.put(w);
+  try {
+    const w = await tx.store.get(key);
+    if (w?.importLease?.token === token) {
+      delete w.importLease;
+      await tx.store.put(w);
+    }
+    await tx.done;
+  } catch (error) {
+    await abortTransaction(tx);
+    throw error;
   }
-  await tx.done;
 }
 
 function applyImport(
@@ -494,19 +458,6 @@ function applyImport(
 type DevicePlace = LocalRecord & { kind: "place" };
 const liveDevicePlaces = (guest: Workspace) =>
   guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
-// Compare JSON values independently of member order, including localized names.
-// Undefined optional fields retain their normal JSON omission semantics.
-const valueKey = (value: unknown) =>
-  JSON.stringify(value, (_key, entry) =>
-    entry && typeof entry === "object" && !Array.isArray(entry)
-      ? Object.fromEntries(
-          Object.keys(entry)
-            .sort()
-            .map((key) => [key, entry[key]]),
-        )
-      : entry,
-  );
-const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
 function handledDevicePlaces(w: Workspace, guest: Workspace) {
   const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
   const devicePlaces = liveDevicePlaces(guest);
@@ -607,7 +558,7 @@ function initializePrivateRecords(w: Workspace, cloud: RecordState[]) {
   ];
   let count = w.records.filter((r) => r.kind === "category" && !r.deleted).length;
   for (const e of presets)
-    if (count < 200 && !w.records.some((r) => r.id === e.id)) {
+    if (count < entityLimits.category && !w.records.some((r) => r.id === e.id)) {
       w.records.push({
         ...structuredClone(e),
         revision: 0,
@@ -632,8 +583,7 @@ export async function initializePrivateAccount(
       w.reconciled = true;
       w.guestPlaces ??= {};
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
 }
 export async function reconcileDevicePlaces(
@@ -654,14 +604,7 @@ export async function reconcileDevicePlaces(
     await Promise.all(
       source.map(async (r) => {
         if (transfers[r.id]?.account === key) return [r.id, transfers[r.id].destination] as const;
-        const hash = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(JSON.stringify([key, r.id])),
-        );
-        return [
-          r.id,
-          "guest-" + [...new Uint8Array(hash)].map((n) => n.toString(16).padStart(2, "0")).join(""),
-        ] as const;
+        return [r.id, "guest-" + (await digest(JSON.stringify([key, r.id])))] as const;
       }),
     ),
   );
@@ -813,10 +756,7 @@ export async function reconcileDevicePlaces(
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
   } catch (error) {
-    try {
-      tx.abort();
-    } catch {}
-    await tx.done.catch(() => {});
+    await abortTransaction(tx);
     throw error;
   }
   changed();
@@ -872,10 +812,7 @@ export async function finishDevicePlaceTransfer(key: string, isCurrent = () => t
     if (!isCurrent()) throw new Error("accountChanged");
     await tx.done;
   } catch (error) {
-    try {
-      tx.abort();
-    } catch {}
-    await tx.done.catch(() => {});
+    await abortTransaction(tx);
     throw error;
   }
   if (completed) changed();
@@ -895,53 +832,7 @@ export async function reconcileAccount(
   return readWorkspace(key);
 }
 export const mergeSnapshot = (key: string, remote: RecordState[], isCurrent = () => true) =>
-  changeWorkspace(
-    key,
-    (w) => {
-      const byId = new Map(w.records.map((record) => [record.id, record]));
-      let modified = false;
-      for (const r of remote) {
-        const local = byId.get(r.id);
-        if (!local) {
-          const added = { ...r, generation: 0, dirty: false };
-          w.records.push(added);
-          byId.set(r.id, added);
-          modified = true;
-          continue;
-        }
-        if (local.kind !== r.kind) throw new Error("invalidResponse");
-        if (r.revision < Math.max(local.revision, local.conflict?.revision ?? 0)) continue;
-        if (!local.dirty) {
-          if (
-            !local.conflict &&
-            local.revision === r.revision &&
-            local.deleted === r.deleted &&
-            sameValue(local.value, r.value)
-          )
-            continue;
-          Object.assign(local, r);
-          delete local.conflict;
-          modified = true;
-        } else if (r.deleted === local.deleted && sameValue(r.value, local.value)) {
-          Object.assign(local, r, { dirty: false });
-          delete local.conflict;
-          modified = true;
-        } else if (r.revision !== local.revision) {
-          if (
-            local.conflict?.revision === r.revision &&
-            local.conflict.deleted === r.deleted &&
-            sameValue(local.conflict.value, r.value)
-          )
-            continue;
-          local.conflict = r;
-          modified = true;
-        }
-      }
-      if (!modified) return false;
-    },
-    undefined,
-    isCurrent,
-  );
+  changeWorkspace(key, (w) => mergeRecords(w, remote), { isCurrent });
 export async function prepareMutation(key: string, isCurrent = () => true) {
   let flight: Workspace["flight"];
   await changeWorkspace(
@@ -980,8 +871,7 @@ export async function prepareMutation(key: string, isCurrent = () => true) {
       }
       flight = structuredClone(w.flight);
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
   return flight;
 }
@@ -995,8 +885,7 @@ export const deferCapacityFlight = (key: string, mutationId: string, isCurrent =
       w.deferredFlights.push(w.flight);
       delete w.flight;
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
 export const acknowledge = (
   key: string,
@@ -1004,51 +893,7 @@ export const acknowledge = (
   remote: RecordState,
   conflict = false,
   isCurrent = () => true,
-) =>
-  changeWorkspace(
-    key,
-    (w) => {
-      const flight = w.flight;
-      if (!flight || flight.mutation.mutationId !== mutationId) return false;
-      if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
-        throw new Error("invalidResponse");
-      const r = w.records.find((r) => r.id === remote.id);
-      if (r) {
-        if (
-          r.revision > remote.revision ||
-          (!r.dirty &&
-            r.revision === remote.revision &&
-            r.deleted === remote.deleted &&
-            sameValue(r.value, remote.value))
-        ) {
-          delete w.flight;
-          return;
-        }
-        const newerConflict =
-          r.conflict && r.conflict.revision > remote.revision ? r.conflict : undefined;
-        const identical =
-          remote.kind === flight.mutation.entity.kind &&
-          remote.deleted === flight.mutation.deleted &&
-          sameValue(remote.value, flight.mutation.entity.value);
-        // Two devices may add the same new preset before either sees the other's write.
-        if (conflict && !identical) r.conflict = newerConflict ?? remote;
-        else if (r.generation === flight.generation) {
-          Object.assign(r, remote, { dirty: false });
-          delete r.conflict;
-        } else {
-          r.revision = remote.revision;
-          delete r.conflict;
-        }
-        if (newerConflict) {
-          r.conflict = newerConflict;
-          r.dirty = true;
-        }
-      }
-      delete w.flight;
-    },
-    undefined,
-    isCurrent,
-  );
+) => changeWorkspace(key, (w) => acknowledgeRecord(w, mutationId, remote, conflict), { isCurrent });
 export const resolveConflict = (
   key: string,
   id: string,
@@ -1071,8 +916,7 @@ export const resolveConflict = (
       }
       delete r.conflict;
     },
-    undefined,
-    isCurrent,
+    { isCurrent },
   );
 export async function getDraft(key: string) {
   return (await database()).get("drafts", key);
@@ -1094,10 +938,15 @@ export function clearDraft(key: string, id: string) {
     .then(async () => {
       const db = await database(),
         tx = db.transaction("drafts", "readwrite");
-      const draft = await tx.store.get(key);
-      if (draft && typeof draft === "object" && "id" in draft && draft.id === id)
-        await tx.store.delete(key);
-      await tx.done;
+      try {
+        const draft = await tx.store.get(key);
+        if (draft && typeof draft === "object" && "id" in draft && draft.id === id)
+          await tx.store.delete(key);
+        await tx.done;
+      } catch (error) {
+        await abortTransaction(tx);
+        throw error;
+      }
     });
   return pendingDraft;
 }

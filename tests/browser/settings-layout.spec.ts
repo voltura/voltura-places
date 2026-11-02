@@ -1,5 +1,35 @@
 import { test, expect } from "./fixtures";
 
+test("first Settings and Family sharing opens are immediate and retain the selected section", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "loadingDialogs", { value: 0, writable: true });
+    const show = HTMLDialogElement.prototype.showModal;
+    HTMLDialogElement.prototype.showModal = function () {
+      if (this.getAttribute("aria-label")?.startsWith("Working"))
+        (window as unknown as { loadingDialogs: number }).loadingDialogs++;
+      return show.call(this);
+    };
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "No places saved yet", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Settings", exact: true });
+  await expect(settings).toBeVisible();
+  const selector = settings.getByRole("combobox", { name: "Settings", exact: true });
+  await selector.selectOption("familySharing");
+  await expect(
+    settings.getByRole("button", { name: "Sign in to share", exact: true }),
+  ).toBeVisible();
+  await expect(selector).toHaveValue("familySharing");
+  expect(
+    await page.evaluate(() => (window as unknown as { loadingDialogs: number }).loadingDialogs),
+  ).toBe(0);
+});
+
 for (const [width, height, scale] of [
   [320, 568, 1],
   [390, 844, 1],
@@ -15,6 +45,7 @@ for (const [width, height, scale] of [
         scale,
       );
     await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
     const selector = page.getByRole("combobox", { name: "Settings", exact: true });
     if (await selector.isVisible()) await selector.selectOption("familySharing");
     else await page.getByRole("button", { name: "Family sharing", exact: true }).click();
@@ -85,6 +116,7 @@ test("backup actions adapt and the section selector uses the app theme", async (
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   const selector = page.getByRole("combobox", { name: "Settings", exact: true });
   if (await selector.isVisible()) await selector.selectOption("backup");
   else await page.getByRole("button", { name: "Backup & restore", exact: true }).click();
@@ -122,6 +154,7 @@ test("categories keep action columns aligned and explain deletion", async ({ pag
   await page.setViewportSize({ width: 320, height: 640 });
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Settings", exact: true }).selectOption("categories");
   await expect(page.getByRole("heading", { name: "Categories", exact: true })).toHaveCount(1);
   const create = page.getByRole("button", { name: "New category", exact: true });
@@ -177,6 +210,7 @@ test("Preferences switch, disclosures and footer stay usable with enlarged text"
   await page.goto("/");
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   const toggle = page.getByRole("switch", {
     name: "Review GPS accuracy before saving",
     exact: true,
@@ -213,6 +247,7 @@ test("Preferences switch, disclosures and footer stay usable with enlarged text"
   await page.screenshot({ path: testInfo.outputPath("preferences-large-text.png") });
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   await expect(
     page.getByRole("switch", { name: "Review GPS accuracy before saving", exact: true }),
   ).toBeChecked();
@@ -224,6 +259,7 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   const rows = page.locator(".preference-row");
   await expect(rows).toHaveCount(5);
   await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("light");
@@ -267,6 +303,7 @@ test.describe("mouse preference dropdowns", () => {
     }, testInfo) => {
       await page.goto("/");
       await page.getByRole("button", { name: "Settings", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
       await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption(theme);
       const menu = page.getByRole("combobox", { name: "Language", exact: true });
       await menu.click();
@@ -314,6 +351,7 @@ for (const [width, scale] of [
       scale,
     );
     await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
     const selector = page.getByRole("combobox", { name: "Settings", exact: true });
     const sections = [
       ["preferences", "Preferences", "sliders-horizontal"],
@@ -361,6 +399,7 @@ test("tab navigation keeps a separate section heading", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => (document.documentElement.style.fontSize = "12px"));
   await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Settings", exact: true })).toBeHidden();
   for (const name of [
     "Preferences",

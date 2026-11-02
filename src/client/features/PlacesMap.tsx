@@ -13,7 +13,7 @@ import { Maximize, Minimize } from "lucide-react";
 import "leaflet.markercluster";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
-import type { PlaceRecord } from "./PlaceDetails";
+import type { PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { Sheet } from "../ui/Sheet";
 

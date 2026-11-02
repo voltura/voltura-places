@@ -4083,3 +4083,21 @@ select option .category-icon {
   margin: 6px 0 0;
   text-align: start;
 }
+
+/* Preserve map-preview access on short phones after the personal-status row. */
+@media (max-width: 700px) and (max-height: 700px) {
+  .details-content {
+    gap: 8px;
+  }
+  .details-content .details-map-actions + .navigate-place,
+  .details-content .navigate-place + .details-secondary-actions {
+    margin-top: 4px;
+  }
+  .details-content .details-metadata > div:has(.metadata-date) {
+    min-height: 24px;
+  }
+  .details-content .details-metadata .metadata-date {
+    padding-block: 0;
+    padding-inline-end: 0;
+  }
+}

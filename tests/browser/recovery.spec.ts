@@ -238,6 +238,119 @@ test("read-only groups disable category mutations and backup imports", async ({ 
   await expect(page.getByRole("button", { name: "Export backup", exact: true })).toBeEnabled();
 });
 
+test("an open backup review stops accepting writes when group access ends", async ({ page }) => {
+  const account = "import-access-fixture";
+  const groupId = "00000000-0000-4000-8000-000000000003";
+  const group = {
+    id: groupId,
+    name: "Import fixture",
+    ownerId: account,
+    members: [],
+    requests: [],
+  };
+  let active = true;
+  await page.addInitScript(
+    ({ account, group }) => {
+      localStorage.setItem(
+        "places-account",
+        JSON.stringify({ enabled: true, providers: {}, account: { id: account, methods: [] } }),
+      );
+      localStorage.setItem(
+        `places-family:${account}`,
+        JSON.stringify({ families: [group], inactive: [] }),
+      );
+      localStorage.setItem(`places-workspace:${account}`, `family:${account}:${group.id}`);
+    },
+    { account, group },
+  );
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
+    }),
+  );
+  await page.route("**/api/family", (route) =>
+    route.fulfill({ json: { families: active ? [group] : [] } }),
+  );
+  await page.route("**/api/v1/sync", (route) =>
+    route.fulfill({
+      json: {
+        version: 1,
+        accountId: route.request().headers()["x-places-family"]
+          ? `family:${account}:${groupId}`
+          : account,
+        records: [],
+      },
+    }),
+  );
+  await page.addInitScript(() => {
+    const decode = window.createImageBitmap.bind(window);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    Object.assign(window, { importDecodeStarted: false, releaseImportDecode: release });
+    window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
+      Object.assign(window, { importDecodeStarted: true });
+      await gate;
+      return decode(...args);
+    }) as typeof createImageBitmap;
+  });
+  await page.goto("/");
+  await expect(page.locator(".shared-library-notice")).not.toContainText("Shared access has ended");
+  const photoId = "00000000-0000-4000-8000-000000000004";
+  const jpeg = await readFile("tests/fixtures/photo.jpg");
+  const backup = {
+    format: "voltura-places",
+    version: 2,
+    photos: [{ id: photoId, data: `data:image/jpeg;base64,${jpeg.toString("base64")}` }],
+    exportedAt: new Date().toISOString(),
+    places: [{ id: "incoming", value: { ...value("Import fixture"), photoId } }],
+    categories: [{ id: "other", value: { name: "Other", color: "slate" } }],
+  };
+  await page.locator('input[type="file"][accept=".json,application/json"]').setInputFiles({
+    name: "fixture.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup)),
+  });
+  const review = page.getByRole("dialog", { name: "Review backup", exact: true });
+  const apply = review.locator("button.button.primary");
+  await expect(apply).toBeEnabled();
+  await apply.click();
+  await page.waitForFunction(
+    () => (window as Window & { importDecodeStarted?: boolean }).importDecodeStarted === true,
+  );
+  active = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator(".shared-library-notice")).toContainText("Shared access has ended");
+  await expect(review.getByRole("alert")).toContainText("Shared access has ended");
+  await expect(apply).toBeDisabled();
+  await page.evaluate(() =>
+    (window as Window & { releaseImportDecode?: () => void }).releaseImportDecode?.(),
+  );
+  await expect(apply).toHaveText("Import backup");
+  const imported = await page.evaluate(
+    async ({ account, groupId }) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open("voltura-places", 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const tx = db.transaction("workspaces");
+      const workspace = await new Promise<{ records: { id: string }[] } | undefined>(
+        (resolve, reject) => {
+          const request = tx.objectStore("workspaces").get(`family:${account}:${groupId}`);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        },
+      );
+      db.close();
+      return workspace?.records.some((record) => record.id === "incoming") ?? false;
+    },
+    { account, groupId },
+  );
+  expect(imported).toBe(false);
+});
+
 test("a visible missing photo recovers when reconnection downloads its bytes", async ({ page }) => {
   const account = "photo-recovery-fixture",
     photoId = "00000000-0000-4000-8000-000000000002";

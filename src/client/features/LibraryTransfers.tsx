@@ -14,14 +14,17 @@ type Common = { t: (key: Message) => string; onClose: () => void; onComplete: ()
 export function ImportDialog({
   backup,
   workspace,
+  canWrite,
   t,
   onClose,
   onComplete,
-}: Common & { backup: Backup; workspace: string }) {
+}: Common & { backup: Backup; workspace: string; canWrite: boolean }) {
   const [replace, setReplace] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const active = useRef(true);
+  const writeAllowed = useRef(canWrite);
+  writeAllowed.current = canWrite;
   useEffect(() => {
     active.current = true;
     return () => {
@@ -29,11 +32,12 @@ export function ImportDialog({
     };
   }, [workspace]);
   async function apply() {
+    if (!writeAllowed.current) return;
     if (replace && !confirm(t("confirmReplace"))) return;
     setBusy(true);
     setError("");
     try {
-      await importBackup(workspace, backup, replace, () => active.current);
+      await importBackup(workspace, backup, replace, () => active.current && writeAllowed.current);
       if (active.current) onComplete();
     } catch (e) {
       if (active.current) setError(t(libraryErrorMessage(e)));
@@ -63,12 +67,16 @@ export function ImportDialog({
             <small>{t("replaceBody")}</small>
           </span>
         </label>
-        {error && (
+        {(error || !canWrite) && (
           <p className="error" role="alert">
-            {error}
+            {canWrite ? error : t("familyAccessEnded")}
           </p>
         )}
-        <button className="button primary" disabled={busy} onClick={() => void apply()}>
+        <button
+          className="button primary"
+          disabled={busy || !canWrite}
+          onClick={() => void apply()}
+        >
           {t(busy ? "working" : "import")}
         </button>
       </div>
