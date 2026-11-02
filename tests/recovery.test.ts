@@ -567,3 +567,65 @@ test("older Keep both copies recover from foreign conflict metadata without alte
   expect(repaired.records.find((r) => r.id === original.id)?.value).toEqual(original.value);
   expect((await prepareMutation(key))?.mutation.entity.id).toBe(copy.id);
 });
+
+test.each(["", "skipped", "earlier"])(
+  "rejects inconsistent continuation cursor %j without another request",
+  async (cursor) => {
+    const key = crypto.randomUUID();
+    const network = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        version: 1,
+        accountId: key,
+        records: [{ ...place("point"), revision: 1, deleted: false }],
+        nextCursor: cursor,
+      }),
+    );
+    try {
+      await expect(fetchSnapshot(key)).rejects.toThrow("invalidResponse");
+      expect(network).toHaveBeenCalledTimes(1);
+    } finally {
+      network.mockRestore();
+    }
+  },
+);
+
+test("repeated deletion preserves the exact tombstone generation and pending write", async () => {
+  const key = crypto.randomUUID();
+  const target = place();
+  await saveEntity(key, target);
+  await deleteEntity(key, target.id);
+  const before = await readWorkspace(key);
+  await deleteEntity(key, target.id);
+  expect(await readWorkspace(key)).toEqual(before);
+});
+
+test("a photo-free import commits once and does not open the destination photo index", async () => {
+  const source = crypto.randomUUID();
+  await saveEntity(source, place());
+  const backup = exportBackup(await readWorkspace(source));
+  const scan = vi.spyOn(IDBIndex.prototype, "getAll");
+  const put = vi.spyOn(IDBObjectStore.prototype, "put");
+  try {
+    await importBackup(crypto.randomUUID(), backup);
+    expect(scan).not.toHaveBeenCalled();
+    expect(put).toHaveBeenCalledTimes(1);
+  } finally {
+    scan.mockRestore();
+    put.mockRestore();
+  }
+});
+
+test("a photo-free replacement migrates legacy presets before applying its deletion set", async () => {
+  const source = crypto.randomUUID();
+  const key = crypto.randomUUID();
+  const backup = exportBackup(await readWorkspace(source));
+  backup.categories = backup.categories.filter((r) => r.id !== "mushrooms");
+  await changeWorkspace(key, (w) => {
+    w.presetRevision = 1;
+    w.records = w.records.filter((r) => r.id !== "mushrooms");
+  });
+  await importBackup(key, backup, true);
+  expect((await readWorkspace(key)).records.find((r) => r.id === "mushrooms")).toMatchObject({
+    deleted: true,
+  });
+});

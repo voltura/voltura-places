@@ -10,3 +10,4 @@ export const previewIdentity = {
   app: "voltura-places",
   workspace: createHash("sha256").update(previewRoot).digest("hex"),
 };
+export const promoIdentityPath = `/__places_promo_${previewIdentity.workspace}`;

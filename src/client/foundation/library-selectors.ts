@@ -22,6 +22,8 @@ export function libraryVisits(
   return visitStatuses(personal?.key === owner ? personal.records : [], scope);
 }
 
+const collators = new Map<Language, Intl.Collator>();
+
 export function selectPlaces({
   places,
   categories,
@@ -43,28 +45,46 @@ export function selectPlaces({
   language: Language;
   currentPosition: GeolocationPosition | null;
 }) {
-  const categoryIndex = new Map(categories.map((c) => [c.id, c]));
+  const query = search.trim().normalize().toLocaleLowerCase(language);
+  const categoryIndex =
+    filter !== "all" || query ? new Map(categories.map((c) => [c.id, c])) : undefined;
 
-  const categoryFor = (id: string) => categoryIndex.get(id) ?? categoryIndex.get("other");
+  const categoryFor = (id: string) => categoryIndex?.get(id) ?? categoryIndex?.get("other");
 
-  const categoryLabel = (r: LocalRecord) =>
-    r.kind === "category" ? categoryName(r.value, language) : "";
+  const labels = new Map<string, string>();
 
-  const query = search.toLocaleLowerCase(language);
+  const categoryLabel = (r: LocalRecord | undefined) => {
+    if (r?.kind !== "category") {
+      return "";
+    }
+    let label = labels.get(r.id);
+    if (label === undefined) {
+      label = categoryName(r.value, language);
+      labels.set(r.id, label);
+    }
+
+    return label;
+  };
+
   const matches = places.filter((p) => {
-    const category = categoryFor(p.value.categoryId);
+    const category = categoryIndex ? categoryFor(p.value.categoryId) : undefined;
 
     return (
       (filter === "all" || (category?.id ?? "other") === filter) &&
       (visitFilter === "all" || (visits.get(p.id) ?? "none") === visitFilter) &&
       (!query ||
-        `${p.value.name} ${p.value.description ?? ""} ${category ? categoryLabel(category) : ""}`
+        `${p.value.name} ${p.value.description ?? ""} ${categoryLabel(category)}`
+          .normalize()
           .toLocaleLowerCase(language)
           .includes(query))
     );
   });
   if (sort === "name") {
-    const collator = new Intl.Collator(language);
+    let collator = collators.get(language);
+    if (!collator) {
+      collator = new Intl.Collator(language);
+      collators.set(language, collator);
+    }
 
     return matches.sort((a, b) => collator.compare(a.value.name, b.value.name));
   }

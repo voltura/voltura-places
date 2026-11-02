@@ -2,28 +2,30 @@ const settingKey = "places-activity-enabled";
 const idKey = "places-activity-id";
 const changedEvent = "places-activity-changed";
 let memoryEnabled: boolean | undefined;
+let settingWriteFailed = false;
 let memoryId: string | undefined;
 let ignoreSavedId = false;
 
 export function activityEnabled() {
-  if (memoryEnabled !== undefined) {
+  if (settingWriteFailed && memoryEnabled !== undefined) {
     return memoryEnabled;
   }
   try {
     const value = localStorage.getItem(settingKey);
-    if (value !== null) {
-      return value !== "false";
-    }
+    memoryEnabled = value !== "false";
   } catch {}
 
-  return true;
+  return memoryEnabled ?? true;
 }
 
 export function setActivityEnabled(enabled: boolean) {
   memoryEnabled = enabled;
   try {
     localStorage.setItem(settingKey, String(enabled));
-  } catch {}
+    settingWriteFailed = false;
+  } catch {
+    settingWriteFailed = true;
+  }
   if (!enabled) {
     clearIdentifier();
   }
@@ -35,6 +37,7 @@ function clearIdentifier() {
   ignoreSavedId = true;
   try {
     localStorage.removeItem(idKey);
+    ignoreSavedId = false;
   } catch {}
 }
 
@@ -45,6 +48,8 @@ function identifier() {
       saved &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved)
     ) {
+      memoryId = saved;
+
       return saved;
     }
     memoryId ??= crypto.randomUUID();
@@ -78,6 +83,8 @@ export function startActivityReporting(request: typeof fetch = fetch) {
       await request("/api/v1/activity", {
         method: "POST",
         credentials: "omit",
+        mode: "same-origin",
+        redirect: "error",
         cache: "no-store",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
@@ -93,19 +100,38 @@ export function startActivityReporting(request: typeof fetch = fetch) {
   };
 
   const changed = () => {
-    if (!activityEnabled()) {
+    const enabled = activityEnabled();
+    if (!enabled) {
       clearIdentifier();
     }
-    if (!activityEnabled() || document.visibilityState !== "visible" || !navigator.onLine) {
+    if (!enabled || document.visibilityState !== "visible" || !navigator.onLine) {
       pending?.abort();
+      pending = undefined;
     } else {
       void report();
     }
   };
 
   const storage = (event: StorageEvent) => {
+    try {
+      if (event.storageArea && event.storageArea !== localStorage) {
+        return;
+      }
+    } catch {
+      // Without storage access, honor opt-out conservatively until the preference can be read again.
+      if (event.key !== settingKey || event.newValue !== "false") {
+        return;
+      }
+    }
+    if (event.key === idKey || event.key === null) {
+      memoryId = undefined;
+      ignoreSavedId = false;
+    }
     if (event.key === settingKey || event.key === null) {
-      memoryEnabled = undefined;
+      settingWriteFailed = false;
+      if (event.key === settingKey && (event.newValue === "true" || event.newValue === "false")) {
+        memoryEnabled = event.newValue === "true";
+      }
       changed();
     }
   };

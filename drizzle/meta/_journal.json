@@ -71,6 +71,20 @@
       "when": 1793628000000,
       "tag": "0009_personal_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793652300000,
+      "tag": "0010_runtime_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793653800000,
+      "tag": "0011_account_display_name",
+      "breakpoints": true
     }
   ]
 }

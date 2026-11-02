@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { displayNameSchema } from "../../shared/display-name";
+
+export const accountIdSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9-]{1,80}$/)
+  .refine((id) => id !== "guest");
 
 export const accountStateSchema = z.object({
   enabled: z.boolean(),
@@ -9,7 +15,8 @@ export const accountStateSchema = z.object({
   }),
   account: z
     .object({
-      id: z.string(),
+      id: accountIdSchema,
+      displayName: displayNameSchema.optional(),
       methods: z.array(z.object({ provider: z.string(), label: z.string() })),
     })
     .nullable(),

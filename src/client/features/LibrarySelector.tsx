@@ -54,16 +54,22 @@ export function LibrarySelector({
         root.current?.style.setProperty("--library-dock-width", `${rect.width}px`);
         root.current?.style.setProperty("--library-dock-space", `${Math.max(0, rect.top - 22)}px`);
       }
-      root.current?.style.setProperty(
-        "--library-menu-top",
-        `${button.getBoundingClientRect().bottom}px`,
-      );
+      root.current?.style.setProperty("--library-menu-top", `${rect.bottom}px`);
     };
 
     sizeMenu();
-    options.current
-      ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
-      ?.focus({ preventScroll: true });
+    const menu = options.current;
+    const selected = menu?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (menu && selected) {
+      selected.focus({ preventScroll: true });
+      const option = selected.getBoundingClientRect();
+      const visible = menu.getBoundingClientRect();
+      if (option.bottom > visible.bottom) {
+        menu.scrollTop += option.bottom - visible.bottom;
+      } else if (option.top < visible.top) {
+        menu.scrollTop += option.top - visible.top;
+      }
+    }
 
     const outside = (event: PointerEvent) => {
       if (
@@ -95,6 +101,15 @@ export function LibrarySelector({
       window.removeEventListener("scroll", sizeMenu);
     };
   }, [open, placement, onOpenChange]);
+
+  const focusTrigger = () => {
+    const button =
+      placement === "dock"
+        ? document.querySelector<HTMLButtonElement>("button.save-destination")
+        : trigger.current;
+    button?.focus({ preventScroll: true });
+  };
+
   const selected = groups.find((group) => group.value === value)?.label ?? privateLabel;
   const Icon = value !== privateValue ? Users : LockKeyhole;
 
@@ -173,10 +188,7 @@ export function LibrarySelector({
                 onClick={() => {
                   onChange(group.value);
                   onOpenChange(false);
-                  (placement === "dock"
-                    ? document.querySelector<HTMLButtonElement>("button.save-destination")
-                    : trigger.current
-                  )?.focus({ preventScroll: true });
+                  focusTrigger();
                 }}
               >
                 <OptionIcon size={22} aria-hidden="true" />
@@ -188,6 +200,7 @@ export function LibrarySelector({
           <button
             className="library-option"
             onClick={() => {
+              focusTrigger();
               onOpenChange(false);
               onCreateGroup();
             }}

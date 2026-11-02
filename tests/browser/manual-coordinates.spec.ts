@@ -15,7 +15,16 @@ test("manual coordinates validate, survive drafts and save without GPS", async (
   await expect(locate).toBeVisible();
   await expect(editor.getByRole("textbox", { name: "Latitude", exact: true })).toBeHidden();
   await expect(save.locator("svg")).toHaveCount(1);
-  await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Manual fixture");
+  const name = editor.getByRole("textbox", { name: "Name", exact: true });
+  await name.fill("   ");
+  await save.click();
+  await expect(name).toBeFocused();
+  expect(await name.evaluate((input: HTMLInputElement) => input.validity.patternMismatch)).toBe(
+    true,
+  );
+  await name.fill("Manual fixture");
+  await editor.getByRole("button", { name: "Add description" }).click();
+  await expect(editor.locator("textarea")).toBeFocused();
   await save.click();
   await expect(editor.getByRole("alert")).toContainText("enter longitude and latitude");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");

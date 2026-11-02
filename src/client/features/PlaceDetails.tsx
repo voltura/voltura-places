@@ -2,7 +2,7 @@ import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { placeDetailsName } from "../foundation/place-labels";
 import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info } from "lucide-react";
-import { lazy, Suspense, useId, useState } from "react";
+import { lazy, Suspense, useId, useMemo, useState } from "react";
 import type { LocalRecord, Place, Entity, VisitStatus, PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
@@ -50,6 +50,7 @@ export function PlaceDetails({
   setEditor: (value: { entity: Entity }) => void;
   copy: (text: string) => Promise<void>;
 }) {
+  const previewPlaces = useMemo(() => [record], [record]);
   const [visitBusy, setVisitBusy] = useState(false);
   const [visitError, setVisitError] = useState(false);
   const [accuracyHelp, setAccuracyHelp] = useState(false);
@@ -220,7 +221,7 @@ export function PlaceDetails({
             key={`${workspace}:${record.id}`}
             preview
             onExpand={() => expandMap(record)}
-            places={[record]}
+            places={previewPlaces}
             fitKey={`${record.value.latitude},${record.value.longitude}`}
             selected={null}
             onSelect={() => {}}

@@ -44,18 +44,16 @@ try {
     "HEAD retains asset headers with no binary body",
   );
   const db = await mf.getD1Database("DB");
-  for (const file of [
-    "0000_accounts.sql",
-    "0001_library.sql",
-    "0002_photos.sql",
-    "0003_families.sql",
-    "0004_family_codes.sql",
-    "0005_multiple_groups.sql",
-    "0006_code_invitations_only.sql",
-    "0007_usage_statistics.sql",
-    "0008_record_counts.sql",
-    "0009_personal_visits.sql",
-  ]) {
+  const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+  for (const { tag } of journal.entries) {
+    const file = tag + ".sql";
+    if (file === "0010_runtime_maintenance.sql") {
+      await db
+        .prepare(
+          "INSERT INTO places_family_codes(family_id,code_hash,expires_at) VALUES('migration-family','legacy-fixture-hash',0)",
+        )
+        .run();
+    }
     if (file === "0005_multiple_groups.sql") {
       await db.batch([
         db.prepare(
@@ -87,6 +85,25 @@ try {
       "Record counts use a covering index instead of scanning deletion history",
     );
   }
+  check(
+    (await db
+      .prepare(
+        "SELECT generation FROM places_family_codes WHERE family_id='migration-family' AND code_hash='legacy-fixture-hash'",
+      )
+      .first("generation")) === "",
+    "Existing invitations retain their legacy version through the schema migration",
+  );
+  const photoCapacityPlan = await db
+    .prepare(
+      "EXPLAIN QUERY PLAN SELECT COUNT(*) < 1000 AND COALESCE(SUM(bytes),0)+100<=52428800 FROM places_photos WHERE account_id='index-fixture'",
+    )
+    .all();
+  check(
+    photoCapacityPlan.results.some((row) =>
+      row.detail.includes("COVERING INDEX places_photos_capacity"),
+    ),
+    "Photo capacity is decided by a single covering-index scan",
+  );
   check(
     !!(await db
       .prepare(
@@ -169,6 +186,14 @@ try {
     "SOF-only fake JPEG uploads are rejected",
   );
   check((await photoRequest(a)).status === 200, "Photo upload persists in D1");
+  check(
+    (await photoRequest(a, jpeg, { "Content-Type": "Image/JPEG; fixture=yes" })).status === 200,
+    "JPEG media types are case insensitive and accept parameters",
+  );
+  check(
+    (await request(`/api/v1/photos/extra/${photoId}`, a)).status === 400,
+    "Nested paths cannot alias a saved photo",
+  );
   const portablePhotoId = "019a0000-0000-7000-8000-000000000001";
   check(
     (
@@ -666,9 +691,10 @@ try {
         .bind(family.id, id, Date.now()),
     ]);
   }
+  const fullApproval = await familyCall(a, { action: "code-approve", member: c.account });
   check(
-    (await familyCall(a, { action: "code-approve", member: c.account })).status === 409,
-    "Family member limit is enforced",
+    fullApproval.status === 409 && (await fullApproval.json()).error === "familyFull",
+    "Full groups report capacity without incorrectly blaming a rotated code",
   );
   for (const id of filler) {
     await db.prepare("DELETE FROM places_accounts WHERE id=?").bind(id).run();
@@ -923,6 +949,10 @@ try {
     "Expired requests cannot be approved",
   );
   const limitedGuest = await login("limited-code-guest");
+  check(
+    (await familyCall(limitedGuest, { action: "code-request" })).status === 422,
+    "Missing codes do not consume a guess",
+  );
   for (let attempt = 0; attempt < 5; attempt++) {
     check(
       (await familyCall(limitedGuest, { action: "code-request", code: expiringCode })).status ===
@@ -1134,6 +1164,26 @@ try {
     (await request("/api/v1/sync", { ...recovery, body: overCapacity })).status === 409,
     "Deletion support does not allow resurrection over live capacity",
   );
+  const restoreAtCapacity = await request("/api/v1/sync", {
+    ...recovery,
+    body: { ...overCapacity, baseRevision: 1 },
+  });
+  check(
+    restoreAtCapacity.status === 413 && (await restoreAtCapacity.json()).error === "libraryLimit",
+    "Restoring the current tombstone at capacity defers a write without manufacturing a conflict",
+  );
+  const missingEdit = await request("/api/v1/sync", {
+    ...recovery,
+    body: {
+      ...overCapacity,
+      baseRevision: 7,
+      entity: { ...overCapacity.entity, id: "absent-at-revision" },
+    },
+  });
+  check(
+    missingEdit.status === 422,
+    "A nonzero revision for an absent record is not a capacity failure",
+  );
   await db.prepare("DELETE FROM places_family_code_limits").run();
   const retryGroupResponse = await familyCall(recovery, {
     action: "create",
@@ -1185,6 +1235,265 @@ try {
       })
     ).status === 200,
     "An empty optional group header cannot redirect private writes to an empty storage account",
+  );
+  check(
+    (await request("/api/v1/sync?after=%00", recovery)).status === 400,
+    "Malformed cursors cannot silently select an unrelated range",
+  );
+  // One applicant who has exhausted their own allowance cannot spend a shared IP's remaining guesses.
+  const rateAccount = await login("rate-account-boundary");
+  const ratePeer = await login("rate-peer-boundary");
+  const ip = "192.0.2.99";
+  const ipKey = "join:ip:" + createHash("sha256").update(ip).digest("hex");
+
+  const limitedRequest = (who) =>
+    request("/api/family", {
+      ...who,
+      headers: { "CF-Connecting-IP": ip },
+      body: { action: "code-request", code: "9999" },
+    });
+
+  await db.batch([
+    db
+      .prepare("INSERT OR REPLACE INTO places_family_code_limits VALUES(?,5,?)")
+      .bind("join:account:" + rateAccount.account, Date.now() + 60000),
+    db
+      .prepare("INSERT OR REPLACE INTO places_family_code_limits VALUES(?,19,?)")
+      .bind(ipKey, Date.now() + 60000),
+  ]);
+  check(
+    (await limitedRequest(rateAccount)).status === 429,
+    "Exhausted account allowance rejects the request",
+  );
+  check(
+    (await db
+      .prepare("SELECT attempts FROM places_family_code_limits WHERE key=?")
+      .bind(ipKey)
+      .first("attempts")) === 19,
+    "Denied account does not consume a shared IP guess",
+  );
+  check(
+    (await limitedRequest(ratePeer)).status !== 429,
+    "Another account can use the remaining shared IP attempt",
+  );
+  const blockedPeer = await login("rate-blocked-peer");
+  check(
+    (await limitedRequest(blockedPeer)).status === 429,
+    "Exhausted shared IP rejects the request",
+  );
+  check(
+    !(await db
+      .prepare("SELECT 1 FROM places_family_code_limits WHERE key=?")
+      .bind("join:account:" + blockedPeer.account)
+      .first()),
+    "Denied IP does not consume the account allowance",
+  );
+
+  const versionOwner = await login("version-owner");
+  const versionGuest = await login("version-guest");
+  const displayEndpoint = "/api/account/display-name";
+
+  const setName = (who, displayName, headers = {}) =>
+    request(displayEndpoint, { ...who, body: { displayName }, headers });
+
+  check(
+    (await (await request("/api/account", versionGuest)).json()).account.displayName === null,
+    "Existing accounts have no display-name default",
+  );
+  check((await setName({}, "Anonymous")).status === 401, "Setting a name requires sign-in");
+  check(
+    (await setName({ ...versionGuest, account: versionOwner.account }, "Wrong user")).status ===
+      409,
+    "A changed session account cannot be renamed",
+  );
+  check(
+    (await setName({ ...versionGuest, account: undefined }, "Absent expected account")).status ===
+      409,
+    "An expected account is required to rename",
+  );
+  check(
+    (await setName(versionGuest, "Foreign", { Origin: "https://external.invalid" })).status === 403,
+    "Cross-origin renaming is denied",
+  );
+  check(
+    (await setName(versionGuest, "Scoped", { "X-Places-Family": crypto.randomUUID() })).status ===
+      400,
+    "A family header cannot redirect an account edit",
+  );
+  check(
+    (
+      await request(displayEndpoint, {
+        ...versionGuest,
+        body: { displayName: "Impersonation", accountId: versionOwner.account },
+      })
+    ).status === 422,
+    "A body cannot target a different account",
+  );
+  const name = "Hiking " + String.fromCodePoint(0x1f392) + " " + String.fromCodePoint(0xc5);
+  const nameResponse = await setName(versionGuest, "  " + name.normalize("NFD") + " ");
+  const named = (await nameResponse.json()).account;
+  check(
+    nameResponse.ok &&
+      named.displayName === name &&
+      named.id === versionGuest.account &&
+      named.methods[0].label === "version-guest@example.invalid",
+    "Names normalize and trim independently of private verified identity labels",
+  );
+  for (const invalid of ["line\nbreak", "\u202eReversed", "a".repeat(61), false, {}]) {
+    check(
+      (await setName(versionGuest, invalid)).status === 422,
+      "Invalid name leaves the account unchanged",
+    );
+  }
+  check(
+    (await (await request("/api/account", versionGuest)).json()).account.displayName === name,
+    "Own account discovery retains the chosen name",
+  );
+  const versionId = (
+    await (await familyCall(versionOwner, { action: "create", name: "Version test" })).json()
+  ).familyId;
+  const invite = await (
+    await familyCall(versionOwner, { action: "code-create", familyId: versionId })
+  ).json();
+  await familyCall(versionGuest, { action: "code-request", code: invite.code });
+  const joinedAtBeforeRetry = await db
+    .prepare("SELECT created_at FROM places_family_requests WHERE account_id=?")
+    .bind(versionGuest.account)
+    .first("created_at");
+  await familyCall(versionGuest, { action: "code-request", code: invite.code });
+  check(
+    (await db
+      .prepare("SELECT created_at FROM places_family_requests WHERE account_id=?")
+      .bind(versionGuest.account)
+      .first("created_at")) === joinedAtBeforeRetry,
+    "Retrying the same pending request retains its position in the owner queue",
+  );
+  const pendingNames = await (await familyCall(versionOwner)).json();
+  check(
+    pendingNames.families[0].requests[0].label === name &&
+      !JSON.stringify(pendingNames).includes("version-guest@example.invalid"),
+    "The owner sees the applicant's chosen label without their verified email",
+  );
+  const hidden = await (await familyCall(ratePeer)).json();
+  check(
+    !JSON.stringify(hidden).includes(name),
+    "An unrelated account cannot see another group's applicant name",
+  );
+  await db
+    .prepare("UPDATE places_family_codes SET generation=? WHERE family_id=?")
+    .bind(crypto.randomUUID(), versionId)
+    .run();
+  for (const action of ["code-approve", "code-reject", "revoke"]) {
+    const stale = await familyCall(versionOwner, {
+      action,
+      familyId: versionId,
+      member: versionGuest.account,
+      invitationVersion: invite.version,
+    });
+    check(
+      stale.status === 409 && (await stale.json()).error === "familyCodeChanged",
+      action + " cannot act on a replacement invitation with the same digits",
+    );
+  }
+  const versionState = await (await familyCall(versionOwner)).json();
+  check(
+    versionState.families[0].requests.length === 1 &&
+      versionState.families[0].invitationVersion !== invite.version,
+    "Stale decisions preserve the new request and membership",
+  );
+  check(
+    (
+      await familyCall(versionOwner, {
+        action: "code-approve",
+        familyId: versionId,
+        member: versionGuest.account,
+        invitationVersion: versionState.families[0].invitationVersion,
+      })
+    ).ok,
+    "Current invitation decision commits",
+  );
+
+  const groupMembers = async () =>
+    (await (await familyCall(versionOwner)).json()).families[0].members;
+
+  check(
+    (await groupMembers()).find((m) => m.id === versionGuest.account).label === name,
+    "Group membership uses the chosen name",
+  );
+  check(
+    (await setName(versionOwner, name)).ok &&
+      (await groupMembers()).filter((m) => m.label === name).length === 2,
+    "Non-unique names retain distinct stable membership identities",
+  );
+  check(
+    (await setName(versionGuest, "   ")).ok &&
+      (await groupMembers()).find((m) => m.id === versionGuest.account).label ===
+        "version-guest@example.invalid",
+    "Clearing the name restores the existing membership label",
+  );
+  check((await setName(versionOwner, null)).ok, "Explicit null clears a display name");
+  const renameResults = await Promise.all(
+    ["First fixture", "Second fixture"].map(async (displayName) => [
+      displayName,
+      (await (await setName(versionGuest, displayName)).json()).account.displayName,
+    ]),
+  );
+  check(
+    renameResults.every(([sent, received]) => sent === received),
+    "Concurrent profile writes acknowledge the name saved in their own transaction",
+  );
+  const history = await login("history-boundary");
+  const archived = JSON.stringify({ name: "Archived", color: "green" });
+  await db
+    .prepare(`WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<199998)
+    INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation) SELECT ?,printf('history-%d',n),'category',?,1,1,'seed' FROM seq`)
+    .bind(history.account, archived)
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO places_visits(account_id,id,kind,value,revision,deleted,last_mutation) VALUES(?,?,'visit',?,1,1,'seed')",
+    )
+    .bind(
+      history.account,
+      "visit-" + "0".repeat(64),
+      JSON.stringify({
+        placeId: "old",
+        libraryId: null,
+        status: "none",
+        updatedAt: new Date().toISOString(),
+      }),
+    )
+    .run();
+  const historyWrites = ["final-one", "final-two"].map((id) => ({
+    ...unseenDeletion,
+    mutationId: crypto.randomUUID(),
+    entity: { ...unseenDeletion.entity, id },
+  }));
+  const finalSlots = await Promise.all(
+    historyWrites.map((body) => request("/api/v1/sync", { ...history, body })),
+  );
+  check(
+    finalSlots.filter((r) => r.status === 200).length === 1,
+    "Concurrent creations cannot exceed the remaining combined snapshot slot",
+  );
+  const blocked = finalSlots.find((r) => r.status === 413);
+  check(
+    blocked && (await blocked.json()).error === "snapshotLimit",
+    "Full deletion history has a distinct non-deferrable limit",
+  );
+  const winner = historyWrites[finalSlots.findIndex((r) => r.ok)];
+  check(
+    (await request("/api/v1/sync", { ...history, body: winner })).ok,
+    "History capacity permits exact receipt replay",
+  );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...history,
+        body: { ...winner, mutationId: crypto.randomUUID(), baseRevision: 1, deleted: false },
+      })
+    ).ok,
+    "Existing identities remain editable when snapshot history is full",
   );
   console.log(
     `Passed ${checks} real workerd/D1 authorization, CAS, retry and recovery checks. No production data or emails used.`,

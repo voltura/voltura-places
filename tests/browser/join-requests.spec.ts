@@ -13,6 +13,7 @@ for (const language of ["en", "sv"] as const) {
     const group = {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Weekend adventures",
+      invitationVersion: "a".repeat(64),
       ownerId: account,
       members: [{ id: account, label: "Owner" }],
       requests: [] as { id: string; label: string }[],
@@ -45,7 +46,10 @@ for (const language of ["en", "sv"] as const) {
       return r.fulfill({
         json: {
           families: [
-            { ...group, requests: incoming ? [{ id: "requester", label: "Dominika" }] : [] },
+            {
+              ...group,
+              requests: incoming ? [{ id: "requester", label: "Dominika {group} $&" }] : [],
+            },
           ],
         },
       });
@@ -62,8 +66,8 @@ for (const language of ["en", "sv"] as const) {
     await page.clock.fastForward(5000);
     await expect(prompt).toContainText(
       language === "en"
-        ? "Dominika wants to join Weekend adventures."
-        : "Dominika vill gå med i Weekend adventures.",
+        ? "Dominika {group} $& wants to join Weekend adventures."
+        : "Dominika {group} $& vill gå med i Weekend adventures.",
     );
     await prompt.screenshot({ path: testInfo.outputPath(`join-request-${language}.png`) });
     await expect(page.locator("html")).toHaveJSProperty(
@@ -75,7 +79,10 @@ for (const language of ["en", "sv"] as const) {
       .click();
     await page.clock.fastForward(10000);
     await expect(prompt).toBeHidden();
-    await page.getByRole("button", { name: `${title} · 1`, exact: true }).click();
+    // A replacement invitation is a new decision even for the same person.
+    group.invitationVersion = "b".repeat(64);
+    await page.clock.fastForward(5000);
+    await expect(prompt).toBeVisible();
     const approve = prompt.getByRole("button", {
       name: language === "en" ? "Approve" : "Godkänn",
       exact: true,
@@ -87,7 +94,12 @@ for (const language of ["en", "sv"] as const) {
     await approve.click();
     await expect(prompt).toBeHidden();
     expect(decisions).toEqual(
-      Array(2).fill({ action: "code-approve", familyId: group.id, member: "requester" }),
+      Array(2).fill({
+        action: "code-approve",
+        familyId: group.id,
+        member: "requester",
+        invitationVersion: group.invitationVersion,
+      }),
     );
     // A new signed-in account must not see an old owner's requests, even if returned by a stale source.
     incoming = true;

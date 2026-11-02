@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-import { startupDevices, startupName } from "./scripts/branding.mjs";
+import { startupDevices, startupName } from "./scripts/startup-images.mjs";
 import { previewIdentity, previewIdentityPath, previewPort } from "./scripts/preview-config.mjs";
 
 export default defineConfig({

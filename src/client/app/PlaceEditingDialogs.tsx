@@ -4,7 +4,6 @@ import { Editor } from "../features/Editor";
 import { CategoryEditor } from "../features/CategoryEditor";
 import { LocationReview } from "../features/LocationReview";
 import { Sheet } from "../ui/Sheet";
-import { flushDrafts } from "../foundation/library";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
 import type { Preferences } from "../foundation/preferences";
 import type { LocalRecord, PlaceRecord } from "../../shared/model";
@@ -36,7 +35,7 @@ export function PlaceEditingDialogs({
   t: (key: Message) => string;
   notify: (key: Message, error?: boolean) => void;
   update: boolean;
-  onUpdate: () => Promise<void> | undefined;
+  onUpdate: () => Promise<void>;
   renderedOperation: Operation;
   setFilter: Dispatch<SetStateAction<string>>;
 }) {
@@ -47,6 +46,7 @@ export function PlaceEditingDialogs({
     setCategoryEdit,
     deletePlace,
     setDeletePlace,
+    deletingPlace,
     deleteCategory,
     setDeleteCategory,
     deletingCategory,
@@ -88,11 +88,7 @@ export function PlaceEditingDialogs({
           onDiscardPlace={editing.discardPlace}
           workspace={scope}
           updateReady={update}
-          onUpdate={() =>
-            void flushDrafts()
-              .then(() => onUpdate())
-              .catch(() => notify("storageFailure", true))
-          }
+          onUpdate={() => void onUpdate()}
         />
       )}
       {categoryEdit && (
@@ -146,7 +142,11 @@ export function PlaceEditingDialogs({
         <Sheet
           title={t("deletePlace")}
           closeLabel={t("cancel")}
-          onClose={() => setDeletePlace(null)}
+          onClose={() => {
+            if (!deletingPlace) {
+              setDeletePlace(null);
+            }
+          }}
         >
           <div className="stack">
             <p>
@@ -157,17 +157,18 @@ export function PlaceEditingDialogs({
               <button
                 className="button outline subdued"
                 data-initial-focus
+                disabled={deletingPlace}
                 onClick={() => setDeletePlace(null)}
               >
                 {t("cancel")}
               </button>
               <button
                 className="button danger confirm"
-                disabled={!canWrite}
+                disabled={deletingPlace || !canWrite}
                 onClick={() => void remove(deletePlace.place, deletePlace.scope)}
               >
                 <Trash2 size={20} aria-hidden="true" />
-                {t("delete")}
+                {t(deletingPlace ? "working" : "delete")}
               </button>
             </div>
           </div>

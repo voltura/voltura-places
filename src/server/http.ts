@@ -3,6 +3,7 @@ export class RequestError extends Error {
   constructor(
     public status: number,
     message: string,
+    public retryAfter?: number,
   ) {
     super(message);
   }
@@ -26,7 +27,18 @@ export function hasCanonicalOrigin(request: Request, origin: string) {
 }
 
 /** Bound memory by bytes, even for chunked bodies or dishonest Content-Length. */
-export async function readBytes(request: Request, limit: number, missingStatus = 400) {
+export async function readBytes(
+  request: Pick<Request, "headers" | "body">,
+  limit: number,
+  missingStatus = 400,
+) {
+  const declared = request.headers?.get("Content-Length");
+  if (declared && /^\d+$/.test(declared) && Number(declared) > limit) {
+    if (request.body && !request.body.locked) {
+      void request.body.cancel().catch(() => {});
+    }
+    throw new RequestError(413, "The request is too large. Nothing was changed.");
+  }
   const reader = request.body?.getReader();
   if (!reader) {
     throw new RequestError(missingStatus, "Request required.");
@@ -65,7 +77,7 @@ export async function readBytes(request: Request, limit: number, missingStatus =
   } finally {
     // Cancellation failure must not replace the original size/encoding error.
     if (!complete) {
-      await reader.cancel().catch(() => {});
+      void reader.cancel().catch(() => {});
     }
     reader.releaseLock();
   }

@@ -12,6 +12,7 @@ export type SyncStatus =
   | "synced"
   | "reconcilePending";
 import { api, ApiError } from "./http";
+import { sameValue } from "./library-records";
 import { syncLimits } from "../../shared/limits";
 import { workspaceHeaders } from "../../shared/families";
 import { recordSchema, snapshotSchema } from "../../shared/model";
@@ -60,10 +61,14 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
       ids.add(record.id);
     }
     records.push(...result.records);
-    if (!result.nextCursor) {
+    if (result.nextCursor == null) {
       return { version: 1 as const, accountId: account, records };
     }
-    if (result.nextCursor <= cursor) {
+    if (
+      !result.records.length ||
+      result.nextCursor !== result.records.at(-1)!.id ||
+      result.records.some((record) => record.id > result.nextCursor!)
+    ) {
       throw new Error("invalidResponse");
     }
     cursor = result.nextCursor;
@@ -145,11 +150,13 @@ export async function synchronize(
       }
       onStatus("syncing");
       // Persist exact request bodies before network access. A lost response retries the same ID/body.
+      let repairedPhotoFlight: string | undefined;
+      let retrySnapshotLimit = true;
       for (let i = 0; i < syncLimits.mutationBatch; i++) {
         if (!isCurrent()) {
           return;
         }
-        const flight = await prepareMutation(account, isCurrent);
+        const flight = await prepareMutation(account, isCurrent, retrySnapshotLimit);
         if (!flight) {
           break;
         }
@@ -166,6 +173,8 @@ export async function synchronize(
         const response = await fetch("/api/v1/sync", {
           method: "POST",
           credentials: "same-origin",
+          redirect: "error",
+          mode: "same-origin",
           cache: "no-store",
           signal: AbortSignal.timeout(20000),
           headers: {
@@ -175,7 +184,7 @@ export async function synchronize(
           },
           body: JSON.stringify(flight.mutation),
         });
-        if (!response.ok && response.status !== 409 && response.status !== 413) {
+        if (!response.ok && ![409, 413, 422].includes(response.status)) {
           throw new ApiError(response.status, "mutationFailed");
         }
         const data = mutationResultSchema.parse(await response.json());
@@ -185,9 +194,29 @@ export async function synchronize(
         if (data.accountId !== account) {
           throw new Error("accountChanged");
         }
+        if (
+          response.status === 422 &&
+          data.error === "photoUnavailable" &&
+          !flight.mutation.deleted &&
+          flight.mutation.entity.kind === "place" &&
+          flight.mutation.entity.value.photoId &&
+          repairedPhotoFlight !== flight.mutation.mutationId
+        ) {
+          repairedPhotoFlight = flight.mutation.mutationId;
+          await uploadPhoto(account, flight.mutation.entity.value.photoId, isCurrent, true);
+          continue;
+        }
+        if (
+          response.status === 413 &&
+          data.error === "snapshotLimit" &&
+          flight.mutation.baseRevision === 0
+        ) {
+          await deferCapacityFlight(account, flight.mutation.mutationId, isCurrent, true);
+          retrySnapshotLimit = false;
+          continue;
+        }
         if (response.status === 413 && data.error === "libraryLimit") {
-          await deferCapacityFlight(account, flight.mutation.mutationId, isCurrent);
-          const next = await readWorkspace(account);
+          const next = await deferCapacityFlight(account, flight.mutation.mutationId, isCurrent);
           if (next.flight) {
             throw new Error("libraryLimit");
           }
@@ -199,9 +228,27 @@ export async function synchronize(
         const remote = recordSchema.parse(data.record);
         if (
           remote.id !== flight.mutation.entity.id ||
-          remote.kind !== flight.mutation.entity.kind
+          remote.kind !== flight.mutation.entity.kind ||
+          (response.ok &&
+            (remote.revision !== flight.mutation.baseRevision + 1 ||
+              remote.deleted !== flight.mutation.deleted))
         ) {
           throw new Error("invalidResponse");
+        }
+        if (response.ok) {
+          const submitted = flight.mutation.entity;
+          // Compatibility writes without a photo field preserve the existing
+          // cloud attachment on an update; every other value must match.
+          const expected =
+            submitted.kind === "place" &&
+            remote.kind === "place" &&
+            flight.mutation.baseRevision > 0 &&
+            submitted.value.photoId === undefined
+              ? { ...submitted.value, photoId: remote.value.photoId }
+              : submitted.value;
+          if (!sameValue(expected, remote.value)) {
+            throw new Error("invalidResponse");
+          }
         }
         await acknowledge(
           account,
@@ -221,15 +268,17 @@ export async function synchronize(
       if (snapshot.accountId !== account) {
         throw new Error("accountChanged");
       }
-      await mergeSnapshot(account, snapshot.records, isCurrent);
-      const w = await readWorkspace(account);
-      const photoIds = new Set(
-        w.records
-          .flatMap((r) => [r, ...(r.conflict ? [r.conflict] : [])])
-          .flatMap((r) =>
-            r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
-          ),
-      );
+      const w = await mergeSnapshot(account, snapshot.records, isCurrent);
+      const photoIds = new Set<string>();
+      for (const r of w.records) {
+        if (r.kind === "place" && !r.deleted && r.value.photoId) {
+          photoIds.add(r.value.photoId);
+        }
+        const conflict = r.conflict;
+        if (conflict?.kind === "place" && !conflict.deleted && conflict.value.photoId) {
+          photoIds.add(conflict.value.photoId);
+        }
+      }
       const cachedPhotos = photoIds.size ? await workspacePhotoIds(account) : new Set<string>();
       let missingPhoto = false;
       for (const id of photoIds) {
@@ -241,9 +290,16 @@ export async function synchronize(
         }
         try {
           await loadPhoto(account, id, isCurrent);
-        } catch {
+        } catch (error) {
           if (!isCurrent()) {
             return;
+          }
+          if (
+            !navigator.onLine ||
+            temporarySyncFailure(error) ||
+            (error instanceof ApiError && [401, 403, 409].includes(error.status))
+          ) {
+            throw error;
           }
           missingPhoto = true;
         }
@@ -251,18 +307,20 @@ export async function synchronize(
       if (!isCurrent()) {
         return;
       }
-      const latest = photoIds.size ? await readWorkspace(account) : w;
+      const latest = await readWorkspace(account);
       if (!isCurrent()) {
         return;
       }
       onStatus(
         latest.records.some((r) => r.conflict)
           ? "syncConflict"
-          : missingPhoto
-            ? "syncPhotoUnavailable"
-            : latest.records.some((r) => r.dirty)
-              ? "savedPending"
-              : "synced",
+          : latest.deferredFlights?.some((flight) => flight.snapshotBlocked)
+            ? "actionRequired"
+            : missingPhoto
+              ? "syncPhotoUnavailable"
+              : latest.records.some((r) => r.dirty)
+                ? "savedPending"
+                : "synced",
       );
     } catch (error) {
       if (!isCurrent()) {
@@ -278,6 +336,8 @@ export async function synchronize(
           : local.flight || local.records.some((r) => r.dirty)
             ? "retryUpload"
             : "retryRefresh";
+      } else if (error instanceof Error && error.message === "syncBusy") {
+        status = "pending";
       } else if (error instanceof Error && error.message === "photoUnavailable") {
         status = "syncPhotoUnavailable";
       }

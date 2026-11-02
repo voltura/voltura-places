@@ -7,7 +7,7 @@ export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex"
 export function assertDestination(path) {
   if (
     typeof path !== "string" ||
-    !/^places\/(?:(?:index|stats)\.html|sv\/(?:index|stats)\.html|assets\/(?:site\.[a-f0-9]{16}\.css|usage\.[a-f0-9]{16}\.js|(?:app|desktop|social)-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg)|mail\/relay\.php)$/.test(
+    !/^places\/(?:(?:index|stats)\.html|sv\/(?:index|stats)\.html|assets\/(?:site\.[a-f0-9]{16}\.css|usage\.[a-f0-9]{16}\.js|(?:app|desktop|social)-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg))$/.test(
       path,
     )
   ) {
@@ -17,9 +17,12 @@ export function assertDestination(path) {
   return path;
 }
 
-export async function promoManifest() {
+export async function promoManifest(base = resolve(".artifacts/promo")) {
   const entries = [];
-  const base = resolve(".artifacts/promo");
+  const slots = new Set();
+  if (!(await lstat(base)).isDirectory()) {
+    throw new Error("Invalid promo root");
+  }
 
   async function collect(dir = "") {
     for (const e of await readdir(resolve(base, dir), { withFileTypes: true })) {
@@ -31,10 +34,22 @@ export async function promoManifest() {
       }
       if (s.isDirectory()) {
         await collect(relative);
-      } else {
+      } else if (s.isFile()) {
         const path = assertDestination(`places/${relative}`);
         const bytes = await readFile(full);
-        entries.push({ path, source: full, sha256: digest(bytes), size: bytes.length });
+        const slot = path.replace(/\.[a-f0-9]{16}\./, ".");
+        if (slots.has(slot)) {
+          throw new Error("Duplicate promo asset variant");
+        }
+        slots.add(slot);
+        const hash = path.match(/\.([a-f0-9]{16})\./)?.[1];
+        const sha256 = digest(bytes);
+        if (hash && !sha256.startsWith(hash)) {
+          throw new Error("Content-addressed promo asset mismatch");
+        }
+        entries.push({ path, source: full, sha256, size: bytes.length });
+      } else {
+        throw new Error("Unexpected promo file type");
       }
     }
   }
@@ -51,4 +66,17 @@ export async function promoManifest() {
       Number(a.path.endsWith("index.html")) - Number(b.path.endsWith("index.html")) ||
       a.path.localeCompare(b.path),
   );
+}
+
+export function rollbackPayload(item, current) {
+  const currentHash = current === null ? null : digest(current);
+  if (currentHash !== item.sha256 && currentHash !== item.previousHash) {
+    throw new Error("Rollback would overwrite unrelated content.");
+  }
+  const bytes = typeof item.previous === "string" ? Buffer.from(item.previous, "base64") : null;
+  if ((bytes === null ? null : digest(bytes)) !== item.previousHash) {
+    throw new Error("Backup hash mismatch; no rollback files written.");
+  }
+
+  return { changed: currentHash !== item.previousHash, bytes };
 }

@@ -1,16 +1,25 @@
 // Browser permission is best-effort and must never block local saving or launch.
-export async function keepOfflineData(): Promise<boolean> {
+let pending: Promise<boolean> | undefined;
+
+async function requestRetention(): Promise<boolean> {
   try {
     const storage = navigator.storage;
-    if (!storage?.persist) {
-      return false;
-    }
-    if (await storage.persisted?.()) {
-      return true;
-    }
+    try {
+      if (await storage?.persisted?.()) {
+        return true;
+      }
+    } catch {}
 
-    return await storage.persist();
+    return (await storage?.persist?.()) ?? false;
   } catch {
     return false;
   }
+}
+
+export function keepOfflineData(): Promise<boolean> {
+  pending ??= requestRetention().finally(() => {
+    pending = undefined;
+  });
+
+  return pending;
 }

@@ -1,5 +1,11 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+
+function outside(element: HTMLElement, x: number, y: number) {
+  const rect = element.getBoundingClientRect();
+
+  return x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom;
+}
 
 export function Sheet({
   title,
@@ -23,7 +29,8 @@ export function Sheet({
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
+  const backdropPress = useRef(false);
+  useLayoutEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
     (dialog.querySelector<HTMLElement>("[data-initial-focus]") ?? dialog).focus();
@@ -41,17 +48,19 @@ export function Sheet({
         e.preventDefault();
         onClose();
       }}
+      onPointerDownCapture={(e) => {
+        backdropPress.current =
+          e.target === e.currentTarget && outside(e.currentTarget, e.clientX, e.clientY);
+      }}
+      onPointerCancel={() => {
+        backdropPress.current = false;
+      }}
       onClick={(e) => {
-        if (e.target !== ref.current) {
+        if (!backdropPress.current || e.target !== ref.current) {
           return;
         }
-        const rect = e.currentTarget.getBoundingClientRect();
-        if (
-          e.clientX < rect.left ||
-          e.clientX >= rect.right ||
-          e.clientY < rect.top ||
-          e.clientY >= rect.bottom
-        ) {
+        backdropPress.current = false;
+        if (outside(e.currentTarget, e.clientX, e.clientY)) {
           onClose();
         }
       }}

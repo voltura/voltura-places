@@ -36,3 +36,39 @@ test("HEAD returns asset headers without decoding or allocating its binary paylo
   expect((await response.arrayBuffer()).byteLength).toBe(0);
   expect(response.headers.get("Content-Type")).toBe("application/octet-stream");
 });
+
+test("revalidating assets skips payload decoding and handles weak, strong, list and wildcard validators", async () => {
+  const url = "https://fixture.invalid/assets/fixture.bin";
+  const response = await worker.fetch(new Request(url), {} as Environment);
+  const tag = response.headers.get("ETag")!;
+  expect(tag).toMatch(/^W\//);
+  for (const validator of [tag, tag.slice(2), '"other", ' + tag, "*"]) {
+    const cached = await worker.fetch(
+      new Request(url, { headers: { "If-None-Match": validator } }),
+      {} as Environment,
+    );
+    expect(cached.status).toBe(304);
+    expect(await cached.text()).toBe("");
+    expect(cached.headers.get("ETag")).toBe(tag);
+  }
+  const stale = await worker.fetch(
+    new Request(url, { headers: { "If-None-Match": '"stale"' } }),
+    {} as Environment,
+  );
+  expect(stale.status).toBe(200);
+});
+
+test("health, unavailable sync and unknown routes return the appropriate method, status and headers", async () => {
+  const origin = "https://fixture.invalid";
+  const env = {} as Environment;
+  const health = await worker.fetch(new Request(origin + "/api/health", { method: "DELETE" }), env);
+  expect(health.status).toBe(405);
+  expect(health.headers.get("Allow")).toBe("GET, HEAD");
+  const head = await worker.fetch(new Request(origin + "/api/health", { method: "HEAD" }), env);
+  expect(await head.text()).toBe("");
+  const unavailable = await worker.fetch(new Request(origin + "/api/v1/sync"), env);
+  expect(unavailable.status).toBe(503);
+  expect(unavailable.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  const missing = await worker.fetch(new Request(origin + "/api/unknown"), env);
+  expect(missing.status).toBe(404);
+});

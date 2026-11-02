@@ -26,10 +26,14 @@ export function createInstallation(win: Window, nav: Navigator) {
     failed: false,
   };
   let offer: InstallOffer | null = null;
+  let prompting: InstallOffer | null = null;
   let observedInstall = false;
   const listeners = new Set<() => void>();
 
   const update = (patch: Partial<InstallState>) => {
+    if (Object.entries(patch).every(([key, value]) => state[key as keyof InstallState] === value)) {
+      return;
+    }
     state = { ...state, ...patch };
     listeners.forEach((listener) => listener());
   };
@@ -38,8 +42,13 @@ export function createInstallation(win: Window, nav: Navigator) {
     const isInstalled = observedInstall || installed();
     if (isInstalled) {
       offer = null;
+      prompting = null;
     }
-    update({ installed: isInstalled, available: !!offer && !isInstalled });
+    update({
+      installed: isInstalled,
+      available: !!offer && !isInstalled,
+      ...(isInstalled ? { pending: false, failed: false } : {}),
+    });
   };
 
   const receive = (event: Event) => {
@@ -47,8 +56,11 @@ export function createInstallation(win: Window, nav: Navigator) {
       return;
     }
     event.preventDefault();
-    offer = event as InstallOffer;
-    update({ available: true, failed: false });
+    if (event !== prompting) {
+      prompting = null;
+      offer = event as InstallOffer;
+      update({ available: true, failed: false, pending: false });
+    }
   };
 
   const onInstalled = () => {
@@ -77,14 +89,20 @@ export function createInstallation(win: Window, nav: Navigator) {
       }
       const current = offer;
       offer = null; // Browser offers can only be used once, including dismissal/failure.
+      prompting = current;
       update({ available: false, pending: true, failed: false });
       try {
         await current.prompt(); // Called synchronously from the user's click.
         await current.userChoice;
       } catch {
-        update({ failed: true });
+        if (prompting === current) {
+          update({ failed: true });
+        }
       } finally {
-        update({ pending: false });
+        if (prompting === current) {
+          prompting = null;
+          update({ pending: false });
+        }
       }
     },
     dispose() {
@@ -93,6 +111,8 @@ export function createInstallation(win: Window, nav: Navigator) {
       display.removeEventListener("change", refresh);
       fullscreen.removeEventListener("change", refresh);
       win.removeEventListener("pageshow", refresh);
+      offer = null;
+      prompting = null;
       listeners.clear();
     },
   };
@@ -113,13 +133,16 @@ export function installationPlatform(
 
 // Browser identity only tailors help text; native install availability is event-based.
 export function appleInstallBrowser(nav: Pick<Navigator, "userAgent">) {
+  if (/GSA\/|FBAN|FBAV|Instagram|Line\//i.test(nav.userAgent)) {
+    return "other";
+  }
   if (/CriOS\//i.test(nav.userAgent)) {
     return "chrome";
   }
   if (
     /Safari\//i.test(nav.userAgent) &&
     /Version\//i.test(nav.userAgent) &&
-    !/FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\/|FBAN|FBAV|Instagram|Line\//i.test(nav.userAgent)
+    !/FxiOS|EdgiOS|OPiOS|DuckDuckGo/i.test(nav.userAgent)
   ) {
     return "safari";
   }

@@ -1,18 +1,51 @@
 import { build as viteBuild } from "vite";
 import { build } from "esbuild";
-import { mkdir, readFile, readdir, writeFile, cp, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile, cp, rm, realpath, lstat } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 
-const root = process.cwd();
-if (!root.endsWith("voltura-places")) {
+const root = await realpath(fileURLToPath(new URL("../", import.meta.url)));
+if ((await realpath(process.cwd())) !== root) {
   throw new Error("Run from the Places checkout.");
+}
+// Vite empties its client output, so reject linked parents before any build writes.
+for (const relative of [
+  ".artifacts",
+  ".artifacts/client",
+  "public",
+  "public/startup-images",
+  "dist",
+]) {
+  const path = resolve(root, relative);
+  try {
+    if (!(await lstat(path)).isDirectory() || (await realpath(path)) !== path) {
+      throw new Error(`Unexpected Places directory: ${relative}`);
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
 }
 await mkdir("public", { recursive: true });
 const { generateBranding } = await import("./branding.mjs");
 await generateBranding();
 await viteBuild();
+// Sites packages the whole dist tree, including files no longer present in this revision.
+const output = resolve(root, "dist");
+const previous = await lstat(output).catch((error) => {
+  if (error.code !== "ENOENT") {
+    throw error;
+  }
+});
+if (previous) {
+  if (!previous.isDirectory() || (await realpath(output)) !== output) {
+    throw new Error("Unexpected Places build output path");
+  }
+  await rm(output, { recursive: true });
+}
 await mkdir("dist/server", { recursive: true });
 await mkdir("dist/.openai", { recursive: true });
 const types = {
@@ -28,7 +61,9 @@ const types = {
 const assets = {};
 
 async function collect(dir = "") {
-  for (const e of await readdir(resolve(".artifacts/client", dir), { withFileTypes: true })) {
+  const files = await readdir(resolve(".artifacts/client", dir), { withFileTypes: true });
+  files.sort((a, b) => (a.name < b.name ? -1 : Number(a.name > b.name)));
+  for (const e of files) {
     const path = dir ? `${dir}/${e.name}` : e.name;
     if (e.isDirectory()) {
       await collect(path);
@@ -52,12 +87,13 @@ try {
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
 } catch {}
-const contentHash = createHash("sha256").update(JSON.stringify(assets)).digest("hex").slice(0, 12);
+const serializedAssets = JSON.stringify(assets);
+const contentHash = createHash("sha256").update(serializedAssets).digest("hex").slice(0, 12);
 const packageVersion = JSON.parse(await readFile("package.json", "utf8")).version;
 const version = `${packageVersion}-${revision}-${contentHash}`;
 await build({
   stdin: {
-    contents: `import {createWorker} from './src/server/index.ts';export default createWorker(${JSON.stringify(assets)},${JSON.stringify(version)});`,
+    contents: `import {createWorker} from './src/server/index.ts';export default createWorker(${serializedAssets},${JSON.stringify(version)});`,
     resolveDir: root,
   },
   outfile: "dist/server/index.js",

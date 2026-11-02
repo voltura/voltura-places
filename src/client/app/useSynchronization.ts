@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { synchronizeAndWait, temporarySyncFailure, type SyncStatus } from "../foundation/sync";
 import { visitOwner } from "../../shared/visits";
 import type { Session } from "./useSession";
@@ -29,19 +29,24 @@ export function useSynchronization(
   reconciling: boolean,
 ) {
   const { operations, refreshAccount } = session;
-  const { scope, refresh } = workspace;
+  const { scope, refresh, canWrite, canWriteNow } = workspace;
+  const discardStaleIdentity = useEffectEvent(session.discardStaleIdentity);
   const [status, setStatus] = useState<SyncStatus>(operations.account ? "pending" : "localOnly");
   const blocked = useRef(reconciling);
   blocked.current = reconciling;
-  const active = useRef<{ isCurrent: () => boolean; changed: boolean; done: Promise<void> } | null>(
-    null,
-  );
+  const active = useRef<{
+    isCurrent: () => boolean;
+    changed: boolean;
+    writable: boolean;
+    cancelled: boolean;
+    done: Promise<void>;
+  } | null>(null);
 
   const requestSync = useCallback(
     (changed: boolean) => {
       const current = active.current;
       if (current?.isCurrent()) {
-        current.changed ||= changed;
+        current.changed ||= changed || current.writable !== canWriteNow();
 
         return current.done;
       }
@@ -50,42 +55,53 @@ export function useSynchronization(
       if (key === "guest" || blocked.current) {
         return Promise.resolve();
       }
-      const pass = { isCurrent: operation.isCurrent, changed: false, done: Promise.resolve() };
+      const pass = {
+        isCurrent: (): boolean => !pass.cancelled && !blocked.current && operation.isCurrent(),
+        cancelled: false,
+        changed: false,
+        writable: canWriteNow(),
+        done: Promise.resolve(),
+      };
       active.current = pass;
 
       const run = async () => {
         do {
           pass.changed = false;
-          let libraryStatus: SyncStatus = "pending";
-          await synchronizeAndWait(
-            key,
-            (result) => {
-              libraryStatus = result;
-              if (operation.isCurrent()) {
-                setStatus(result);
-              }
-            },
-            operation.isCurrent,
-          );
-          if (!operation.isCurrent()) {
+          const owner = visitOwner(key);
+          let libraryStatus: SyncStatus = "actionRequired";
+          pass.writable = canWriteNow();
+          if (pass.writable) {
+            await synchronizeAndWait(
+              key,
+              (result) => {
+                libraryStatus = result;
+                if (pass.isCurrent()) {
+                  setStatus(owner === key ? result : combineSyncStatus(result, "syncing"));
+                }
+              },
+              pass.isCurrent,
+            );
+          } else {
+            setStatus(libraryStatus);
+          }
+          if (!pass.isCurrent()) {
             return;
           }
-          const owner = visitOwner(key);
           if (owner !== key) {
             await synchronizeAndWait(
               owner,
               (result) => {
-                if (operation.isCurrent()) {
+                if (pass.isCurrent()) {
                   setStatus(combineSyncStatus(libraryStatus, result));
                 }
               },
-              operation.isCurrent,
+              pass.isCurrent,
             );
           }
-          if (operation.isCurrent()) {
+          if (pass.isCurrent()) {
             await refresh();
           }
-        } while (pass.changed && operation.isCurrent() && !blocked.current);
+        } while (pass.changed && pass.isCurrent() && !blocked.current);
       };
 
       pass.done = run().finally(() => {
@@ -96,7 +112,7 @@ export function useSynchronization(
 
       return pass.done;
     },
-    [operations, refresh],
+    [operations, refresh, canWriteNow],
   );
 
   const sync = useCallback(() => {
@@ -107,21 +123,24 @@ export function useSynchronization(
     await refresh();
   }, [refreshAccount, refresh]);
   useEffect(() => {
-    void refreshIdentity().catch(() => {});
-  }, [refreshIdentity]);
+    void refreshAccount().catch(() => {});
+  }, [refreshAccount]);
   useEffect(() => {
-    setStatus(scope === "guest" ? "localOnly" : "pending");
+    if (reconciling && active.current) {
+      active.current.cancelled = true;
+    }
+    setStatus(scope === "guest" ? "localOnly" : reconciling ? "reconcilePending" : "pending");
     if (scope !== "guest" && !reconciling) {
       void requestSync(false);
     }
-  }, [scope, reconciling, requestSync]);
+  }, [scope, reconciling, canWrite, requestSync]);
   useEffect(() => {
     let refreshing: Promise<void> | undefined;
 
     const refreshAndSync = async () => {
       const operation = operations.capture();
       try {
-        await refreshIdentity();
+        await refreshAccount();
       } catch (error) {
         if (operation.isCurrent() && operation.account && !blocked.current) {
           if (temporarySyncFailure(error) && navigator.onLine) {
@@ -135,7 +154,11 @@ export function useSynchronization(
         return;
       }
       if (operation.isCurrent()) {
-        await requestSync(false);
+        if (operation.workspace === "guest" || blocked.current) {
+          await refresh();
+        } else {
+          await requestSync(false);
+        }
       }
     };
 
@@ -153,6 +176,7 @@ export function useSynchronization(
         event.key === "places-account" ||
         event.key === "places-pending-logout"
       ) {
+        discardStaleIdentity();
         void refreshAndSync();
       }
     };
@@ -170,7 +194,7 @@ export function useSynchronization(
       window.removeEventListener("storage", accountStorageChanged);
       document.removeEventListener("visibilitychange", foreground);
     };
-  }, [operations, refreshIdentity, requestSync]);
+  }, [operations, refreshAccount, refresh, requestSync]);
 
   const manualSync = () => {
     if (blocked.current) {

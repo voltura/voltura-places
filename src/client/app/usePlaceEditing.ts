@@ -18,6 +18,7 @@ import type { Operation } from "./operations";
 export function usePlaceEditing({
   session,
   workspace,
+  reconciling,
   prefs,
   setPrefs,
   categories,
@@ -31,6 +32,7 @@ export function usePlaceEditing({
 }: {
   session: Session;
   workspace: WorkspaceController;
+  reconciling: boolean;
   prefs: Preferences;
   setPrefs: Dispatch<SetStateAction<Preferences>>;
   categories: LocalRecord[];
@@ -40,11 +42,13 @@ export function usePlaceEditing({
   setStatus: Dispatch<SetStateAction<SyncStatus>>;
   setSelected: Dispatch<SetStateAction<string | null>>;
   rememberPosition: (position: GeolocationPosition) => void;
-  onRemoved: () => void;
+  onRemoved: (id: string) => void;
 }) {
   const { operations } = session;
   const { scope, refresh, beginWrite } = workspace;
   const rendered = operations.capture();
+  const transferPending = useRef(reconciling);
+  transferPending.current = reconciling;
   const [editor, setEditor] = useState<{
     entity?: Entity;
     fresh?: boolean;
@@ -58,6 +62,8 @@ export function usePlaceEditing({
     entity: LocalRecord;
     scope: string;
   } | null>(null);
+  const [deletingPlace, setDeletingPlace] = useState(false);
+  const placeDeletePending = useRef<symbol | null>(null);
   const [deletingCategory, setDeletingCategory] = useState(false);
   const categoryDeletePending = useRef<symbol | null>(null);
   const [locating, setLocating] = useState(false);
@@ -78,6 +84,8 @@ export function usePlaceEditing({
     setDeleteCategory(null);
     categoryDeletePending.current = null;
     setDeletingCategory(false);
+    placeDeletePending.current = null;
+    setDeletingPlace(false);
     setGpsReview(false);
     capture.current++;
     stopCapture.current();
@@ -86,10 +94,23 @@ export function usePlaceEditing({
 
   useEffect(() => () => stopCapture.current(), []);
   useEffect(() => {
+    if (!workspace.canWrite) {
+      cancelCapture();
+      setGpsReview(false);
+      setEditor(null);
+      setCategoryEdit(null);
+      setDeleteCategory(null);
+      setDeletePlace(null);
+    }
+  }, [workspace.canWrite]);
+  useEffect(() => {
+    if (!workspace.canWrite) {
+      return;
+    }
     let active = true;
-    const operation = operations.capture();
-    void Promise.all([getDraft(scope), readWorkspace(scope)])
-      .then(([draft, w]) => {
+    const operation = beginWrite();
+    void getDraft(scope)
+      .then(async (draft) => {
         if (
           active &&
           operation.isCurrent() &&
@@ -98,10 +119,17 @@ export function usePlaceEditing({
           "id" in draft &&
           typeof draft.id === "string"
         ) {
-          setEditor({
-            entity: w.records.find((r) => r.id === draft.id && !r.deleted),
-            draftId: draft.id,
-          });
+          const id = draft.id;
+          const w = await readWorkspace(scope);
+          if (active && operation.isCurrent()) {
+            setEditor(
+              (existing) =>
+                existing ?? {
+                  entity: w.records.find((r) => r.id === id && r.kind === "place" && !r.deleted),
+                  draftId: id,
+                },
+            );
+          }
         }
       })
       .catch(() => {});
@@ -109,7 +137,7 @@ export function usePlaceEditing({
     return () => {
       active = false;
     };
-  }, [scope, operations]);
+  }, [scope, beginWrite, workspace.canWrite]);
 
   async function save(
     entity: Entity,
@@ -124,11 +152,8 @@ export function usePlaceEditing({
     if (!isCurrent()) {
       throw new Error("familyAccessEnded");
     }
-    if (!(await readWorkspace(operation.workspace)).reconciled) {
+    if (transferPending.current) {
       throw new Error("syncBusy");
-    }
-    if (!isCurrent()) {
-      throw new Error("accountChanged");
     }
     await saveEntity(
       operation.workspace,
@@ -142,7 +167,11 @@ export function usePlaceEditing({
       return;
     }
     if (entity.kind === "place") {
-      setPrefs((p) => ({ ...p, lastCategory: entity.value.categoryId }));
+      setPrefs((p) =>
+        p.lastCategory === entity.value.categoryId
+          ? p
+          : { ...p, lastCategory: entity.value.categoryId },
+      );
     }
     await refresh();
     if (!isCurrent()) {
@@ -199,9 +228,9 @@ export function usePlaceEditing({
       setSelected(entity.id);
       setEditor({ entity, fresh: true });
       sync();
-    } catch {
+    } catch (error) {
       if (isCurrent()) {
-        notify("storageFailure", true);
+        notify(libraryErrorMessage(error), true);
       }
     } finally {
       if (attempt === capture.current) {
@@ -242,12 +271,13 @@ export function usePlaceEditing({
   }
 
   function confirmPosition(position: GeolocationPosition) {
-    if (!rendered.isCurrent()) {
+    const operation = beginWrite();
+    if (!rendered.isCurrent() || !operation.isCurrent()) {
       return;
     }
     setGpsReview(false);
     setLocating(true);
-    void persistPosition(position, beginWrite(), ++capture.current);
+    void persistPosition(position, operation, ++capture.current);
   }
 
   async function discardPlace(id: string) {
@@ -270,18 +300,26 @@ export function usePlaceEditing({
   }
 
   async function remove(p: PlaceRecord, key: string) {
-    setDeletePlace(null);
     const operation = beginWrite();
-    if (key !== operation.workspace || !rendered.isCurrent() || !operation.isCurrent()) {
+    if (
+      placeDeletePending.current ||
+      key !== operation.workspace ||
+      !rendered.isCurrent() ||
+      !operation.isCurrent()
+    ) {
       return;
     }
+    const pending = Symbol();
+    placeDeletePending.current = pending;
+    setDeletingPlace(true);
     try {
       await deleteEntity(key, p.id, operation.isCurrent);
       if (!operation.isCurrent()) {
         return;
       }
-      setSelected(null);
-      onRemoved();
+      setDeletePlace(null);
+      setSelected((selected) => (selected === p.id ? null : selected));
+      onRemoved(p.id);
       setEditor((current) => (current?.entity?.id === p.id ? null : current));
       await refresh();
       if (operation.isCurrent()) {
@@ -290,6 +328,11 @@ export function usePlaceEditing({
     } catch {
       if (operation.isCurrent()) {
         notify("storageFailure", true);
+      }
+    } finally {
+      if (placeDeletePending.current === pending) {
+        placeDeletePending.current = null;
+        setDeletingPlace(false);
       }
     }
   }
@@ -356,11 +399,17 @@ export function usePlaceEditing({
 
   return {
     editor,
-    setEditor,
+    setEditor: (next: typeof editor) => {
+      if (next) {
+        cancelCapture();
+      }
+      setEditor(next);
+    },
     categoryEdit,
     setCategoryEdit,
     deletePlace,
     setDeletePlace,
+    deletingPlace,
     deleteCategory,
     setDeleteCategory,
     deletingCategory,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { Miniflare, Response as WorkerResponse, convertV4MiniflareOptions } from "miniflare";
 import { readFile } from "node:fs/promises";
-import { createHmac, generateKeyPairSync, sign as signBytes } from "node:crypto";
+import { createHash, createHmac, generateKeyPairSync, sign as signBytes } from "node:crypto";
 
 test("Workers + D1: real auth handlers, signed email transport, cookies, code expiry/reuse/attempts, native linking and logout", async () => {
   const bundle = await build({
@@ -29,6 +29,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     alg: "RS256",
     use: "sig",
   };
+  let relayMode = "ok";
   let googleEmail = "listener@example.com";
   const mf = new Miniflare(
     convertV4MiniflareOptions({
@@ -85,6 +86,12 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
           request.headers.get("X-Voltura-Signature"),
           createHmac("sha256", secret).update(body).digest("hex"),
         );
+        if (relayMode === "html") {
+          return new WorkerResponse("<html>Maintenance</html>", { status: 200 });
+        }
+        if (relayMode === "limited") {
+          return new WorkerResponse("{}", { status: 429, headers: { "Retry-After": "120" } });
+        }
         mails.push(JSON.parse(body));
 
         return new WorkerResponse('{"ok":true}', { status: 200 });
@@ -93,17 +100,10 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
   );
   try {
     const db = await mf.getD1Database("DB");
-    for (const migration of [
-      "0000_accounts",
-      "0001_library",
-      "0002_photos",
-      "0003_families",
-      "0004_family_codes",
-      "0005_multiple_groups",
-      "0006_code_invitations_only",
-      "0007_usage_statistics",
-      "0008_record_counts",
-    ]) {
+    const journal = JSON.parse(
+      await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"),
+    );
+    for (const { tag: migration } of journal.entries) {
       const sql = await readFile(new URL(`../drizzle/${migration}.sql`, import.meta.url), "utf8");
       for (const statement of sql
         .split("--> statement-breakpoint")
@@ -151,12 +151,80 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     const sign = (email, otp) => call("/api/auth/sign-in/email-otp", { email, otp });
 
     assert.equal((await call("/api/account")).status, 200);
+    const oldDate = "2000-01-01T00:00:00.000Z";
+    const future = Date.now() + 86400000;
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO auth_verification(id,identifier,value,expiresAt,createdAt,updatedAt) VALUES('expired-iso','expired-iso','fixture',?,?,?),('live-numeric','live-numeric','fixture',?,?,?)",
+        )
+        .bind(oldDate, oldDate, oldDate, future, Date.now(), Date.now()),
+      db
+        .prepare(
+          "INSERT INTO auth_user(id,name,email,emailVerified,createdAt,updatedAt) VALUES('old-orphan','Fixture','old-orphan@example.invalid',0,?,?)",
+        )
+        .bind(oldDate, oldDate),
+      db
+        .prepare(
+          "INSERT INTO auth_session(id,token,userId,createdAt,updatedAt,expiresAt) VALUES('expired-session','orphan-fixture-token','old-orphan',?,?,?)",
+        )
+        .bind(oldDate, oldDate, oldDate),
+    ]);
+    assert.equal((await send("invalid email")).status, 400);
+    assert.equal(
+      await db.prepare("SELECT count(*) AS n FROM places_send_limits").first("n"),
+      0,
+      "Invalid addresses must not reserve recipient cooldowns",
+    );
+    assert.ok(
+      await db.prepare("SELECT 1 FROM auth_verification WHERE id='expired-iso'").first(),
+      "Malformed input does not trigger global authentication maintenance",
+    );
+    relayMode = "html";
+    assert.equal(
+      (await send("maintenance@example.invalid")).status,
+      503,
+      "A generic successful HTML page must not report a sent mail",
+    );
+    relayMode = "limited";
+    const limited = await send("limited@example.invalid");
+    assert.equal(limited.status, 429, "The relay's rate limit remains a rate limit");
+    assert.equal(limited.headers.get("Retry-After"), "120");
+    relayMode = "ok";
     const sent = await send("listener@example.com");
     assert.equal(sent.status, 200, await sent.text());
     assert.match(mails[0].code, /^\d{6}$/);
-    const stored = await db.prepare("SELECT value FROM auth_verification").first();
+    assert.equal(
+      await db.prepare("SELECT 1 FROM auth_verification WHERE id='expired-iso'").first(),
+      null,
+      "Expired ISO verification rows are removed",
+    );
+    assert.equal(
+      await db.prepare("SELECT 1 FROM auth_session WHERE id='expired-session'").first(),
+      null,
+      "Expired ISO sessions release orphaned accounts",
+    );
+    assert.equal(
+      await db.prepare("SELECT 1 FROM auth_user WHERE id='old-orphan'").first(),
+      null,
+      "Old ISO provider-only accounts are collected",
+    );
+    assert.ok(
+      await db.prepare("SELECT 1 FROM auth_verification WHERE id='live-numeric'").first(),
+      "Numeric active legacy rows survive cleanup",
+    );
+    const stored = await db
+      .prepare("SELECT value FROM auth_verification WHERE identifier LIKE '%listener@example.com%'")
+      .first();
     assert.ok(!stored.value.includes(mails[0].code));
     assert.notEqual((await send("listener@example.com")).status, 200, "recipient cooldown");
+    for (let i = 0; i < 3; i++) {
+      assert.equal(
+        (await sign("listener@example.com", "")).status,
+        400,
+        "Incomplete codes do not spend a real attempt",
+      );
+    }
     const signed = await call("/api/auth/sign-in/email-otp", {
       email: "listener@example.com",
       otp: mails[0].code,
@@ -202,7 +270,16 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     }
     assert.notEqual((await sign("listener@example.com", mails[0].code)).status, 200, "single use");
     nativeId = "separate-native-same-email";
+    const priorToken = cookies.get("__Host-places-session");
     const separate = await call("/api/account/connect", { provider: "chatgpt" });
+    assert.equal(
+      await db
+        .prepare("SELECT 1 FROM places_sessions WHERE token_hash=?")
+        .bind(createHash("sha256").update(priorToken).digest("hex"))
+        .first(),
+      null,
+      "Switching identity invalidates the replaced browser bearer token",
+    );
     assert.notEqual(
       (await separate.json()).account.id,
       account.id,
@@ -219,6 +296,24 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       "no implicit linking",
     );
     assert.equal((await call("/api/account/link", { provider: "chatgpt" })).status, 200);
+    const supersededLink = cookies.get("__Host-places-link");
+    assert.equal((await call("/api/account/link", { provider: "chatgpt" })).status, 200);
+    assert.equal(
+      await db
+        .prepare("SELECT 1 FROM places_link_tickets WHERE token_hash=?")
+        .bind(createHash("sha256").update(supersededLink).digest("hex"))
+        .first(),
+      null,
+      "Issuing another link ticket invalidates the previous browser ticket",
+    );
+    const originSession = cookies.get("__Host-places-session");
+    cookies.delete("__Host-places-session");
+    assert.equal(
+      (await call("/api/account/connect", { provider: "chatgpt", linking: true })).status,
+      401,
+      "A link ticket alone cannot grant access to its originating account",
+    );
+    cookies.set("__Host-places-session", originSession);
     const linked = await call("/api/account/connect", { provider: "chatgpt", linking: true });
     assert.equal(linked.status, 200);
     const linkedAccount = (await linked.json()).account;
@@ -327,7 +422,33 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       404,
       "no OTP retrieval endpoint",
     );
+    assert.equal(
+      (await call("/api/account/link", { provider: "chatgpt" })).status,
+      409,
+      "An account cannot link a second subject for a provider already attached",
+    );
+    assert.equal((await call("/api/account/link", { provider: "google" })).status, 200);
+    expectedAccount = "";
+    assert.equal(
+      (await call("/api/account/sign-out", {})).status,
+      409,
+      "An unscoped sign-out cannot invalidate the currently signed-in account",
+    );
+    expectedAccount = account.id;
+    const ticket = cookies.get("__Host-places-link");
     assert.equal((await call("/api/account/sign-out", {})).status, 200);
+    const ticketDigest = (await import("node:crypto"))
+      .createHash("sha256")
+      .update(ticket)
+      .digest("hex");
+    assert.equal(
+      await db
+        .prepare("SELECT 1 FROM places_link_tickets WHERE token_hash=?")
+        .bind(ticketDigest)
+        .first(),
+      null,
+      "Sign-out revokes the outstanding link ticket",
+    );
     assert.equal((await (await call("/api/account")).json()).account, null);
     assert.equal(
       (await call("/api/account/connect", { provider: "email" })).status,

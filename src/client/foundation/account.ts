@@ -1,30 +1,71 @@
 import { api, ApiError } from "./http";
-import { accountStateSchema, type AccountState } from "./account-contract";
+import { accountIdSchema, accountStateSchema, type AccountState } from "./account-contract";
 
 const empty: AccountState = { enabled: false, providers: {}, account: null };
 let identityRevision = 0;
 let memoryPending: string | undefined;
+let pendingWriteFailed = false;
+let ignoredPending: string | undefined;
+let hiddenAccountId: string | undefined;
+const signingOut = new Map<string, Promise<void>>();
 
-function pendingLogout() {
-  if (memoryPending) {
-    return memoryPending;
-  }
+function accountCache() {
   try {
-    return localStorage.getItem("places-pending-logout");
+    return localStorage.getItem("places-account");
   } catch {
     return null;
   }
 }
 
+function pendingLogout() {
+  if (pendingWriteFailed) {
+    return memoryPending;
+  }
+  try {
+    const saved = localStorage.getItem("places-pending-logout");
+    if (saved !== ignoredPending) {
+      ignoredPending = undefined;
+    }
+    memoryPending =
+      saved && saved !== ignoredPending && accountIdSchema.safeParse(saved).success
+        ? saved
+        : undefined;
+  } catch {}
+
+  return memoryPending;
+}
+
 function clearPending(expected: string) {
   if (memoryPending === expected) {
     memoryPending = undefined;
+    pendingWriteFailed = false;
   }
   try {
     if (localStorage.getItem("places-pending-logout") === expected) {
       localStorage.removeItem("places-pending-logout");
     }
-  } catch {}
+  } catch {
+    ignoredPending = expected;
+  }
+}
+
+function completeLogout(id: string) {
+  const pending = signingOut.get(id);
+  if (pending) {
+    return pending;
+  }
+  const request = api("/api/account/sign-out", {}, id)
+    .then(() => clearPending(id))
+    .catch((error) => {
+      if (!(error instanceof ApiError && error.status === 409)) {
+        throw error;
+      }
+      clearPending(id);
+    })
+    .finally(() => signingOut.delete(id));
+  signingOut.set(id, request);
+
+  return request;
 }
 
 export function cachedAccount(): AccountState {
@@ -33,7 +74,13 @@ export function cachedAccount(): AccountState {
       return empty;
     }
 
-    return accountStateSchema.parse(JSON.parse(localStorage.getItem("places-account") ?? "null"));
+    const saved = accountCache();
+    if (!saved) {
+      return empty;
+    }
+    const state = accountStateSchema.parse(JSON.parse(saved));
+
+    return state.account?.id && state.account.id === hiddenAccountId ? empty : state;
   } catch {
     return empty;
   }
@@ -44,22 +91,27 @@ export async function currentAccount(): Promise<AccountState> {
   const pending = pendingLogout();
   if (pending) {
     try {
-      await api("/api/account/sign-out", {}, pending);
-      clearPending(pending);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        clearPending(pending);
-      } else {
-        return { ...empty, providers: cachedAccount().providers };
-      }
+      await completeLogout(pending);
+    } catch {
+      return empty;
     }
   }
+  const previous = accountCache();
   const result = accountStateSchema.parse(await api("/api/account"));
-  if (revision !== identityRevision) {
+  const serialized = JSON.stringify(result);
+  const latest = accountCache();
+  if (
+    revision !== identityRevision ||
+    pendingLogout() ||
+    (previous !== latest && latest !== serialized)
+  ) {
     throw new Error("accountChanged");
   }
   try {
-    localStorage.setItem("places-account", JSON.stringify(result));
+    if (latest !== serialized) {
+      localStorage.setItem("places-account", serialized);
+    }
+    hiddenAccountId = undefined;
   } catch {}
 
   return result;
@@ -67,24 +119,23 @@ export async function currentAccount(): Promise<AccountState> {
 
 export async function signOutLocally(accountId?: string) {
   identityRevision++;
-  if (accountId) {
-    memoryPending = accountId;
+  if (!accountId || !accountIdSchema.safeParse(accountId).success) {
+    return;
   }
+  memoryPending = accountId;
+  ignoredPending = undefined;
+  hiddenAccountId = accountId;
   // Hide the account workspace immediately, even when logout cannot reach the server.
   try {
+    localStorage.setItem("places-pending-logout", accountId);
+    pendingWriteFailed = false;
+  } catch {
+    pendingWriteFailed = true;
+  }
+  try {
     localStorage.removeItem("places-account");
-    if (accountId) {
-      localStorage.setItem("places-pending-logout", accountId);
-    }
   } catch {}
   try {
-    await api("/api/account/sign-out", {}, accountId);
-    if (accountId) {
-      clearPending(accountId);
-    }
-  } catch (error) {
-    if (accountId && error instanceof ApiError && error.status === 409) {
-      clearPending(accountId);
-    }
-  }
+    await completeLogout(accountId);
+  } catch {}
 }

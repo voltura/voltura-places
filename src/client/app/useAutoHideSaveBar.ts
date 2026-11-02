@@ -36,15 +36,15 @@ export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey:
   const onScroll = useEffectEvent(() => {
     const y = Math.max(0, window.scrollY);
     const delta = y - scroll.current.y;
+    if (!delta) {
+      return;
+    }
     const direction = Math.sign(delta);
     const distance =
       direction === scroll.current.direction
         ? scroll.current.distance + Math.abs(delta)
         : Math.abs(delta);
     scroll.current = { y, direction, distance };
-    if (!delta) {
-      return;
-    }
     if (direction < 0 && distance >= 24) {
       reveal();
     } else if (direction > 0 && distance >= 48) {

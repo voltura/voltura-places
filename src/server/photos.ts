@@ -4,6 +4,8 @@ import { jpegDimensions, photoHash, PHOTO_BYTES, PHOTO_QUOTA } from "../shared/p
 import type { Environment } from "./types";
 import { z } from "zod";
 
+const photoIdSchema = z.string().uuid();
+
 const json = (error: string, status: number) => Response.json({ error }, { status });
 
 export async function handlePhoto(request: Request, env: Environment) {
@@ -16,8 +18,8 @@ export async function handlePhoto(request: Request, env: Environment) {
       error instanceof WorkspaceError ? error.status : 503,
     );
   }
-  const id = new URL(request.url).pathname.split("/").at(-1)!;
-  if (!z.string().uuid().safeParse(id).success) {
+  const id = new URL(request.url).pathname.slice("/api/v1/photos/".length);
+  if (!photoIdSchema.safeParse(id).success) {
     return json("invalidPhoto", 400);
   }
   if (request.method === "GET") {
@@ -43,7 +45,7 @@ export async function handlePhoto(request: Request, env: Environment) {
   if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) {
     return json("invalidOrigin", 403);
   }
-  if (request.headers.get("Content-Type") !== "image/jpeg") {
+  if (request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase() !== "image/jpeg") {
     return json("invalidPhoto", 415);
   }
   let bytes;
@@ -64,7 +66,7 @@ export async function handlePhoto(request: Request, env: Environment) {
   }
   const hash = await photoHash(bytes);
   await env.DB.prepare(
-    `INSERT OR IGNORE INTO places_photos(account_id,id,hash,bytes,data) SELECT ?,?,?,?,? WHERE (SELECT COALESCE(SUM(bytes),0) FROM places_photos WHERE account_id=?) + ? <= ? AND (SELECT COUNT(*) FROM places_photos WHERE account_id=?) < 1000 AND ${membershipSQL}`,
+    `INSERT OR IGNORE INTO places_photos(account_id,id,hash,bytes,data) SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM places_photos WHERE account_id=? AND id=?) AND (SELECT COUNT(*) < 1000 AND COALESCE(SUM(bytes),0) + ? <= ? FROM places_photos WHERE account_id=?) AND ${membershipSQL}`,
   )
     .bind(
       identity.storage,
@@ -73,6 +75,7 @@ export async function handlePhoto(request: Request, env: Environment) {
       length,
       bytes,
       identity.storage,
+      id,
       length,
       PHOTO_QUOTA,
       identity.storage,
@@ -87,8 +90,10 @@ export async function handlePhoto(request: Request, env: Environment) {
       error instanceof WorkspaceError ? error.status : 503,
     );
   }
-  const stored = await env.DB.prepare("SELECT hash FROM places_photos WHERE account_id=? AND id=?")
-    .bind(identity.storage, id)
+  const stored = await env.DB.prepare(
+    `SELECT hash FROM places_photos WHERE account_id=? AND id=? AND ${membershipSQL}`,
+  )
+    .bind(identity.storage, id, ...membershipArgs(identity))
     .first<{ hash: string }>();
   if (!stored) {
     return json("photoQuota", 413);

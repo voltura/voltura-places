@@ -100,18 +100,22 @@ function point(place: PlaceRecord, start = -180): L.LatLngTuple {
   ];
 }
 
-function fitPlaces(map: L.Map | null, places: PlaceRecord[], preview = false) {
-  if (!map || !places.length) {
-    return;
-  }
-  const start = longitudeArcStart(places.map((p) => p.value.longitude));
-  const bounds = L.latLngBounds(places.map((p) => point(p, start)));
-  if (preview) {
-    for (const place of places) {
-      if (place.value.accuracy !== null && place.value.accuracy > 0) {
-        bounds.extend(L.latLng(point(place, start)).toBounds(place.value.accuracy * 2));
-      }
+function placeBounds(places: PlaceRecord[], start: number, preview: boolean) {
+  const bounds = L.latLngBounds([]);
+  for (const place of places) {
+    const location = L.latLng(point(place, start));
+    bounds.extend(location);
+    if (preview && place.value.accuracy !== null && place.value.accuracy > 0) {
+      bounds.extend(location.toBounds(place.value.accuracy * 2));
     }
+  }
+
+  return bounds;
+}
+
+function fitPlaces(map: L.Map | null, bounds: L.LatLngBounds, preview: boolean) {
+  if (!map || !bounds.isValid()) {
+    return;
   }
   map.fitBounds(bounds, {
     padding: preview ? [24, 24] : [36, 36],
@@ -146,17 +150,11 @@ export default function PlacesMap({
   const [choices, setChoices] = useState<string[]>([]);
   const [allVisible, setAllVisible] = useState(true);
   const start = useMemo(() => longitudeArcStart(places.map((p) => p.value.longitude)), [places]);
+  const bounds = useMemo(() => placeBounds(places, start, preview), [places, start, preview]);
   const choiceIds = useMemo(() => new Set(choices), [choices]);
-  const choiceRecords = places.filter((place) => choiceIds.has(place.id));
-  const dataKey = JSON.stringify(
-    places.map((place) => [
-      place.id,
-      place.value.latitude,
-      place.value.longitude,
-      place.value.accuracy,
-      place.value.name,
-      categoryColor(place.value.categoryId),
-    ]),
+  const choiceRecords = useMemo(
+    () => (choiceIds.size ? places.filter((place) => choiceIds.has(place.id)) : []),
+    [places, choiceIds],
   );
   const browsing = useEffectEvent(() => {
     if (!preview && !fullscreen) {
@@ -170,21 +168,20 @@ export default function PlacesMap({
       return;
     }
     const size = map.getSize();
+    if (!bounds.isValid()) {
+      return;
+    }
+    const topLeft = map.latLngToContainerPoint(bounds.getNorthWest());
+    const bottomRight = map.latLngToContainerPoint(bounds.getSouthEast());
     setAllVisible(
-      places.every((place) => {
-        const position = map.latLngToContainerPoint(point(place, start));
-
-        return (
-          position.x >= 24 &&
-          position.x <= size.x - 24 &&
-          position.y >= 24 &&
-          position.y <= size.y - 24
-        );
-      }),
+      topLeft.x >= 24 &&
+        topLeft.y >= 24 &&
+        bottomRight.x <= size.x - 24 &&
+        bottomRight.y <= size.y - 24,
     );
   });
   const fit = useEffectEvent(() => {
-    fitPlaces(mapRef.current, places, preview);
+    fitPlaces(mapRef.current, bounds, preview);
     updateVisibility();
   });
 
@@ -210,6 +207,9 @@ export default function PlacesMap({
     const userBrowse = () => browsing();
 
     const userKey = (event: KeyboardEvent) => {
+      if (event.target !== map.getContainer() || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "+", "-", "="].includes(event.key)) {
         browsing();
       }
@@ -228,7 +228,7 @@ export default function PlacesMap({
     };
 
     const userZoomButton = (event: MouseEvent) => {
-      if ((event.target as Element).closest(".leaflet-control-zoom a")) {
+      if ((event.target as Element).closest(".leaflet-control-zoom a:not(.leaflet-disabled)")) {
         browsing();
       }
     };
@@ -244,7 +244,7 @@ export default function PlacesMap({
     const visibilityChanged = () => updateVisibility();
 
     map.on("moveend zoomend resize", visibilityChanged);
-    fitPlaces(map, live().places, preview);
+    fit();
     const { t } = live();
     if (!preview) {
       L.control.zoom({ zoomInTitle: t("zoomIn"), zoomOutTitle: t("zoomOut") }).addTo(map);
@@ -259,13 +259,26 @@ export default function PlacesMap({
       keepBuffer: 0,
       updateWhenIdle: true,
     });
-    tiles.on("loading", () => setTileFailed(false));
-    tiles.on("tileerror", () => setTileFailed(true));
+    const failedTiles = new Set<HTMLElement>();
+    tiles.on("tileerror", (event: L.TileErrorEvent) => {
+      if (surface.contains(event.tile)) {
+        failedTiles.add(event.tile);
+        setTileFailed(true);
+      }
+    });
+
+    const clearFailedTile = (event: L.TileEvent) => {
+      if (failedTiles.delete(event.tile)) {
+        setTileFailed(failedTiles.size !== 0);
+      }
+    };
+
+    tiles.on("tileunload", clearFailedTile);
+    tiles.on("tileload", clearFailedTile);
 
     const connectivity = () => {
       setOffline(!navigator.onLine);
       if (navigator.onLine) {
-        setTileFailed(false);
         if (!map.hasLayer(tiles)) {
           tiles.addTo(map);
         } else {
@@ -315,6 +328,7 @@ export default function PlacesMap({
           [...markersRef.current].filter(([, marker]) => members.has(marker)).map(([id]) => id),
         );
       } else {
+        browsing();
         cluster.zoomToBounds({ padding: [36, 36], animate: false });
       }
     });
@@ -364,7 +378,7 @@ export default function PlacesMap({
     return () => {
       circles.remove();
     };
-  }, [dataKey, preview]);
+  }, [places, start, preview]);
 
   useEffect(() => {
     const group = groupRef.current!;
@@ -445,12 +459,14 @@ export default function PlacesMap({
       group.addLayers(added);
     }
     updateVisibility();
-  }, [dataKey]);
+  }, [places, categoryColor, start]);
 
   useEffect(() => {
     setChoices([]);
-    fit();
-  }, [fitKey]);
+    if (!preview) {
+      fit();
+    }
+  }, [fitKey, preview]);
   useEffect(() => {
     for (const id of new Set([previousSelected.current, selected])) {
       const element = id ? markersRef.current.get(id)?.getElement() : undefined;
@@ -458,7 +474,7 @@ export default function PlacesMap({
       element?.setAttribute("aria-pressed", String(id === selected));
     }
     previousSelected.current = selected;
-  }, [selected, dataKey]);
+  }, [selected]);
   useEffect(() => {
     const surface = container.current;
     for (const [selector, label] of [
@@ -538,7 +554,7 @@ export default function PlacesMap({
                 <button
                   className="button outline map-show-all"
                   onClick={() => {
-                    fitPlaces(mapRef.current, places);
+                    fit();
                     mapRef.current?.getContainer().focus({ preventScroll: true });
                   }}
                 >

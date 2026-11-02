@@ -52,13 +52,36 @@ test("usage API: origins, validation, private data, cache, deduplication and exp
     }
     assert.equal(initial.version, 1);
     assert.ok(initial.activityStartedAt > 0);
-    for (const promo of ["https://voltura.se", "http://127.0.0.1:5175"]) {
+    for (const promo of ["https://voltura.se", "http://127.0.0.1:5175", "http://localhost:5175"]) {
       assert.equal(
         (await get({ Origin: promo })).headers.get("Access-Control-Allow-Origin"),
         promo,
       );
     }
     assert.equal((await get({ Origin: "https://example.invalid" })).status, 403);
+    const prod = new Miniflare(
+      convertV4MiniflareOptions({
+        modules: true,
+        scriptPath: "dist/server/index.js",
+        compatibilityDate: "2026-10-29",
+        compatibilityFlags: ["nodejs_compat"],
+        bindings: {
+          AUTH_ORIGIN: "https://places.voltura.se",
+          AUTH_SECRET: "isolated-fixture-secret",
+        },
+      }),
+    );
+    try {
+      for (const local of ["http://localhost:5175", "http://127.0.0.1:5175"]) {
+        const denied = await prod.dispatchFetch("https://places.voltura.se/api/v1/statistics", {
+          headers: { Origin: local },
+        });
+        assert.equal(denied.status, 403);
+        assert.equal(denied.headers.has("Access-Control-Allow-Origin"), false);
+      }
+    } finally {
+      await prod.dispose();
+    }
     assert.equal((await post("{}", { Origin: "https://voltura.se" })).status, 403);
     assert.equal((await post("{}", { Origin: "" })).status, 403);
     assert.equal((await post("{}", { "Sec-Fetch-Site": "cross-site" })).status, 403);

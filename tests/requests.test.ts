@@ -123,3 +123,15 @@ test.each([
     ).toBe(expected);
   },
 );
+
+test("a stalled stream cancellation cannot indefinitely delay rejection", async () => {
+  const input = streamed([new Uint8Array(10)], () => new Promise<void>(() => {}));
+  await expect(readBytes(input, 1)).rejects.toMatchObject({ status: 413 });
+  expect(input.body!.locked).toBe(false);
+}, 1000);
+
+test("declared oversize requests are rejected without waiting for their first chunk", async () => {
+  const body = new ReadableStream<Uint8Array>({ pull: () => new Promise<void>(() => {}) });
+  const input = { headers: new Headers({ "Content-Length": "99999" }), body } as Request;
+  await expect(readBytes(input, 256)).rejects.toMatchObject({ status: 413 });
+}, 1000);

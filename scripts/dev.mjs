@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { previewOrigin } from "./preview-config.mjs";
 
 const children = [];
@@ -7,7 +6,10 @@ const children = [];
 const run = (args) =>
   new Promise((resolve, reject) => {
     const p = spawn(process.execPath, args, { stdio: "inherit" });
-    p.once("exit", (code) => (code ? reject(new Error(`Command exited ${code}`)) : resolve()));
+    p.once("error", reject);
+    p.once("close", (code, signal) =>
+      code !== 0 ? reject(new Error(`Command exited ${signal ?? code}`)) : resolve(),
+    );
   });
 
 await run(["node_modules/wrangler/bin/wrangler.js", "types"]);

@@ -27,7 +27,7 @@ export function loadPassword(paths = credentialPaths(), execute = spawnSync) {
   });
   if (result.error || result.status !== 0 || !result.stdout) {
     throw new Error(
-      "Cannot unlock the shared SFTP password. Run npm run publish:site:password from your Windows account.",
+      "Cannot unlock the shared SFTP password. Run the Places publisher from the Windows account that holds the saved credential.",
     );
   }
 
@@ -71,7 +71,7 @@ export async function connectSftp({
       hostHash: "sha256",
       hostVerifier: (fingerprint) => {
         observed = fingerprint;
-        mismatch = Boolean(known && known !== fingerprint);
+        mismatch = Boolean(known && known.toLowerCase() !== fingerprint.toLowerCase());
 
         return !mismatch;
       },

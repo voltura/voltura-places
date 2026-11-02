@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { categoryName } from "../../shared/category-names";
 import { familyKey } from "../../shared/families";
 import {
   parseShare,
@@ -52,17 +53,14 @@ export function useSharing({
   useEffect(() => {
     const consume = () => {
       const hash = location.hash;
-      if (!hash) {
+      if (!hash.startsWith("#place=")) {
         return;
       }
       const incoming = parseShare(hash);
-      if (hash.startsWith("#place=")) {
-        history.replaceState(history.state, "", location.pathname + location.search);
-      }
-      if (incoming) {
-        sharedRevision.current++;
-        setShared(incoming);
-      } else {
+      history.replaceState(history.state, "", location.pathname + location.search);
+      sharedRevision.current++;
+      setShared(incoming);
+      if (!incoming) {
         callbacks.current.notify("invalidShare", true);
       }
     };
@@ -74,11 +72,16 @@ export function useSharing({
   }, []);
 
   async function copy(text: string) {
-    const operation = operations.capture("account");
+    const operation = rendered;
+    if (!operation.isCurrent()) {
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
       if (operation.isCurrent()) {
         notify("copied");
+
+        return;
       }
     } catch {
       if (operation.isCurrent()) {
@@ -94,7 +97,8 @@ export function useSharing({
     const category = categoryFor(p.value.categoryId);
     const url = shareURL(p.value, category ? categoryLabel(category) : t("other"), location.origin);
     try {
-      const result = await shareOrCopy({ title: p.value.name, text: p.value.name, url }, url);
+      const data = { title: p.value.name, text: p.value.name, url };
+      const result = await shareOrCopy(data, url, rendered.isCurrent);
       if (!rendered.isCurrent()) {
         return;
       }
@@ -102,11 +106,11 @@ export function useSharing({
         notify("shareReady");
       }
       if (result !== "dismissed") {
-        setSharePlace(null);
+        setSharePlace((current) => (current === p ? null : current));
       }
     } catch (error) {
       if (rendered.isCurrent() && !(error instanceof DOMException && error.name === "AbortError")) {
-        return copy(url);
+        showText(url);
       }
     }
   }
@@ -133,15 +137,16 @@ export function useSharing({
     try {
       const key = familyKey(operation.account!, groupId);
       await copyPlaceToWorkspace(operation.workspace, key, id, isCurrent);
+      // Once the destination commit succeeds, its upload belongs to that
+      // membership, even if the user starts browsing another source workspace.
+      if (destinationCurrent()) {
+        void synchronize(key, () => {}, destinationCurrent).catch(() => {});
+      }
       if (!isCurrent()) {
         return;
       }
-      await synchronize(key, () => {}, isCurrent);
-      if (!isCurrent()) {
-        return;
-      }
-      setMenu(null);
-      setSharePlace(null);
+      setMenu((current) => (current === menu ? null : current));
+      setSharePlace((current) => (current === sharePlace ? null : current));
       notify("copiedToGroup");
     } catch (error) {
       if (isCurrent()) {
@@ -150,9 +155,7 @@ export function useSharing({
     } finally {
       if (copyInProgress.current === pending) {
         copyInProgress.current = null;
-        if (operation.isCurrent()) {
-          setCopyingToGroup(false);
-        }
+        setCopyingToGroup(false);
       }
     }
   }
@@ -170,7 +173,14 @@ export function useSharing({
     setSavingShared(true);
     const revision = sharedRevision.current;
     const now = new Date().toISOString();
-    const cat = categories.find((c) => categoryLabel(c) === shared.category);
+    const cat =
+      categories.find((c) => categoryLabel(c) === shared.category) ??
+      categories.find(
+        (c) =>
+          c.kind === "category" &&
+          (categoryName(c.value, "en") === shared.category ||
+            categoryName(c.value, "sv") === shared.category),
+      );
     try {
       await save({
         id: crypto.randomUUID(),
@@ -188,18 +198,15 @@ export function useSharing({
       });
       if (operation.isCurrent() && revision === sharedRevision.current) {
         setShared(null);
-        notify("saved");
       }
-    } catch {
+    } catch (error) {
       if (operation.isCurrent() && revision === sharedRevision.current) {
-        notify("storageFailure", true);
+        notify(libraryErrorMessage(error), true);
       }
     } finally {
       if (sharedSavePending.current === pending) {
         sharedSavePending.current = null;
-        if (operation.isCurrent()) {
-          setSavingShared(false);
-        }
+        setSavingShared(false);
       }
     }
   }

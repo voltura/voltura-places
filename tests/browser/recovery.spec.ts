@@ -104,6 +104,12 @@ test("clicking the sheet's inner bottom padding keeps it open while backdrop clo
   await page.goto(`/#place=${Buffer.from(JSON.stringify(snapshot)).toString("base64url")}`);
   const sheet = page.getByRole("dialog");
   const box = (await sheet.boundingBox())!;
+  // Releasing a drag over the backdrop must not dismiss the originating sheet.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 5);
+  await page.mouse.down();
+  await page.mouse.move(2, 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(sheet).toBeVisible();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height - 5);
   await expect(sheet).toBeVisible();
   await page.mouse.click(2, 2);

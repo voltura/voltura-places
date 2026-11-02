@@ -162,7 +162,12 @@ export function CategoryEditor({
           />
         </div>
         <div className="category-editor-footer">
-          <button className="button primary" disabled={savingCategory}>
+          <button
+            className="button primary"
+            disabled={
+              savingCategory || !Object.values(categoryEdit.names).some((name) => name?.trim())
+            }
+          >
             {!savingCategory && <Check size={20} aria-hidden="true" />}
             {t(savingCategory ? "working" : "save")}
           </button>

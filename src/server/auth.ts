@@ -1,3 +1,4 @@
+import { readBytes, RequestError } from "./http";
 import { digest, hex } from "../shared/digest";
 import type { Environment } from "./types";
 import { betterAuth } from "better-auth";
@@ -5,12 +6,21 @@ import { emailOTP, type EmailOTPOptions } from "better-auth/plugins/email-otp";
 
 export type SignInCode = Parameters<EmailOTPOptions["sendVerificationOTP"]>[0];
 
+export function usableMailRelay(url: string | undefined) {
+  if (!url || !URL.canParse(url)) {
+    return false;
+  }
+  const target = new URL(url);
+
+  return target.protocol === "https:" && !target.username && !target.password;
+}
+
 export async function sendSignInCode(env: Environment, { email, otp, type }: SignInCode) {
   if (type !== "sign-in" || !env.MAIL_RELAY_URL || !env.MAIL_RELAY_SECRET) {
     throw new Error("Email sign-in unavailable");
   }
   const target = new URL(env.MAIL_RELAY_URL);
-  if (target.protocol !== "https:") {
+  if (!usableMailRelay(env.MAIL_RELAY_URL)) {
     throw new Error("Email sign-in unavailable");
   }
   const body = JSON.stringify({
@@ -35,8 +45,26 @@ export async function sendSignInCode(env: Environment, { email, otp, type }: Sig
     signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) {
+    void response.body?.cancel().catch(() => {});
+    if (response.status === 429) {
+      const seconds = Number(response.headers.get("Retry-After"));
+      throw new RequestError(
+        429,
+        "Wait before requesting another code.",
+        Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 3600 ? seconds : 60,
+      );
+    }
     throw new Error("Email delivery unavailable");
   }
+  try {
+    const receipt = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(await readBytes(response, 256)),
+    );
+    if (response.status === 200 && receipt?.ok === true) {
+      return;
+    }
+  } catch {}
+  throw new Error("Email delivery unavailable");
 }
 
 // Request-scoped: a D1 binding or a visitor's session must never leak into another request.

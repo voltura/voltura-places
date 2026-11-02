@@ -51,6 +51,7 @@ export function useLibraryQueries({
     () => libraryVisits(scope, workspace, personalWorkspace),
     [scope, workspace, personalWorkspace],
   );
+  const sortPosition = sort === "closest" ? currentPosition : null;
   const filtered = useMemo(
     () =>
       selectPlaces({
@@ -62,29 +63,25 @@ export function useLibraryQueries({
         visitFilter,
         sort,
         language: prefs.language,
-        currentPosition,
+        currentPosition: sortPosition,
       }),
-    [
-      places,
-      categories,
-      visits,
-      search,
-      filter,
-      visitFilter,
-      sort,
-      prefs.language,
-      currentPosition,
-    ],
+    [places, categories, visits, search, filter, visitFilter, sort, prefs.language, sortPosition],
   );
-  const current = places.find((p) => p.id === selected);
-  const conflicts = [
-    ...(workspace?.records.filter((r) => r.conflict) ?? []),
-    ...(visitOwner(scope) !== scope && personalWorkspace?.key === visitOwner(scope)
-      ? personalWorkspace.records.filter(
-          (r) => r.kind === "visit" && r.conflict && r.value.libraryId === selectedFamily,
-        )
-      : []),
-  ];
+  const current = useMemo(
+    () => (selected ? places.find((p) => p.id === selected) : undefined),
+    [places, selected],
+  );
+  const conflicts = useMemo(
+    () => [
+      ...(workspace?.records.filter((r) => r.conflict) ?? []),
+      ...(visitOwner(scope) !== scope && personalWorkspace?.key === visitOwner(scope)
+        ? personalWorkspace.records.filter(
+            (r) => r.kind === "visit" && r.conflict && r.value.libraryId === selectedFamily,
+          )
+        : []),
+    ],
+    [workspace, personalWorkspace, scope, selectedFamily],
+  );
 
   return { categories, categoryLabel, categoryFor, places, visits, filtered, current, conflicts };
 }

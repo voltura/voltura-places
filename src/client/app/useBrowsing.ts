@@ -35,6 +35,7 @@ export function useBrowsing(
     setMaps(null);
     setSearch("");
     setFilter("all");
+    setVisitFilter("all");
     setSelected(null);
     setMapFocus(null);
     setFullscreenScope(null);

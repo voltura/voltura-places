@@ -79,9 +79,42 @@ export const valueKey = (value: unknown) =>
       : entry,
   );
 
-export const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
+// Record values are JSON objects with optional fields. Compare their common
+// path directly instead of serializing and sorting two objects for each row
+// on every unchanged snapshot; absent and undefined members remain equal.
+export function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") {
+    return false;
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return valueKey(a) === valueKey(b);
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  for (const key of Object.keys(left)) {
+    if (
+      left[key] !== undefined &&
+      (!Object.hasOwn(right, key) || !sameValue(left[key], right[key]))
+    ) {
+      return false;
+    }
+  }
+  for (const key of Object.keys(right)) {
+    if (right[key] !== undefined && (!Object.hasOwn(left, key) || left[key] === undefined)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export function mergeRecords(w: Workspace, remote: RecordState[]) {
+  if (!remote.length) {
+    return false;
+  }
   const byId = new Map(w.records.map((record) => [record.id, record]));
   let modified = false;
   for (const r of remote) {
@@ -113,6 +146,19 @@ export function mergeRecords(w: Workspace, remote: RecordState[]) {
       modified = true;
     } else if (r.deleted === local.deleted && sameValue(r.value, local.value)) {
       Object.assign(local, r, { dirty: false });
+      delete local.conflict;
+      modified = true;
+    } else if (
+      w.flight?.mutation.entity.id === r.id &&
+      local.generation !== w.flight.generation &&
+      r.revision === w.flight.mutation.baseRevision + 1 &&
+      r.deleted === w.flight.mutation.deleted &&
+      sameValue(r.value, w.flight.mutation.entity.value)
+    ) {
+      if (local.revision === r.revision && !local.conflict) {
+        continue;
+      }
+      local.revision = r.revision;
       delete local.conflict;
       modified = true;
     } else if (r.revision !== local.revision) {
@@ -165,7 +211,15 @@ export function acknowledgeRecord(
       remote.deleted === flight.mutation.deleted &&
       sameValue(remote.value, flight.mutation.entity.value);
     // Two devices may add the same new preset before either sees the other's write.
-    if (conflict && !identical) {
+    if (
+      conflict &&
+      !newerConflict &&
+      r.deleted === remote.deleted &&
+      sameValue(r.value, remote.value)
+    ) {
+      Object.assign(r, remote, { dirty: false });
+      delete r.conflict;
+    } else if (conflict && !identical) {
       r.conflict = newerConflict ?? remote;
     } else if (r.generation === flight.generation) {
       Object.assign(r, remote, { dirty: false });

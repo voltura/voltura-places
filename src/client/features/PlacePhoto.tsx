@@ -15,49 +15,74 @@ export function PlacePhoto({
   id?: string | null;
   t: (key: Message) => string;
 }) {
-  const [url, setUrl] = useState("");
-  const [attempt, setAttempt] = useState(0);
+  return id ? (
+    <StoredPhotoView key={JSON.stringify([workspace, id])} workspace={workspace} id={id} t={t} />
+  ) : null;
+}
+
+function StoredPhotoView({
+  workspace,
+  id,
+  t,
+}: {
+  workspace: string;
+  id: string;
+  t: (key: Message) => string;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     let objectUrl = "";
-    setUrl("");
+    let loading = false;
+    let retryRequested = false;
 
-    const changed = () => {
-      if (active) {
-        setAttempt((value) => value + 1);
+    const load = async () => {
+      if (!active || objectUrl) {
+        return;
+      }
+      if (loading) {
+        retryRequested = true;
+
+        return;
+      }
+      loading = true;
+      try {
+        const blob = await loadPhoto(workspace, id, () => active);
+        if (active) {
+          objectUrl = URL.createObjectURL(blob);
+          setUrl(objectUrl);
+        }
+      } catch {
+        if (active) {
+          setUrl("");
+        }
+      } finally {
+        loading = false;
+        if (retryRequested) {
+          retryRequested = false;
+          void load();
+        }
       }
     };
 
-    const stopWatching = id ? watchPhoto(workspace, id, changed) : () => {};
-    window.addEventListener("online", changed);
-    if (id) {
-      void loadPhoto(workspace, id, () => active)
-        .then((blob) => {
-          if (active) {
-            objectUrl = URL.createObjectURL(blob);
-            setUrl(objectUrl);
-          }
-        })
-        .catch(() => {});
-    }
+    const stopWatching = watchPhoto(workspace, id, load);
+    window.addEventListener("online", load);
+    void load();
 
     return () => {
       active = false;
       stopWatching();
-      window.removeEventListener("online", changed);
+      window.removeEventListener("online", load);
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [workspace, id, attempt]);
-  if (!id) {
-    return null;
-  }
+  }, [workspace, id]);
 
   return url ? (
-    <PhotoView key={`${workspace}:${id}`} url={url} t={t} />
+    <PhotoView url={url} t={t} />
   ) : (
-    <p className="muted small">{t("photoUnavailable")}</p>
+    <p className="muted small">{t(url === null ? "working" : "photoUnavailable")}</p>
   );
 }
 
@@ -102,17 +127,22 @@ function FullscreenPhoto({
   returnFocus: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const originScroll = useRef({ x: 0, y: 0 });
+
+  const dismiss = () => {
+    dialog.current?.close();
+    window.scrollTo(originScroll.current.x, originScroll.current.y);
+    returnFocus();
+    onClose();
+  };
+
   useEffect(() => {
     const surface = dialog.current!;
-    const { scrollX, scrollY } = window;
+    originScroll.current = { x: window.scrollX, y: window.scrollY };
     surface.showModal();
     surface.querySelector("button")?.focus({ preventScroll: true });
 
-    return () => {
-      surface.close();
-      window.scrollTo(scrollX, scrollY);
-      returnFocus();
-    };
+    return () => surface.close();
   }, []);
 
   return createPortal(
@@ -123,7 +153,7 @@ function FullscreenPhoto({
       onCancel={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        dismiss();
       }}
     >
       <img src={url} alt={t("placePhoto")} />
@@ -131,7 +161,7 @@ function FullscreenPhoto({
         type="button"
         className="icon-button photo-fullscreen-toggle"
         aria-label={t("exitFullscreenPhoto")}
-        onClick={onClose}
+        onClick={dismiss}
       >
         <Minimize aria-hidden="true" />
       </button>
@@ -158,6 +188,7 @@ export function PhotoPicker({
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
   const active = useRef(true);
+  const selection = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [position, setPosition] = useState<PhotoPosition | null>(null);
@@ -167,6 +198,7 @@ export function PhotoPicker({
 
     return () => {
       active.current = false;
+      selection.current++;
     };
   }, []);
 
@@ -174,25 +206,32 @@ export function PhotoPicker({
     if (!file) {
       return;
     }
+    const attempt = ++selection.current;
+
+    const isCurrent = () => active.current && selection.current === attempt;
+
     setBusy(true);
     onBusy(true);
     setError("");
     try {
-      const photoId = await preparePhoto(file, workspace, () => active.current);
-      const location = await photoPosition(file);
-      if (active.current) {
+      const photoId = await preparePhoto(file, workspace, isCurrent);
+      if (!isCurrent()) {
+        return;
+      }
+      const location = await photoPosition(file, isCurrent);
+      if (isCurrent()) {
         onChange(photoId);
         setPosition(location);
         setMissingPosition(!location);
       }
     } catch (e) {
-      if (active.current) {
+      if (isCurrent()) {
         setError(
           t(e instanceof Error && e.message === "photoQuota" ? "photoQuota" : "invalidPhoto"),
         );
       }
     } finally {
-      if (active.current) {
+      if (isCurrent()) {
         setBusy(false);
         onBusy(false);
       }
@@ -263,6 +302,7 @@ export function PhotoPicker({
         <button
           type="button"
           className="button outline"
+          disabled={busy}
           onClick={() => {
             onPosition(position);
             setPosition(null);

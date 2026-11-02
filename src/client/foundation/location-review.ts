@@ -11,6 +11,7 @@ export const validPosition = (position: GeolocationPosition) => {
   const c = position.coords;
 
   return (
+    !!c &&
     freshPosition(position) &&
     Number.isFinite(c.latitude) &&
     Math.abs(c.latitude) <= 90 &&
@@ -32,14 +33,26 @@ export function refineLocation(
   onImprovement: (position: GeolocationPosition) => void,
   geo = navigator.geolocation,
 ) {
+  if (accuracy === 0) {
+    return () => {};
+  }
   let best = accuracy;
-
-  return watchLocation((state) => {
+  let stop: (() => void) | undefined;
+  stop = watchLocation((state) => {
     if (state.position && state.position.coords.accuracy < best) {
       best = state.position.coords.accuracy;
       onImprovement(state.position);
+      if (best === 0) {
+        stop?.();
+      }
     }
   }, geo);
+  // A synchronous provider may have delivered the final improvement at setup.
+  if (best === 0) {
+    stop();
+  }
+
+  return stop;
 }
 
 export function watchLocation(
@@ -55,6 +68,7 @@ export function watchLocation(
   let permission: PermissionStatus | undefined;
   let generation = 0;
   let resumes = 0;
+  let lastResume = -Infinity;
   let transientRetries = 0;
   let lastAcquisitionError: "gpsUnavailable" | "gpsTimeout" | null = null;
   const retryDelays = [1000, 3000, 6000];
@@ -70,8 +84,18 @@ export function watchLocation(
   };
 
   const permissionChanged = () => {
-    if (permission?.state === "granted") {
+    if (permission?.state === "denied") {
+      finish("gpsDenied");
+    } else if (permission?.state === "granted") {
       resume();
+    }
+  };
+
+  const clearWatch = (watch: number) => {
+    try {
+      geo.clearWatch(watch);
+    } catch {
+      // A revoked or detached provider may no longer accept the watch handle.
     }
   };
 
@@ -84,7 +108,7 @@ export function watchLocation(
     if (typeof document !== "undefined") {
       document.removeEventListener("visibilitychange", foreground);
     }
-    permission?.removeEventListener("change", permissionChanged);
+    permission?.removeEventListener?.("change", permissionChanged);
     if (retry) {
       clearTimeout(retry);
     }
@@ -92,7 +116,7 @@ export function watchLocation(
       clearInterval(recovery);
     }
     if (id !== undefined) {
-      geo.clearWatch(id);
+      clearWatch(id);
       id = undefined;
     }
     if (deadline) {
@@ -106,8 +130,20 @@ export function watchLocation(
       return;
     }
     stop();
-    state = { ...state, running: false, error };
+    state = { position: error ? null : state.position, running: false, error };
     onState(state);
+  };
+
+  const finishDeadline = () =>
+    finish(freshPosition(state.position) ? null : (lastAcquisitionError ?? "gpsTimeout"));
+
+  const expired = () => {
+    if (Date.now() - started < 60000) {
+      return false;
+    }
+    finishDeadline();
+
+    return true;
   };
 
   if (!geo) {
@@ -117,7 +153,8 @@ export function watchLocation(
   }
 
   const resume = () => {
-    if (!active || resumes >= 2 || freshPosition(state.position)) {
+    const now = Date.now();
+    if (!active || resumes >= 2 || now - lastResume < 500 || freshPosition(state.position)) {
       return;
     }
     // A focus/visibility event can come from the browser's still-open permission
@@ -126,16 +163,17 @@ export function watchLocation(
       return;
     }
     resumes++;
+    lastResume = now;
     start();
   };
 
   const start = () => {
-    if (!active) {
+    if (!active || expired()) {
       return;
     }
     const current = ++generation;
     if (id !== undefined) {
-      geo.clearWatch(id);
+      clearWatch(id);
       id = undefined;
     }
     if (retry) {
@@ -143,9 +181,16 @@ export function watchLocation(
       retry = undefined;
     }
     try {
-      const watch = geo.watchPosition(
+      const acquire =
+        typeof geo.watchPosition === "function"
+          ? geo.watchPosition.bind(geo)
+          : geo.getCurrentPosition.bind(geo);
+      const watch = acquire(
         (position) => {
-          if (!active || current !== generation || !validPosition(position)) {
+          if (!active || current !== generation || expired() || !validPosition(position)) {
+            return;
+          }
+          if (state.position && position.timestamp < state.position.timestamp) {
             return;
           }
           if (retry) {
@@ -157,7 +202,7 @@ export function watchLocation(
           onState(state);
         },
         (error) => {
-          if (!active || current !== generation) {
+          if (!active || current !== generation || expired()) {
             return;
           }
           if (error.code === 1) {
@@ -180,20 +225,19 @@ export function watchLocation(
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
       );
-      if (active && current === generation) {
-        id = watch;
-      } else {
-        geo.clearWatch(watch);
+      if (typeof watch === "number") {
+        if (active && current === generation) {
+          id = watch;
+        } else {
+          clearWatch(watch);
+        }
       }
     } catch {
       finish("gpsUnavailable");
     }
   };
 
-  deadline = setTimeout(
-    () => finish(state.position ? null : (lastAcquisitionError ?? "gpsTimeout")),
-    60000,
-  );
+  deadline = setTimeout(finishDeadline, 60000);
   if (typeof window !== "undefined") {
     window.addEventListener("focus", foreground);
   }
@@ -209,9 +253,27 @@ export function watchLocation(
             return;
           }
           permission = status;
-          status.addEventListener("change", permissionChanged);
-          if (status.state === "granted" && Date.now() - started > 500) {
-            resume();
+          status.addEventListener?.("change", permissionChanged);
+          if (status.state !== "denied") {
+            recovery = setInterval(() => {
+              if (status.state === "denied") {
+                finish("gpsDenied");
+              } else if (
+                status.state === "granted" &&
+                (typeof document === "undefined" || document.visibilityState === "visible")
+              ) {
+                resume();
+              }
+              if (resumes >= 2 && typeof status.addEventListener === "function") {
+                clearInterval(recovery);
+              }
+            }, 8000);
+          }
+          if (
+            status.state === "denied" ||
+            (status.state === "granted" && Date.now() - started > 500)
+          ) {
+            permissionChanged();
           }
         })
         .catch(() => {});
@@ -219,14 +281,6 @@ export function watchLocation(
   } catch {
     /* Some older browsers throw for an unsupported permission name. */
   }
-  recovery = setInterval(() => {
-    if (
-      permission?.state === "granted" &&
-      (typeof document === "undefined" || document.visibilityState === "visible")
-    ) {
-      resume();
-    }
-  }, 8000);
   start();
 
   return stop;
@@ -241,8 +295,11 @@ export function captureLocation(
 
   let stopWatch = () => {};
 
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+
   const stop = () => {
     active = false;
+    clearTimeout(deadline);
     stopWatch();
   };
 
@@ -271,13 +328,21 @@ export function captureLocation(
 
         return stop;
       }
+      // Native acquisition timeouts can exclude time waiting for permission.
+      const expires = Date.now() + 60000;
+      deadline = setTimeout(() => {
+        stop();
+        onError("gpsTimeout");
+      }, 60000);
       geo.getCurrentPosition(
         (p) => {
           if (!active) {
             return;
           }
           stop();
-          if (validPosition(p)) {
+          if (Date.now() >= expires) {
+            onError("gpsTimeout");
+          } else if (validPosition(p)) {
             onPosition(p);
           } else {
             onError("gpsUnavailable");

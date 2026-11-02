@@ -1,6 +1,6 @@
 import { entityLimits, syncLimits } from "../shared/limits";
 import { visitEntity } from "../shared/visits";
-import { mutationSchema, recordSchema, type RecordState } from "../shared/model";
+import { idSchema, mutationSchema, recordSchema, type RecordState } from "../shared/model";
 import { readJSON, RequestError, privateJSON as json, hasCanonicalOrigin } from "./http";
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
 import { digest } from "../shared/digest";
@@ -13,6 +13,15 @@ type Row = {
   revision: number;
   deleted: number;
 };
+
+// Normal SQLite inserts allocate positive rowids. The two global maxima bound the
+// combined history cheaply in small databases. Count only this workspace once
+// the database could hold a full snapshot. The guard runs inside the INSERT.
+const snapshotRoomSQL = `CASE WHEN
+  coalesce((SELECT max(rowid) FROM places_records),0) + coalesce((SELECT max(rowid) FROM places_visits),0) < ${syncLimits.snapshotRecords}
+  AND coalesce((SELECT min(rowid) FROM places_records),1)>0 AND coalesce((SELECT min(rowid) FROM places_visits),1)>0
+  THEN 1 ELSE ((SELECT count(*) FROM places_records WHERE account_id=?) +
+    (SELECT count(*) FROM places_visits WHERE account_id=?)) < ${syncLimits.snapshotRecords} END`;
 
 const decode = (r: Row): RecordState =>
   recordSchema.parse({
@@ -35,8 +44,10 @@ export async function handleSync(request: Request, env: Environment) {
   }
   const account = identity.storage;
 
+  const legacyPhotos = request.headers.get("X-Places-Photos") !== "1";
+
   const present = (record: RecordState) => {
-    if (request.headers.get("X-Places-Photos") !== "1" && record.kind === "place") {
+    if (legacyPhotos && record.kind === "place" && record.value.photoId !== undefined) {
       const value = { ...record.value };
       delete value.photoId;
 
@@ -48,18 +59,18 @@ export async function handleSync(request: Request, env: Environment) {
 
   if (request.method === "GET") {
     const after = new URL(request.url).searchParams.get("after") ?? "";
-    if (after.length > 80) {
+    if (after && !idSchema.safeParse(after).success) {
       return json({ error: "invalidCursor", accountId: identity.key }, 400);
     }
     const rows = await env.DB.prepare(
       identity.family
         ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`
-        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? ORDER BY id LIMIT ${syncLimits.pageSize + 1}`,
+        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`,
     )
       .bind(
         ...(identity.family
           ? [account, after, ...membershipArgs(identity)]
-          : [account, account, after]),
+          : [account, account, after, ...membershipArgs(identity)]),
       )
       .all<Row>();
     const records = rows.results.slice(0, syncLimits.pageSize);
@@ -112,9 +123,9 @@ export async function handleSync(request: Request, env: Environment) {
     return json({ error: "invalidMutation", accountId: identity.key }, 422);
   }
   const receipt = await env.DB.prepare(
-    "SELECT body_hash,record FROM places_receipts WHERE account_id = ? AND mutation_id = ?",
+    `SELECT body_hash,record FROM places_receipts WHERE account_id = ? AND mutation_id = ? AND ${membershipSQL}`,
   )
-    .bind(account, body.mutationId)
+    .bind(account, body.mutationId, ...membershipArgs(identity))
     .first<{ body_hash: string; record: string }>();
   if (receipt) {
     if (receipt.body_hash !== hash) {
@@ -126,7 +137,7 @@ export async function handleSync(request: Request, env: Environment) {
       record: present(recordSchema.parse(JSON.parse(receipt.record))),
     });
   }
-  if (e.kind === "place" && e.value.photoId === undefined) {
+  if (body.baseRevision > 0 && e.kind === "place" && e.value.photoId === undefined) {
     const old = await env.DB.prepare(
       "SELECT value FROM places_records WHERE account_id=? AND id=? AND kind='place'",
     )
@@ -159,54 +170,51 @@ export async function handleSync(request: Request, env: Environment) {
       : "SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0";
   const countArgs = e.kind === "visit" ? [account] : [account, e.kind];
   // Both statements run in one D1 transaction. Only the winning CAS can write a receipt.
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO ${table}(account_id,id,kind,value,revision,deleted,last_mutation)
-      SELECT ?,?,?,?,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR (${liveCount}) < ?) AND ${membershipSQL}
+  const write =
+    body.baseRevision === 0
+      ? env.DB.prepare(`INSERT INTO ${table}(account_id,id,kind,value,revision,deleted,last_mutation)
+      SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
+      AND (?=1 OR (${liveCount}) < ?) AND ${membershipSQL} AND ${snapshotRoomSQL}
       ON CONFLICT(account_id,id) DO NOTHING`).bind(
-      account,
-      e.id,
-      e.kind,
-      value,
-      revision,
-      Number(body.deleted),
-      body.mutationId,
-      body.baseRevision,
-      account,
-      body.mutationId,
-      Number(body.deleted),
-      ...countArgs,
-      capacity,
-      ...membershipArgs(identity),
-    ),
-    env.DB.prepare(`UPDATE ${table} SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
+          account,
+          e.id,
+          e.kind,
+          value,
+          revision,
+          Number(body.deleted),
+          body.mutationId,
+          account,
+          body.mutationId,
+          Number(body.deleted),
+          ...countArgs,
+          capacity,
+          ...membershipArgs(identity),
+          account,
+          account,
+        )
+      : env.DB.prepare(`UPDATE ${table} SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
       AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
       AND (?=1 OR deleted=0 OR (${liveCount}) < ?) AND ${membershipSQL}`).bind(
-      value,
-      revision,
-      Number(body.deleted),
-      body.mutationId,
-      account,
-      e.id,
-      e.kind,
-      body.baseRevision,
-      account,
-      body.mutationId,
-      Number(body.deleted),
-      ...countArgs,
-      capacity,
-      ...membershipArgs(identity),
-    ),
-    env.DB.prepare(`INSERT OR IGNORE INTO places_receipts(account_id,mutation_id,body_hash,record) SELECT ?,?,?,?
-      WHERE EXISTS(SELECT 1 FROM ${table} WHERE account_id=? AND id=? AND last_mutation=?)`).bind(
-      account,
-      body.mutationId,
-      hash,
-      JSON.stringify(resultRecord),
-      account,
-      e.id,
-      body.mutationId,
-    ),
+          value,
+          revision,
+          Number(body.deleted),
+          body.mutationId,
+          account,
+          e.id,
+          e.kind,
+          body.baseRevision,
+          account,
+          body.mutationId,
+          Number(body.deleted),
+          ...countArgs,
+          capacity,
+          ...membershipArgs(identity),
+        );
+  const saved = await env.DB.batch([
+    write,
+    env.DB.prepare(
+      "INSERT INTO places_receipts(account_id,mutation_id,body_hash,record) SELECT ?,?,?,? WHERE changes()=1",
+    ).bind(account, body.mutationId, hash, JSON.stringify(resultRecord)),
   ]);
   try {
     await authorizedWorkspace(request, env);
@@ -216,10 +224,13 @@ export async function handleSync(request: Request, env: Environment) {
       error instanceof WorkspaceError ? error.status : 503,
     );
   }
+  if (saved[1].meta.changes) {
+    return json({ accountId: identity.key, record: present(resultRecord) });
+  }
   const accepted = await env.DB.prepare(
-    "SELECT body_hash,record FROM places_receipts WHERE account_id=? AND mutation_id=?",
+    `SELECT body_hash,record FROM places_receipts WHERE account_id=? AND mutation_id=? AND ${membershipSQL}`,
   )
-    .bind(account, body.mutationId)
+    .bind(account, body.mutationId, ...membershipArgs(identity))
     .first<{ body_hash: string; record: string }>();
   if (accepted) {
     if (accepted.body_hash !== hash) {
@@ -232,11 +243,28 @@ export async function handleSync(request: Request, env: Environment) {
     });
   }
   const current = await env.DB.prepare(
-    `SELECT id,kind,value,revision,deleted FROM ${table} WHERE account_id=? AND id=?`,
+    `SELECT id,kind,value,revision,deleted FROM ${table} WHERE account_id=? AND id=? AND ${membershipSQL}`,
   )
-    .bind(account, e.id)
+    .bind(account, e.id, ...membershipArgs(identity))
     .first<Row>();
-  if (!current) {
+  if (!current && body.baseRevision > 0) {
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
+  if (
+    !current &&
+    !(await env.DB.prepare(`SELECT ${snapshotRoomSQL} AS room`)
+      .bind(account, account)
+      .first<number>("room"))
+  ) {
+    return json({ error: "snapshotLimit", accountId: identity.key }, 413);
+  }
+  if (
+    !current ||
+    (current.deleted &&
+      !body.deleted &&
+      current.revision === body.baseRevision &&
+      current.kind === e.kind)
+  ) {
     return json({ error: "libraryLimit", accountId: identity.key }, 413);
   }
 

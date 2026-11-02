@@ -64,11 +64,13 @@ for (const width of [390, 1440]) {
     expect(
       await viewer.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth),
     ).toBeGreaterThan(0);
+    const offlineUrl = await viewer.locator("img").getAttribute("src");
+    await context.setOffline(false);
+    await expect(viewer.locator("img")).toHaveAttribute("src", offlineUrl!);
     await close.click();
     await expect(viewer).toHaveCount(0);
     await expect(detailsToggle).toBeFocused();
     await expect(details.getByRole("heading", { name: "Fullscreen photo fixture" })).toBeVisible();
-    await context.setOffline(false);
     if (width < 700) {
       await page.getByRole("button", { name: "Close", exact: true }).click();
     }

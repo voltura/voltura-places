@@ -5,20 +5,15 @@
   let skin = "forest";
   try {
     const saved = JSON.parse(localStorage.getItem("places-preferences") || "null");
-    if (
-      saved &&
-      ["en", "sv"].includes(saved.language) &&
-      ["", "google", "apple", "geo"].includes(saved.provider) &&
-      ["light", "dark", "system"].includes(saved.theme)
-    ) {
+    if (["light", "dark", "system"].includes(saved?.theme)) {
       mode = saved.theme;
-      if (
-        ["forest", "retro-wood", "modern-metallic", "modern-black", "midnight", "matrix"].includes(
-          saved.skin,
-        )
-      ) {
-        skin = saved.skin;
-      }
+    }
+    if (
+      ["forest", "retro-wood", "modern-metallic", "modern-black", "midnight", "matrix"].includes(
+        saved?.skin,
+      )
+    ) {
+      skin = saved.skin;
     }
   } catch {
     /* Storage is optional. */

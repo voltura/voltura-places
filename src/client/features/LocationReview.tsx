@@ -26,19 +26,22 @@ export function LocationReview({
     error: null,
   });
   const [attempt, setAttempt] = useState(0);
-  const [now, setNow] = useState(Date.now);
+  const [, setClock] = useState(0);
   useEffect(() => {
-    setNow(Date.now());
     setState({ position: null, running: true, error: null });
-    const stop = watchLocation(setState);
-    const timer = setInterval(() => setNow(Date.now()), 1000);
 
-    return () => {
-      stop();
-      clearInterval(timer);
-    };
+    return watchLocation(setState);
   }, [attempt]);
-  const fresh = freshPosition(state.position, now);
+  useEffect(() => {
+    if (!state.position) {
+      return;
+    }
+    const expiresIn = state.position.timestamp + 15001 - Date.now();
+    const timer = setTimeout(() => setClock((clock) => clock + 1), Math.max(0, expiresIn));
+
+    return () => clearTimeout(timer);
+  }, [state.position]);
+  const fresh = freshPosition(state.position);
   const accuracy = state.position ? state.position.coords.accuracy : null;
   const level = accuracy === null || !fresh ? 0 : accuracyLevel(accuracy);
   const quality = t(

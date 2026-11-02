@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { ESLint } from "eslint";
 import * as prettier from "prettier";
@@ -24,7 +24,7 @@ const scriptFiles = [];
 for (const path of [...new Set(files)]) {
   if (/\.(?:[cm]?js|jsx|ts|tsx)$/.test(path) && !(await eslint.isPathIgnored(path))) {
     try {
-      await readFile(path);
+      await access(path);
       scriptFiles.push(path);
     } catch (error) {
       if (error.code !== "ENOENT") {

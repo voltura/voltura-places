@@ -1,5 +1,10 @@
 import { test, expect } from "vitest";
-import { assertDestination } from "../scripts/promo-manifest.mjs";
+import {
+  assertDestination,
+  digest,
+  promoManifest,
+  rollbackPayload,
+} from "../scripts/promo-manifest.mjs";
 
 test("promo destination allowlist excludes Air, root configuration, traversal and secrets", () => {
   for (const path of [
@@ -9,6 +14,7 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
     "places/../air/index.html",
     "places/.htaccess",
     "places/config.php",
+    "places/mail/relay.php",
     "places/assets/../../index.php",
     "/places/index.html",
     "places\\index.html",
@@ -74,5 +80,40 @@ test("promo source guards reject a clean commit switch and edits made after vali
       throw Error("Unsafe fixture cleanup");
     }
     await rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test("rollback preserves empty files, later deletions and already-restored content", () => {
+  const empty = Buffer.alloc(0);
+  const replacement = Buffer.from("release");
+  const item = { previous: "", previousHash: digest(empty), sha256: digest(replacement) };
+  expect(rollbackPayload(item, replacement)).toEqual({ changed: true, bytes: empty });
+  expect(rollbackPayload(item, empty).changed).toBe(false);
+  expect(() => rollbackPayload(item, null)).toThrow("unrelated");
+  expect(() => rollbackPayload({ ...item, previous: null }, replacement)).toThrow("hash");
+  expect(rollbackPayload({ ...item, previous: null, previousHash: null }, replacement)).toEqual({
+    changed: true,
+    bytes: null,
+  });
+});
+
+test("promo manifests reject duplicated logical assets and files with incorrect cache keys", async () => {
+  const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const base = await mkdtemp(join(tmpdir(), "places-promo-manifest-"));
+  try {
+    const assets = join(base, "assets");
+    await mkdir(assets);
+    const wrong = join(assets, "site.0000000000000000.css");
+    await writeFile(wrong, "a");
+    await expect(promoManifest(base)).rejects.toThrow("mismatch");
+    await rm(wrong);
+    for (const value of ["a", "b"]) {
+      await writeFile(join(assets, `site.${digest(value).slice(0, 16)}.css`), value);
+    }
+    await expect(promoManifest(base)).rejects.toThrow("Duplicate");
+  } finally {
+    await rm(base, { recursive: true, force: true });
   }
 });

@@ -131,3 +131,46 @@ for (const width of [320, 390]) {
     });
   }
 }
+
+test("device preferences follow another tab without overwriting unrelated edits", async ({
+  page,
+  context,
+}) => {
+  await page.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
+  await page.goto("/");
+  const other = await context.newPage();
+  await other.goto("/");
+  const settings = page.getByRole("button", { name: "Settings", exact: true });
+  await settings.click();
+  await other.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Theme", exact: true }).selectOption("matrix");
+  await expect(other.locator("html")).toHaveAttribute("data-skin", "matrix");
+  await other.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator("html")).toHaveAttribute("data-skin", "matrix");
+});
+
+test("a language deep link survives reload when preferences cannot persist", async ({ page }) => {
+  await page.addInitScript(() => {
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "places-preferences") {
+        throw new DOMException("blocked", "SecurityError");
+      }
+
+      return set.call(this, key, value);
+    };
+  });
+  await page.goto("/?lang=sv&from=promo#saved");
+  await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+  await expect(page).toHaveURL(/lang=sv/);
+  await page.reload();
+  const onboarding = page.getByRole("dialog", { name: "Kom igång" });
+  await expect(onboarding).toBeVisible();
+  await onboarding.getByRole("combobox", { name: "Språk", exact: true }).selectOption("en");
+  await expect(page).toHaveURL(/lang=en/);
+  expect(new URL(page.url()).searchParams.get("from")).toBe("promo");
+  expect(new URL(page.url()).hash).toBe("#saved");
+});

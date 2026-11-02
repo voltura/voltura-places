@@ -10,20 +10,26 @@ export function supportsNativeShare(data: ShareData): boolean {
   }
 }
 
-export async function shareOrCopy(data: ShareData, fallback: string) {
-  if (!supportsNativeShare(data)) {
-    await navigator.clipboard.writeText(fallback);
-
-    return "copied" as const;
+export async function shareOrCopy(data: ShareData, fallback: string, isCurrent = () => true) {
+  if (!isCurrent()) {
+    return "dismissed" as const;
   }
-  try {
-    await navigator.share(data);
+  if (supportsNativeShare(data)) {
+    try {
+      await navigator.share(data);
 
-    return "shared" as const;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return "dismissed" as const;
+      return "shared" as const;
+    } catch (error) {
+      if (error && typeof error === "object" && "name" in error && error.name === "AbortError") {
+        return "dismissed" as const;
+      }
+      // A platform may advertise sharing but have no available native target.
     }
-    throw error;
   }
+  if (!isCurrent()) {
+    return "dismissed" as const;
+  }
+  await navigator.clipboard.writeText(fallback);
+
+  return "copied" as const;
 }

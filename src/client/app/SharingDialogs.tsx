@@ -96,7 +96,7 @@ export function SharingDialogs({
             </p>
             <button
               className="button primary"
-              disabled={savingShared || !workspace?.reconciled || reconciling || !canWrite}
+              disabled={savingShared || !workspace || reconciling || !canWrite}
               onClick={() => void sharing.saveShared()}
             >
               {t("saveCopy")}

@@ -135,7 +135,8 @@ export function categoryAppearance(record?: LocalRecord) {
   const v = record?.kind === "category" ? record.value : undefined;
 
   return {
-    icon: v?.icon ?? defaults[v?.builtIn ?? ""] ?? "pin",
+    icon:
+      v?.icon ?? (v?.builtIn && Object.hasOwn(defaults, v.builtIn) ? defaults[v.builtIn] : "pin"),
     color:
       v?.builtIn === "mushrooms" && !v.icon && v.color === "amber" ? "rose" : (v?.color ?? "slate"),
   };

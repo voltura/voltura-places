@@ -371,3 +371,179 @@ test("GPS review exposes denial and timeout with no fabricated position", () => 
     vi.useRealTimers();
   }
 });
+
+test("revoking GPS permission discards a previous fix immediately", async () => {
+  const permission = Object.assign(new EventTarget(), { state: "granted" });
+  vi.stubGlobal("navigator", { permissions: { query: async () => permission } });
+  const f = fixture();
+  try {
+    await Promise.resolve();
+    f.success(fix(5));
+    permission.state = "denied";
+    permission.dispatchEvent(new Event("change"));
+    expect(f.states.at(-1)).toEqual({ position: null, running: false, error: "gpsDenied" });
+    expect(f.geo.clearWatch).toHaveBeenCalledOnce();
+  } finally {
+    f.stop();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("out-of-order GPS callbacks cannot displace the newest reading and expired fixes time out", () => {
+  vi.useFakeTimers();
+  const f = fixture();
+  try {
+    const newest = fix(8);
+    f.success(newest);
+    f.success(fix(9, newest.timestamp - 1000));
+    expect(f.states.at(-1)?.position).toBe(newest);
+    vi.advanceTimersByTime(60000);
+    expect(f.states.at(-1)).toEqual({ position: null, running: false, error: "gpsTimeout" });
+  } finally {
+    f.stop();
+    vi.useRealTimers();
+  }
+});
+
+test("a measurable radius above an exact foot is rounded up", () => {
+  expect(formatAccuracy(0.3048 + Number.EPSILON / 4, "imperial")).toBe("±2 ft");
+});
+
+test("a silent one-shot GPS prompt has an application deadline and ignores a late result", () => {
+  vi.useFakeTimers();
+  let success!: PositionCallback;
+  const geo = {
+    getCurrentPosition: (callback: PositionCallback) => {
+      success = callback;
+    },
+  } as Geolocation;
+  const saved = vi.fn();
+  const error = vi.fn();
+  const stop = captureLocation(saved, error, geo);
+  try {
+    vi.advanceTimersByTime(60000);
+    expect(error).toHaveBeenCalledWith("gpsTimeout");
+    success(fix(4));
+    expect(saved).not.toHaveBeenCalled();
+  } finally {
+    stop();
+    vi.useRealTimers();
+  }
+});
+
+test("GPS review accepts single-shot providers without a watch API", () => {
+  const geo = {
+    getCurrentPosition: (callback: PositionCallback) => callback(fix(2)),
+  } as Geolocation;
+  const updates = vi.fn();
+  const stop = watchLocation(updates, geo);
+  try {
+    expect(updates.mock.lastCall?.[0].position.coords.accuracy).toBe(2);
+  } finally {
+    stop();
+  }
+});
+
+test("paired visibility and focus events restart a stalled watch only once", async () => {
+  vi.useFakeTimers();
+  const win = new EventTarget();
+  const doc = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  vi.stubGlobal("window", win);
+  vi.stubGlobal("document", doc);
+  vi.stubGlobal("navigator", {});
+  const geo = { watchPosition: vi.fn(() => 9), clearWatch: vi.fn() } as unknown as Geolocation;
+  const stop = watchLocation(vi.fn(), geo);
+  try {
+    await vi.advanceTimersByTimeAsync(1000);
+    doc.dispatchEvent(new Event("visibilitychange"));
+    win.dispatchEvent(new Event("focus"));
+    expect(geo.watchPosition).toHaveBeenCalledTimes(2);
+  } finally {
+    stop();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+});
+
+test("late GPS callbacks after suspension cannot defeat the wall-clock acquisition deadline", () => {
+  vi.useFakeTimers();
+  try {
+    for (const watch of [true, false]) {
+      let success!: PositionCallback;
+
+      const acquire = (callback: PositionCallback) => {
+        success = callback;
+
+        return 2;
+      };
+
+      const geo = (watch
+        ? { watchPosition: acquire, clearWatch: () => {} }
+        : { getCurrentPosition: acquire }) as unknown as Geolocation;
+      const saved = vi.fn();
+      const error = vi.fn();
+      const stop = captureLocation(saved, error, geo);
+      vi.setSystemTime(Date.now() + 61000);
+      success(fix(2));
+      expect(saved).not.toHaveBeenCalled();
+      expect(error).toHaveBeenCalledWith("gpsTimeout");
+      stop();
+    }
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("minimal permission status and revoked watch handles do not interrupt GPS cleanup", async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("navigator", { permissions: { query: async () => ({ state: "denied" }) } });
+  const geo = {
+    watchPosition: () => 7,
+    clearWatch: () => {
+      throw new Error("detached");
+    },
+  } as unknown as Geolocation;
+  const updated = vi.fn();
+  const stop = watchLocation(updated, geo);
+  try {
+    await Promise.resolve();
+    expect(updated).toHaveBeenCalledWith({ position: null, running: false, error: "gpsDenied" });
+    expect(vi.getTimerCount()).toBe(0);
+    expect(stop).not.toThrow();
+  } finally {
+    stop();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+});
+
+test("a zero-radius estimate stops improvement watches and avoids starting a redundant one", () => {
+  const clearWatch = vi.fn();
+  const watchPosition = vi.fn((callback: PositionCallback) => {
+    callback(fix(0));
+
+    return 4;
+  });
+  const geo = { clearWatch, watchPosition } as unknown as Geolocation;
+  const improved = vi.fn();
+  refineLocation(0, improved, geo)();
+  expect(watchPosition).not.toHaveBeenCalled();
+  const stop = refineLocation(5, improved, geo);
+  expect(improved).toHaveBeenCalledOnce();
+  expect(clearWatch).toHaveBeenCalledWith(4);
+  stop();
+});
+
+test("unavailable permissions do not start a periodic recovery timer that cannot run", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("navigator", {});
+  const geo = { watchPosition: () => 9, clearWatch: () => {} } as unknown as Geolocation;
+  const stop = watchLocation(vi.fn(), geo);
+  try {
+    expect(vi.getTimerCount()).toBe(1); // Acquisition deadline only.
+  } finally {
+    stop();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+});

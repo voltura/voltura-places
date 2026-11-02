@@ -1,5 +1,5 @@
 import { shareOrCopy, supportsNativeShare } from "../foundation/sharing";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Users,
   Copy,
@@ -100,6 +100,7 @@ export function FamilyPanel({
 
     return () => clearTimeout(timer);
   }, [copied]);
+  const codeUsable = inviteCode && (inviteCode.expiresAt === 0 || inviteCode.expiresAt > now);
   const invitationMessage = inviteCode
     ? t("familyShareMessage").replace("{code}", inviteCode.code)
     : "";
@@ -108,27 +109,52 @@ export function FamilyPanel({
   // Device detection affects only the icon; sharing always uses capabilities.
   const ShareIcon = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? Share : Share2;
 
+  const invitationEpoch = useRef(0);
+  useLayoutEffect(() => {
+    return () => {
+      invitationEpoch.current++;
+    };
+  }, [inviteOpen, inviteCode]);
+
   const copyInvitationCode = async () => {
-    if (!inviteCode) {
+    if (!inviteCode || (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())) {
       return;
     }
+    const epoch = invitationEpoch.current;
     setError(null);
     try {
       await navigator.clipboard.writeText(inviteCode.code);
-      setCopied(true);
+      if (epoch === invitationEpoch.current) {
+        setCopied(true);
+      }
     } catch {
-      setError("familyCopyFailed");
+      if (epoch === invitationEpoch.current) {
+        setError("familyCopyFailed");
+      }
     }
   };
 
   const shareInvitation = async () => {
+    if (!inviteCode || (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())) {
+      return;
+    }
+    const epoch = invitationEpoch.current;
     setError(null);
     try {
-      if ((await shareOrCopy(invitationData, invitationMessage)) === "copied") {
+      if (
+        (await shareOrCopy(
+          invitationData,
+          invitationMessage,
+          () => epoch === invitationEpoch.current,
+        )) === "copied" &&
+        epoch === invitationEpoch.current
+      ) {
         setCopied(true);
       }
     } catch {
-      setError("familyShareFailed");
+      if (epoch === invitationEpoch.current) {
+        setError("familyShareFailed");
+      }
     }
   };
 
@@ -142,9 +168,18 @@ export function FamilyPanel({
   const scoped = (body: unknown) => {
     const value = body as { action: string };
 
-    return family && !["create", "code-request"].includes(value.action)
-      ? { ...value, familyId: family.id }
-      : value;
+    if (!family || ["create", "code-request"].includes(value.action)) {
+      return value;
+    }
+    const version = value.action === "revoke" ? inviteCode?.version : family.invitationVersion;
+
+    return {
+      ...value,
+      familyId: family.id,
+      ...(["code-approve", "code-reject", "revoke"].includes(value.action) && version
+        ? { invitationVersion: version }
+        : {}),
+    };
   };
 
   useEffect(() => {
@@ -152,6 +187,7 @@ export function FamilyPanel({
     setInviteOpen(false);
     setCopied(false);
     setRenameName(null);
+    setError(null);
     setRenamed(false);
   }, [family?.id]);
   useEffect(() => {
@@ -176,7 +212,12 @@ export function FamilyPanel({
     let inFlight = false;
 
     const refresh = async () => {
-      if (inFlight || actionPending.current || !navigator.onLine) {
+      if (
+        inFlight ||
+        actionPending.current ||
+        !navigator.onLine ||
+        document.visibilityState !== "visible"
+      ) {
         return;
       }
       inFlight = true;
@@ -217,8 +258,8 @@ export function FamilyPanel({
 
     void refresh();
     const timer = setInterval(() => {
-      setNow(Date.now());
       if (document.visibilityState === "visible") {
+        setNow(Date.now());
         void refresh();
       }
     }, 5000);
@@ -271,6 +312,9 @@ export function FamilyPanel({
           version: z.string().optional(),
         })
         .parse(await api("/api/family", scoped({ action: "code-create" }), account.id));
+      if (family?.id !== selectedGroupRef.current) {
+        return;
+      }
       setInviteCode(result);
       setCopied(false);
       setNow(Date.now());
@@ -360,7 +404,10 @@ export function FamilyPanel({
             maxLength={80}
           />
         </label>
-        <button className="button primary" disabled={busy || cache.families.length >= 20}>
+        <button
+          className="button primary"
+          disabled={busy || !name.trim() || cache.families.length >= 20}
+        >
           {t("familyCreate")}
         </button>
       </form>
@@ -493,9 +540,10 @@ export function FamilyPanel({
                   <div className="stack">
                     <button
                       className="button outline"
+                      aria-label={`${t("familyMakeOwner")} · ${member.label}`}
                       disabled={busy}
                       onClick={() => {
-                        if (confirm(t("familyTransferConfirm"))) {
+                        if (confirm(`${member.label}\n\n${t("familyTransferConfirm")}`)) {
                           void action({ action: "transfer", member: member.id });
                         }
                       }}
@@ -505,6 +553,7 @@ export function FamilyPanel({
                     <button
                       className="button danger"
                       disabled={busy}
+                      aria-label={`${t("familyRemoveMember")} · ${member.label}`}
                       onClick={() => {
                         if (confirm(`${member.label}\n\n${t("familyRemoveConfirm")}`)) {
                           void action({ action: "remove", member: member.id });
@@ -541,6 +590,7 @@ export function FamilyPanel({
                       <button
                         className="button outline"
                         disabled={busy}
+                        aria-label={`${t("familyReject")} · ${member.label}`}
                         onClick={() =>
                           void codeAction({ action: "code-reject", member: member.id })
                         }
@@ -580,13 +630,14 @@ export function FamilyPanel({
                 >
                   <div className="stack family-invitation" aria-busy={busy}>
                     {busy && !inviteCode && <p role="status">{t("familyCreatingCode")}</p>}
-                    {inviteCode && (
+                    {codeUsable && (
                       <>
                         <div className="stack family-code-field">
                           <span id="invitation-code-label">{t("familyInvitationCode")}</span>
                           <button
                             className="family-invite-code"
                             aria-label={t("familyCopyCode")}
+                            aria-describedby="invitation-digits"
                             disabled={busy}
                             onClick={() => void copyInvitationCode()}
                           >
@@ -604,6 +655,9 @@ export function FamilyPanel({
                               {copied ? <Check size={22} /> : <Copy size={22} />}
                             </span>
                           </button>
+                          <span className="sr-only" id="invitation-digits">
+                            {inviteCode.code.split("").join(" ")}
+                          </span>
                           <span className="sr-only" role="status">
                             {copied ? t("copied") : ""}
                           </span>
@@ -619,6 +673,7 @@ export function FamilyPanel({
                         </button>
                       </>
                     )}
+                    {inviteCode && !codeUsable && <p role="status">{t("familyCodeExpired")}</p>}
                     {!busy &&
                       (!inviteCode ||
                         (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= now)) && (
@@ -686,22 +741,21 @@ export function FamilyPanel({
           )}
         </>
       ) : (
-        <>
-          {cache.inactive.map((group) => (
-            <div className="stack notice" key={group.id}>
-              <h4>{group.name}</h4>
-              <p>{t("familyAccessEnded")}</p>
-              <button className="button outline" onClick={() => onOpen(group.id)}>
-                {t("familyLocalCopy")}
-              </button>
-              <button className="button outline" onClick={() => onExport(group.id)}>
-                {t("familyExportLocal")}
-              </button>
-            </div>
-          ))}
-          {joinForms}
-        </>
+        joinForms
       )}
+      {account &&
+        cache.inactive.map((group) => (
+          <div className="stack notice" key={group.id}>
+            <h4>{group.name}</h4>
+            <p>{t("familyAccessEnded")}</p>
+            <button className="button outline" onClick={() => onOpen(group.id)}>
+              {t("familyLocalCopy")}
+            </button>
+            <button className="button outline" onClick={() => onExport(group.id)}>
+              {t("familyExportLocal")}
+            </button>
+          </div>
+        ))}
       {account && family && (
         <details>
           <summary>{t("familyHelp")}</summary>

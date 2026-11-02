@@ -30,7 +30,10 @@ export function sourceArea(path) {
 export async function collectStatistics(cwd = process.cwd()) {
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", windowsHide: true });
 
-  const files = git("ls-files", "-z").split("\0").filter(Boolean);
+  const deleted = new Set(git("ls-files", "--deleted", "-z").split("\0"));
+  const files = git("ls-files", "-z")
+    .split("\0")
+    .filter((path) => path && !deleted.has(path));
   /** @type {Record<string, {files: number, lines: number}>} */
   const areas = {};
   /** @type {Record<string, {files: number, lines: number}>} */

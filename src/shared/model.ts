@@ -1,6 +1,6 @@
 import { entityLimits, syncLimits } from "./limits";
 import { z } from "zod";
-import { decodePhoto, PHOTO_QUOTA } from "./photos";
+import { decodePhoto, encodedPhotoSize, PHOTO_QUOTA } from "./photos";
 
 export const idSchema = z.string().regex(/^[a-zA-Z0-9-]{1,80}$/);
 export const categoryIcons = [
@@ -166,6 +166,9 @@ export const backupSchema = z
   .strict()
   .superRefine((b, ctx) => {
     const ids = [...b.places, ...b.categories].map((x) => x.id);
+    if (ids.some((id) => id.startsWith("visit-"))) {
+      ctx.addIssue({ code: "custom", message: "Reserved identifier" });
+    }
     if (new Set(ids).size !== ids.length) {
       ctx.addIssue({ code: "custom", message: "Duplicate identifiers" });
     }
@@ -211,13 +214,29 @@ export const starters: Entity[] = [
   { id: "other", kind: "category", value: { name: "Other", color: "slate", builtIn: "other" } },
 ];
 
+// geo: URIs require decimal degrees. String(number) switches to exponent
+// notation below 0.000001, which map apps may interpret as a text search.
+const coordinateText = (value: number) => {
+  const text = String(value);
+  const exponent = text.indexOf("e-");
+  if (exponent < 0) {
+    return text;
+  }
+  const digits = text.slice(value < 0 ? 1 : 0, exponent).replace(".", "");
+
+  return `${value < 0 ? "-" : ""}0.${"0".repeat(Number(text.slice(exponent + 2)) - 1)}${digits}`;
+};
+
+const coordinatePair = (place: Pick<Place, "latitude" | "longitude">) =>
+  `${coordinateText(place.latitude)},${coordinateText(place.longitude)}`;
+
 export function mapURL(provider: string, p: Pick<Place, "latitude" | "longitude" | "name">) {
-  const coordinates = `${p.latitude},${p.longitude}`;
+  const coordinates = coordinatePair(p);
   if (provider === "apple") {
-    return `https://maps.apple.com/?ll=${encodeURIComponent(coordinates)}&q=${encodeURIComponent(p.name)}`;
+    return `https://maps.apple.com/?${new URLSearchParams({ ll: coordinates, q: p.name })}`;
   }
   if (provider === "geo") {
-    return `geo:0,0?q=${encodeURIComponent(`${coordinates}(${p.name})`)}`;
+    return `geo:0,0?${new URLSearchParams({ q: `${coordinates}(${p.name})` }).toString().replaceAll("+", "%20")}`;
   }
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
@@ -229,7 +248,7 @@ export function directionsURL(
   provider: "google" | "apple",
   p: Pick<Place, "latitude" | "longitude">,
 ) {
-  const destination = encodeURIComponent(`${p.latitude},${p.longitude}`);
+  const destination = encodeURIComponent(coordinatePair(p));
 
   return provider === "apple"
     ? `https://maps.apple.com/directions?destination=${destination}`
@@ -285,6 +304,22 @@ export function parseShare(hash: string) {
 }
 
 export function validateBackup(input: unknown) {
+  // Array validators collect element errors even when the array already exceeds
+  // the protocol limit. Reject impossible cardinalities before walking elements.
+  if (input && typeof input === "object") {
+    const candidate = input as Record<string, unknown>;
+    for (const [field, limit] of Object.entries({
+      places: entityLimits.place,
+      categories: entityLimits.category,
+      visits: entityLimits.place,
+      photos: 1000,
+    })) {
+      const rows = candidate[field];
+      if (Array.isArray(rows) && rows.length > limit) {
+        throw new Error("invalidImport");
+      }
+    }
+  }
   const backup = backupSchema.parse(input);
   const photos = backup.photos ?? [];
   const needed = new Set(backup.places.flatMap((p) => (p.value.photoId ? [p.value.photoId] : [])));
@@ -298,10 +333,13 @@ export function validateBackup(input: unknown) {
   }
   let bytes = 0;
   for (const p of photos) {
-    bytes += decodePhoto(p.data).length;
+    bytes += encodedPhotoSize(p.data);
+    if (bytes > PHOTO_QUOTA) {
+      throw new Error("photoQuota");
+    }
   }
-  if (bytes > PHOTO_QUOTA) {
-    throw new Error("photoQuota");
+  for (const p of photos) {
+    decodePhoto(p.data);
   }
 
   return backup;

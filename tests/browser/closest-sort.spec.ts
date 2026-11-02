@@ -71,6 +71,9 @@ for (const permissions of ["unavailable", "rejected", "throwing", "missing-query
       .getByRole("dialog", { name: "Place details", exact: true })
       .getByRole("button", { name: "Close", exact: true })
       .click();
+    // Quick save requests the first fix. The saved-place editor then refines it.
+    const requestsAfterSave = await page.evaluate(() => (window as any).locationRequests());
+    expect(requestsAfterSave).toBe(2);
     const sort = page.getByRole("combobox", { name: "Sort places", exact: true });
     await sort.selectOption("closest");
     await expect(sort).toHaveValue("closest");
@@ -85,7 +88,7 @@ for (const permissions of ["unavailable", "rejected", "throwing", "missing-query
       document.dispatchEvent(new Event("visibilitychange"));
     });
     await expect(sort.locator('option[value="closest"]')).toHaveCount(0);
-    expect(await page.evaluate(() => (window as any).locationRequests())).toBe(1);
+    expect(await page.evaluate(() => (window as any).locationRequests())).toBe(requestsAfterSave);
     await savePosition.click();
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(sort.locator('option[value="closest"]')).toHaveCount(1);

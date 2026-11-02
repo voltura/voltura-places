@@ -350,7 +350,7 @@ export const en = {
   exportFailed:
     "Could not create the backup. Connect to download any missing photos, then try again. Your places were not changed.",
   invalidImport: "This is not a valid Voltura Places backup. Nothing was changed.",
-  importLimit: "Choose a backup smaller than 80 MB.",
+  importLimit: "Choose a backup of 112 MiB or less.",
   storageFailure: "Could not save to this device. Free some browser storage and try again.",
   gpsDenied: "Location access was denied. Check your browser permissions.",
   gpsTimeout: "Couldn’t find your location.",
@@ -370,6 +370,16 @@ export const en = {
   syncConflict: "Changes conflict · choose a version",
   actionRequired: "Sync needs attention",
   account: "Account & sync",
+  profileName: "Display name",
+  profileNameHint:
+    "Shown to group members. Use up to 60 characters. Save an empty name to use your sign-in label again.",
+  profileInvalid: "Use up to 60 characters without line breaks or control characters.",
+  profileSave: "Save name",
+  profileClear: "Clear field",
+  profileSaveFailed: "Could not save the name. Your edit is still here. Try again when online.",
+  profileRefreshFailed:
+    "The name was saved, but your account could not be refreshed. Retry to update this device.",
+  profileSaved: "Display name saved.",
   signedIn: "Signed in",
   notSignedIn: "Not signed in",
   accountSyncIntro:
@@ -386,6 +396,8 @@ export const en = {
   email: "Email address",
   sendCode: "Email a sign-in code",
   code: "Six-digit code",
+  invalidSignInCode:
+    "This sign-in code is invalid or expired. Check the code or request a new one.",
   verify: "Sign in",
   codeSent: "Enter the six-digit code from your email below. It expires in five minutes.",
   signOut: "Sign out",
@@ -477,6 +489,9 @@ export const en = {
   currentLocation: "Place",
   invalidCoordinates:
     "Enter a name and valid coordinates (longitude −180 to 180, latitude −90 to 90), or select a device or photo location.",
+  draftReadFailure: "Could not read the saved draft. Retry to resume editing.",
+  draftWriteFailure:
+    "Could not save this draft on the device. Keep the editor open and try saving again.",
   unsavedDraft: "Draft restored",
   working: "Working…",
   cancelCapture: "Cancel locating",
@@ -849,7 +864,7 @@ export const sv: Record<Message, string> = {
     "Kunde inte skapa säkerhetskopian. Anslut för att hämta foton som saknas och försök igen. Dina platser ändrades inte.",
   invalidImport:
     "Detta är inte en giltig säkerhetskopia från Voltura Places. Ingenting har ändrats.",
-  importLimit: "Välj en säkerhetskopia mindre än 80 MB.",
+  importLimit: "Välj en säkerhetskopia på högst 112 MiB.",
   storageFailure:
     "Kunde inte spara på enheten. Frigör lagringsutrymme i webbläsaren och försök igen.",
   gpsDenied: "Platsåtkomst nekades. Kontrollera webbläsarens behörigheter.",
@@ -870,6 +885,17 @@ export const sv: Record<Message, string> = {
   syncConflict: "Ändringskonflikt · välj version",
   actionRequired: "Synkroniseringen behöver din hjälp",
   account: "Konto och synkronisering",
+  profileName: "Visningsnamn",
+  profileNameHint:
+    "Visas för gruppmedlemmar. Använd högst 60 tecken. Spara ett tomt namn för att använda din inloggningsuppgift igen.",
+  profileInvalid: "Använd högst 60 tecken utan radbrytningar eller kontrolltecken.",
+  profileSave: "Spara namn",
+  profileClear: "Töm fältet",
+  profileSaveFailed:
+    "Namnet kunde inte sparas. Din ändring finns kvar. Försök igen när du är online.",
+  profileRefreshFailed:
+    "Namnet sparades men kontot kunde inte uppdateras. Försök igen för att uppdatera enheten.",
+  profileSaved: "Visningsnamnet har sparats.",
   signedIn: "Inloggad",
   notSignedIn: "Inte inloggad",
   accountSyncIntro:
@@ -889,6 +915,8 @@ export const sv: Record<Message, string> = {
   email: "E-postadress",
   sendCode: "Skicka en inloggningskod",
   code: "Sexsiffrig kod",
+  invalidSignInCode:
+    "Inloggningskoden är ogiltig eller har gått ut. Kontrollera koden eller begär en ny.",
   verify: "Logga in",
   codeSent: "Ange den sexsiffriga koden från e-postmeddelandet nedan. Den gäller i fem minuter.",
   signOut: "Logga ut",
@@ -981,6 +1009,10 @@ export const sv: Record<Message, string> = {
   currentLocation: "Plats",
   invalidCoordinates:
     "Ange ett namn och giltiga koordinater (longitud −180 till 180, latitud −90 till 90), eller välj en position från enheten eller en bild.",
+  draftReadFailure:
+    "Det gick inte att läsa det sparade utkastet. Försök igen för att fortsätta redigera.",
+  draftWriteFailure:
+    "Det gick inte att spara utkastet på enheten. Håll redigeraren öppen och försök spara igen.",
   unsavedDraft: "Utkast återställt",
   working: "Arbetar…",
   cancelCapture: "Avbryt positionering",

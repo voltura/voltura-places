@@ -79,14 +79,26 @@ export function ImportDialog({
         </p>
         <p className="muted">{t("importDescription")}</p>
         <label className="radio-card">
-          <input type="radio" checked={!replace} onChange={() => setReplace(false)} />
+          <input
+            type="radio"
+            name="backup-import-mode"
+            disabled={busy || !canWrite}
+            checked={!replace}
+            onChange={() => setReplace(false)}
+          />
           <span>
             <strong>{t("merge")}</strong>
             <small>{t("mergeBody")}</small>
           </span>
         </label>
         <label className="radio-card">
-          <input type="radio" checked={replace} onChange={() => setReplace(true)} />
+          <input
+            type="radio"
+            name="backup-import-mode"
+            disabled={busy || !canWrite}
+            checked={replace}
+            onChange={() => setReplace(true)}
+          />
           <span>
             <strong>{t("replace")}</strong>
             <small>{t("replaceBody")}</small>

@@ -1,6 +1,29 @@
 import { test, expect, vi } from "vitest";
 import { watchForUpdates } from "../src/client/foundation/updates";
 
+test("reconnection retries a failed update immediately; an in-progress install does not request the script again", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "hidden" }));
+  vi.stubGlobal("navigator", { onLine: true });
+  const worker = Object.assign(new EventTarget(), { state: "installing" });
+  const registration = Object.assign(new EventTarget(), {
+    active: {},
+    waiting: null,
+    installing: null as EventTarget | null,
+    update: vi.fn().mockRejectedValueOnce(Error("disconnected")).mockResolvedValue(undefined),
+  });
+  const monitor = watchForUpdates(registration as unknown as ServiceWorkerRegistration, () => {});
+  try {
+    await expect(monitor.check()).rejects.toThrow("disconnected");
+    expect(await monitor.check()).toBe("current");
+    registration.installing = worker;
+    expect(await monitor.check(true)).toBe("checking");
+    expect(registration.update).toHaveBeenCalledTimes(2);
+  } finally {
+    monitor.dispose();
+    vi.unstubAllGlobals();
+  }
+});
 test("first installation waits for activation without offering a replacement update", async () => {
   vi.stubGlobal("window", new EventTarget());
   vi.stubGlobal("document", Object.assign(new EventTarget(), { visibilityState: "hidden" }));

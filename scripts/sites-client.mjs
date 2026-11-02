@@ -1,15 +1,15 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, openAsBlob, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, resolve, delimiter } from "node:path";
 import { homedir } from "node:os";
 
 const root = process.cwd();
-const secrets = [];
 const archiveLimit = 256 * 1024 * 1024;
 
 async function uploadArchive(path) {
-  if (statSync(path).size >= archiveLimit) {
+  const data = await openAsBlob(path, { type: "application/gzip" });
+  if (data.size >= archiveLimit) {
     throw new Error("Site archive must be below 256 MiB before upload.");
   }
   // Direct app-server tool calls do not apply the model tool's file-path adapter.
@@ -22,7 +22,6 @@ async function uploadArchive(path) {
       "Archive upload needs the existing ChatGPT Codex login. Run codex login and retry.",
     );
   }
-  secrets.push(tokens.access_token);
   const headers = {
     Authorization: `Bearer ${tokens.access_token}`,
     "ChatGPT-Account-Id": tokens.account_id,
@@ -32,6 +31,7 @@ async function uploadArchive(path) {
   const post = async (endpoint, body) => {
     const response = await fetch(`https://chatgpt.com/backend-api${endpoint}`, {
       method: "POST",
+      redirect: "error",
       headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
@@ -45,10 +45,9 @@ async function uploadArchive(path) {
     return response.json();
   };
 
-  const data = readFileSync(path);
   const file = await post("/files", {
     file_name: basename(path),
-    file_size: data.length,
+    file_size: data.size,
     use_case: "codex",
     codex_connector_id: "connector_20205bf7d4e99a89d7154bb849718324",
     codex_action_name: "save_site_version",
@@ -57,9 +56,9 @@ async function uploadArchive(path) {
   if (!file.file_id || !file.upload_url) {
     throw new Error("Codex file service returned no upload destination.");
   }
-  secrets.push(file.upload_url);
   const uploaded = await fetch(file.upload_url, {
     method: "PUT",
+    redirect: "error",
     headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": "application/gzip" },
     body: data,
     signal: AbortSignal.timeout(60000),
@@ -71,7 +70,6 @@ async function uploadArchive(path) {
   if (!finished.download_url) {
     throw new Error("Archive upload returned no download URL.");
   }
-  secrets.push(finished.download_url);
 
   return {
     file_id: file.file_id,
@@ -115,13 +113,16 @@ function codexExecutable() {
 async function connect() {
   const child = spawn(codexExecutable(), ["app-server", "--listen", "stdio://"], {
     cwd: root,
+    windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });
   child.stderr.resume();
   const pending = new Map();
   let id = 0;
+  let closed;
 
   const rejectAll = (error) => {
+    closed = error;
     for (const request of pending.values()) {
       clearTimeout(request.timer);
       request.reject(error);
@@ -129,6 +130,7 @@ async function connect() {
     pending.clear();
   };
 
+  child.stdin.on("error", rejectAll);
   child.once("error", rejectAll);
   child.once("close", () =>
     rejectAll(new Error("Codex app server closed. Check your Codex login and Sites connection.")),
@@ -162,6 +164,11 @@ async function connect() {
 
   const rpc = (method, params) =>
     new Promise((resolveCall, reject) => {
+      if (closed) {
+        reject(closed);
+
+        return;
+      }
       const requestId = ++id;
       const timer = setTimeout(() => {
         pending.delete(requestId);

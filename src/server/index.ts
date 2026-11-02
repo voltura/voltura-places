@@ -21,10 +21,17 @@ export function createWorker(assets: AssetMap, version: string) {
       const url = new URL(request.url);
       try {
         if (url.pathname === "/api/health") {
-          return Response.json(
-            { ok: true, product: "voltura-places", version },
-            { headers: { "Cache-Control": "no-store", ...security } },
-          );
+          const headers = { "Cache-Control": "no-store", ...security };
+          if (!["GET", "HEAD"].includes(request.method)) {
+            return new Response(null, { status: 405, headers: { ...headers, Allow: "GET, HEAD" } });
+          }
+          if (request.method === "HEAD") {
+            return new Response(null, {
+              headers: { ...headers, "Content-Type": "application/json" },
+            });
+          }
+
+          return Response.json({ ok: true, product: "voltura-places", version }, { headers });
         }
         if (url.pathname.startsWith("/api/")) {
           let response: Response;
@@ -35,17 +42,15 @@ export function createWorker(assets: AssetMap, version: string) {
           } else if (url.pathname.startsWith("/api/v1/photos/")) {
             response = await handlePhoto(request, env);
           } else if (url.pathname === "/api/v1/sync") {
-            if (env.ACCOUNTS_ENABLED !== "true" || !env.DB) {
-              return Response.json(
-                { error: "serviceUnavailable" },
-                { status: 503, headers: { "Cache-Control": "no-store" } },
-              );
-            }
             response = await handleSync(request, env);
+          } else if (
+            url.pathname === "/api/account" ||
+            url.pathname.startsWith("/api/account/") ||
+            url.pathname.startsWith("/api/auth/")
+          ) {
+            response = await handleAccounts(request, env);
           } else {
-            response =
-              (await handleAccounts(request, env)) ??
-              Response.json({ error: "serviceUnavailable" }, { status: 503 });
+            response = Response.json({ error: "notFound" }, { status: 404 });
           }
           const headers = new Headers(response.headers);
           for (const [k, v] of Object.entries(security)) {
@@ -56,7 +61,7 @@ export function createWorker(assets: AssetMap, version: string) {
           return new Response(response.body, { status: response.status, headers });
         }
         if (!["GET", "HEAD"].includes(request.method)) {
-          return new Response(null, { status: 405 });
+          return new Response(null, { status: 405, headers: { ...security, Allow: "GET, HEAD" } });
         }
         const path = url.pathname === "/" ? "/index.html" : url.pathname;
         const asset = assets[path];
@@ -65,15 +70,26 @@ export function createWorker(assets: AssetMap, version: string) {
         }
         const [type, data] = asset;
 
+        const etag = `W/"${version}:${encodeURIComponent(path)}"`;
+        const headers = {
+          ...security,
+          "Content-Type": type,
+          ETag: etag,
+          "Cache-Control": path.startsWith("/assets/")
+            ? "public, max-age=31536000, immutable"
+            : "no-cache, max-age=0, must-revalidate",
+          ...(path === "/sw.js" ? { "Service-Worker-Allowed": "/" } : {}),
+        };
+        const validators = request.headers
+          .get("If-None-Match")
+          ?.split(",")
+          .map((tag) => tag.trim());
+        if (validators?.some((tag) => tag === "*" || tag === etag || tag === etag.slice(2))) {
+          return new Response(null, { status: 304, headers });
+        }
+
         return new Response(request.method === "HEAD" ? null : Buffer.from(data, "base64"), {
-          headers: {
-            ...security,
-            "Content-Type": type,
-            "Cache-Control": path.startsWith("/assets/")
-              ? "public, max-age=31536000, immutable"
-              : "no-cache, max-age=0, must-revalidate",
-            ...(path === "/sw.js" ? { "Service-Worker-Allowed": "/" } : {}),
-          },
+          headers,
         });
       } catch {
         return Response.json(

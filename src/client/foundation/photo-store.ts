@@ -1,5 +1,5 @@
 import { type DBSchema } from "idb";
-import { abortTransaction, localDatabase } from "./database";
+import { abortTransaction, broadcast, localDatabase, openChannel } from "./database";
 import { workspaceIdentity } from "../../shared/families";
 import { PHOTO_BYTES, PHOTO_QUOTA, jpegDimensions, photoHash } from "../../shared/photos";
 
@@ -19,8 +19,7 @@ const database = localDatabase<PhotoDB>("voltura-places-photos", 1, (db) => {
     "workspace",
   );
 });
-const photoChannel =
-  typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("places-photos") : null;
+const photoChannel = openChannel("places-photos");
 
 export function watchPhoto(workspace: string, id: string, onChange: () => void) {
   const receive = (data: { workspace?: string; ids?: string[] }) => {
@@ -56,13 +55,31 @@ export async function getPhoto(workspace: string, id: string) {
   return (await database()).get("photos", [workspace, id]);
 }
 
-export async function makeStoredPhoto(
+async function storedJpeg(
   workspace: string,
   id: string,
   blob: Blob,
+  verifyPixels: boolean,
 ): Promise<StoredPhoto> {
+  if (blob.size > PHOTO_BYTES) {
+    throw new Error("invalidPhoto");
+  }
   const bytes = new Uint8Array(await blob.arrayBuffer());
   jpegDimensions(bytes);
+  if (verifyPixels) {
+    await decodeJpeg(blob);
+  }
+
+  return {
+    workspace,
+    id,
+    blob: blob.type === "image/jpeg" ? blob : blob.slice(0, blob.size, "image/jpeg"),
+    hash: await photoHash(bytes),
+    uploaded: false,
+  };
+}
+
+async function decodeJpeg(blob: Blob) {
   // A browser decoder verifies entropy data as well as the shared structural checks.
   if (typeof createImageBitmap === "function") {
     const image = await createImageBitmap(blob).catch(() => {
@@ -81,26 +98,28 @@ export async function makeStoredPhoto(
       URL.revokeObjectURL(url);
     }
   }
-
-  return {
-    workspace,
-    id,
-    blob: new Blob([bytes], { type: "image/jpeg" }),
-    hash: await photoHash(bytes),
-    uploaded: false,
-  };
 }
 
-export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
+export const makeStoredPhoto = (workspace: string, id: string, blob: Blob) =>
+  storedJpeg(workspace, id, blob, true);
+
+// Only the browser canvas encoder uses this path. Imported and downloaded bytes
+// retain both the structural and pixel decoder checks.
+export const makeCanvasPhoto = (workspace: string, id: string, blob: Blob) =>
+  storedJpeg(workspace, id, blob, false);
+
+async function persistPhotos(
+  workspace: string,
+  photos: StoredPhoto[],
+  remap: boolean,
+  isCurrent: () => boolean,
+) {
+  const mapping = new Map<string, string>();
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
   if (!photos.length) {
-    return;
-  }
-  const workspace = photos[0].workspace;
-  if (photos.some((p) => p.workspace !== workspace || p.blob.size > PHOTO_BYTES)) {
-    throw new Error("invalidPhoto");
+    return mapping;
   }
   const db = await database();
   const tx = db.transaction("photos", "readwrite");
@@ -109,40 +128,72 @@ export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
     if (!isCurrent()) {
       throw new Error("accountChanged");
     }
-    const all = new Map(existing.map((p) => [p.id, p]));
-    for (const p of photos) {
-      const previous = all.get(p.id);
-      if (previous && previous.hash !== p.hash) {
-        throw new Error("invalidPhoto");
+    const indexed = new Map<string, StoredPhoto>();
+    const byHash = new Map<string, string>();
+    let total = 0;
+    for (const photo of existing) {
+      indexed.set(photo.id, photo);
+      total += photo.blob.size;
+      if (remap && !byHash.has(photo.hash)) {
+        byHash.set(photo.hash, photo.id);
       }
-      all.set(p.id, previous ?? p);
     }
-    if (all.size > 1000 || [...all.values()].reduce((n, p) => n + p.blob.size, 0) > PHOTO_QUOTA) {
-      throw new Error("photoQuota");
-    }
-    for (const p of photos) {
+    const added: string[] = [];
+    for (const photo of photos) {
       if (!isCurrent()) {
         throw new Error("accountChanged");
       }
-      await tx.store.put(all.get(p.id)!);
+      if ((!remap && photo.workspace !== workspace) || photo.blob.size > PHOTO_BYTES) {
+        throw new Error("invalidPhoto");
+      }
+      let id = photo.id;
+      const collision = indexed.get(id);
+      if (collision && collision.hash !== photo.hash) {
+        if (!remap) {
+          throw new Error("invalidPhoto");
+        }
+        id = byHash.get(photo.hash) ?? crypto.randomUUID();
+        while (indexed.has(id) && indexed.get(id)!.hash !== photo.hash) {
+          id = crypto.randomUUID();
+        }
+      }
+      mapping.set(photo.id, id);
+      if (indexed.has(id)) {
+        continue;
+      }
+      const next = remap ? { ...photo, id, workspace, uploaded: false } : photo;
+      total += photo.blob.size;
+      if (indexed.size >= 1000 || total > PHOTO_QUOTA) {
+        throw new Error("photoQuota");
+      }
+      await tx.store.add(next);
+      indexed.set(id, next);
+      if (remap && !byHash.has(photo.hash)) {
+        byHash.set(photo.hash, id);
+      }
+      added.push(id);
     }
     if (!isCurrent()) {
       throw new Error("accountChanged");
     }
     await tx.done;
-    const existingIds = new Set(existing.map((p) => p.id));
-    const ids = [...new Set(photos.filter((p) => !existingIds.has(p.id)).map((p) => p.id))];
-    if (ids.length) {
-      const detail = { workspace, ids };
+    if (added.length) {
+      const detail = { workspace, ids: added };
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("places-photos", { detail }));
       }
-      photoChannel?.postMessage(detail);
+      broadcast(photoChannel, detail);
     }
+
+    return mapping;
   } catch (error) {
     await abortTransaction(tx);
     throw error;
   }
+}
+
+export async function putPhotos(photos: StoredPhoto[], isCurrent = () => true) {
+  await persistPhotos(photos[0]?.workspace ?? "", photos, false, isCurrent);
 }
 
 export async function markPhotoUploaded(
@@ -175,48 +226,31 @@ export async function markPhotoUploaded(
 }
 
 export async function copyPhotos(from: string, to: string, ids: string[], isCurrent = () => true) {
-  const photos = await Promise.all([...new Set(ids)].map((id) => getPhoto(from, id)));
-  if (photos.some((p) => !p)) {
-    throw new Error("photoUnavailable");
-  }
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
   const mapping = new Map<string, string>();
-  if (!photos.length) {
+  if (!ids.length) {
     return mapping;
   }
-  const existing = await (await database()).getAllFromIndex("photos", "workspace", to);
-  const all = new Map(existing.map((p) => [p.id, p]));
-  const copies = photos.map((photo) => {
-    const p = photo!;
-    let id = p.id;
-    const previous = all.get(id);
-    if (previous && previous.hash !== p.hash) {
-      id =
-        [...all.values()].find((candidate) => candidate.hash === p.hash)?.id ?? crypto.randomUUID();
-      while (all.has(id) && all.get(id)!.hash !== p.hash) {
-        id = crypto.randomUUID();
-      }
-    }
-    mapping.set(p.id, id);
-    const copy = { ...p, id, workspace: to, uploaded: false };
-    all.set(id, all.get(id) ?? copy);
+  const db = await database();
+  const source = db.transaction("photos");
+  const photos = await Promise.all([...new Set(ids)].map((id) => source.store.get([from, id])));
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (photos.some((p) => !p)) {
+    throw new Error("photoUnavailable");
+  }
 
-    return copy;
-  });
-  await putPhotos(copies, isCurrent);
-
-  return mapping;
+  return persistPhotos(to, photos as StoredPhoto[], true, isCurrent);
 }
 
 export async function clearPhotos(workspace: string) {
   const db = await database();
   const tx = db.transaction("photos", "readwrite");
   try {
-    for (const key of await tx.store.index("workspace").getAllKeys(workspace)) {
-      await tx.store.delete(key);
-    }
+    await tx.store.delete(IDBKeyRange.bound([workspace], [workspace, []]));
     await tx.done;
   } catch (error) {
     await abortTransaction(tx);
@@ -228,7 +262,10 @@ export async function clearAccountPhotos(account: string) {
   const db = await database();
   const tx = db.transaction("photos", "readwrite");
   try {
-    for (const key of await tx.store.getAllKeys()) {
+    await tx.store.delete(IDBKeyRange.bound([account], [account, []]));
+    const prefix = `family:${account}:`;
+    const familyRange = IDBKeyRange.bound([prefix], [prefix + "\uffff"]);
+    for (const key of await tx.store.getAllKeys(familyRange)) {
       if (workspaceIdentity(key[0]).account === account) {
         await tx.store.delete(key);
       }

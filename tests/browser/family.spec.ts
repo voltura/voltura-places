@@ -498,7 +498,7 @@ test("two signed-in family members share photos and offline saves while private 
     await participants.scrollIntoViewIfNeeded();
     await a.page.screenshot({ path: testInfo.outputPath("group-participants.png") });
     const remove = a.page.getByRole("button", {
-      name: "Remove member",
+      name: /^Remove member/,
       exact: true,
     });
     a.page.once("dialog", async (dialog) => {

@@ -57,8 +57,11 @@ await build({
           const name = relative(root, importer).replaceAll("\\", "/");
           const layer = layerOf(name);
           if (layer) {
-            if (target.startsWith(".")) {
-              const path = relative(root, resolve(dirname(importer), target)).replaceAll("\\", "/");
+            if (target.startsWith(".") || target.startsWith("/src/")) {
+              const destination = target.startsWith("/src/")
+                ? resolve(root, target.slice(5))
+                : resolve(dirname(importer), target);
+              const path = relative(root, destination).replaceAll("\\", "/");
               if (!layers[layer].has(layerOf(path))) {
                 violations.push(`${name} -> ${target}`);
               }

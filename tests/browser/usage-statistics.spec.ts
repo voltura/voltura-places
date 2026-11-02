@@ -1,5 +1,56 @@
 import { test, expect } from "./fixtures";
 
+test("switching promo language retains the linked feature section", async ({ page }) => {
+  await page.goto("http://127.0.0.1:5175/places/#sharing");
+  await page.getByRole("link", { name: "Svenska" }).click();
+  await expect(page).toHaveURL(/\/sv\/#sharing$/);
+});
+
+test.describe("static statistics", () => {
+  test.use({ javaScriptEnabled: false });
+  test("shows a localized fallback and keeps repository figures usable", async ({ page }) => {
+    await page.goto("http://127.0.0.1:5175/places/sv/stats.html");
+    await expect(
+      page.getByText("Aktivera JavaScript för att läsa in aktuell användningsstatistik."),
+    ).toBeVisible();
+    await expect(page.locator(".stat-skeleton").first()).toBeHidden();
+    await expect(page.locator(".theme-toggle")).toBeHidden();
+    await expect(page.getByRole("heading", { name: "Kodstatistik" })).toBeVisible();
+  });
+});
+
+test("localhost promo uses local data, rejects out-of-range dates and synchronizes tabs", async ({
+  page,
+  context,
+}) => {
+  const seen = new Set<string>();
+  await context.route("**/api/v1/statistics", (route) => {
+    seen.add(new URL(route.request().url()).origin);
+
+    return route.fulfill({
+      json: {
+        version: 1,
+        generatedAt: Number.MAX_SAFE_INTEGER,
+        activityStartedAt: Date.now(),
+        activeNow: 1,
+        activeToday: 1,
+        active30Days: 1,
+        registeredAccounts: 0,
+        cloudPlaces: 0,
+        averagePersonalPlaces: 0,
+      },
+    });
+  });
+  await page.goto("http://localhost:5175/places/stats.html");
+  await expect(page.locator("[data-usage]")).toHaveAttribute("data-state", "unavailable");
+  expect([...seen]).toEqual(["http://127.0.0.1:5173"]);
+  const other = await context.newPage();
+  await other.goto("http://localhost:5175/places/sv/");
+  await other.locator(".theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".footer-brand")).toHaveAttribute("href", "./");
+});
+
 test("activity opt-out clears the browser ID and survives reload", async ({ page }) => {
   let reports = 0;
   await page.route("**/api/v1/activity", (route) => {

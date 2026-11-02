@@ -455,6 +455,7 @@ export function Settings({
       )}
       {tab === "account" && (
         <AccountPanel
+          key={account.account?.id ?? "guest"}
           state={account}
           t={t}
           onRefresh={onAccount}

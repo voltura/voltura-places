@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { test, expect } from "vitest";
-import { startupDevices, startupName } from "../scripts/branding.mjs";
+import { startupDevices, startupName } from "../scripts/startup-images.mjs";
 
 const dimensions = (bytes: Buffer) => {
   expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");

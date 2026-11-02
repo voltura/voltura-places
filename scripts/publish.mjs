@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, unlink, readdir, stat } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink, readdir, stat, rename } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -7,6 +7,20 @@ import { connect } from "./sites-client.mjs";
 
 const root = process.cwd();
 const checkpoint = ".openai/.local/pending-deployment.json";
+
+async function checkpointDeployment(pending) {
+  const temporary = `${checkpoint}.${crypto.randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, JSON.stringify(pending, null, 2), { flag: "wx" });
+    await rename(temporary, checkpoint);
+  } finally {
+    await unlink(temporary).catch((error) => {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    });
+  }
+}
 
 const git = (args) => execFileSync("git", args, { encoding: "utf8", windowsHide: true }).trim();
 
@@ -65,11 +79,12 @@ try {
     for (const args of [
       ["scripts/format.mjs", "--check"],
       ["node_modules/typescript/bin/tsc", "--noEmit"],
+      ["scripts/check-architecture.mjs"],
       ["scripts/check-docs.mjs"],
       ["node_modules/vitest/vitest.mjs", "run"],
       ["scripts/build.mjs"],
       ["scripts/test-api.mjs"],
-      ["--test", "tests/auth-runtime.test.mjs"],
+      ["--test", "tests/auth-runtime.test.mjs", "tests/statistics-runtime.test.mjs"],
     ]) {
       await run(process.execPath, args);
     }
@@ -79,7 +94,7 @@ try {
       project_id: manifest.project_id,
     });
     const skill = await sitesSkill();
-    const archive = resolve(tmpdir(), "voltura-places-site.tar.gz");
+    const archive = resolve(tmpdir(), `voltura-places-${sha}-${crypto.randomUUID()}.tar.gz`);
     assertValidatedSource();
     const output = await run(
       process.execPath,
@@ -120,7 +135,8 @@ try {
       audience: site.access_mode,
     };
     await mkdir(dirname(checkpoint), { recursive: true });
-    await writeFile(checkpoint, JSON.stringify(pending, null, 2));
+    await checkpointDeployment(pending);
+    await unlink(archive);
   }
   let deployment = pending.deployment_id
     ? await call("get_deployment_status", {
@@ -134,7 +150,7 @@ try {
       { project_id: manifest.project_id, version_id: pending.version_id },
     );
     pending.deployment_id = deployment.id;
-    await writeFile(checkpoint, JSON.stringify(pending, null, 2));
+    await checkpointDeployment(pending);
   }
   while (["pending", "building", "publishing"].includes(deployment.status)) {
     await new Promise((r) => setTimeout(r, 2000));
@@ -161,10 +177,11 @@ async function run(file, args, input) {
     const output = [];
     p.stdout.on("data", (chunk) => output.push(chunk));
     p.stderr.on("data", (chunk) => process.stderr.write(chunk));
+    p.stdin.on("error", reject);
     p.once("error", reject);
-    p.once("exit", (code) =>
-      code
-        ? reject(new Error(`Command failed (${code})`))
+    p.once("close", (code, signal) =>
+      code !== 0
+        ? reject(new Error(`Command failed (${signal ?? code})`))
         : resolveRun(Buffer.concat(output).toString()),
     );
     p.stdin.end(input ?? "");

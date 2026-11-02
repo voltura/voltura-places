@@ -104,10 +104,48 @@ test("single-group cache upgrades and keeps independent active and archived grou
     expect(initialWorkspace(account)).toBe(familyKey(account, second.id));
     const after = storeFamilies(account, [second]);
     expect(after.families).toEqual([second]);
-    expect(after.inactive).toEqual([first]);
+    expect(after.inactive).toEqual([{ ...first, ownerId: "", members: [], requests: [] }]);
+    const writes = vi.spyOn(storage, "setItem");
+    expect(storeFamilies(account, [structuredClone(second)], after)).toBe(after);
+    expect(writes).not.toHaveBeenCalled();
     storage.setItem(`places-workspace:${account}`, familyKey(account, first.id));
     expect(initialWorkspace(account)).toBe(familyKey(account, first.id));
     expect(cachedFamily(crypto.randomUUID()).families).toEqual([]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("one corrupt group cannot hide valid cached groups, and active groups take precedence over archived duplicates", () => {
+  const group = { id: crypto.randomUUID(), name: "Group", ownerId: "a", members: [], requests: [] };
+  const archived = { ...group, id: crypto.randomUUID() };
+  vi.stubGlobal("localStorage", {
+    getItem: () => JSON.stringify({ families: [null, group, group], inactive: [group, archived] }),
+  });
+  try {
+    expect(cachedFamily("a")).toEqual({
+      families: [group],
+      inactive: [{ ...archived, ownerId: "" }],
+    });
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("a tab's unchanged membership poll retains another tab's newly archived library", () => {
+  const data = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => data.set(key, value),
+  });
+  const first = { id: crypto.randomUUID(), name: "First", ownerId: "a", members: [], requests: [] };
+  const another = { ...first, id: crypto.randomUUID(), name: "Second" };
+  try {
+    const old = storeFamilies("a", [first]);
+    storeFamilies("a", [first, another]);
+    storeFamilies("a", [first]);
+    expect(storeFamilies("a", [first], old).inactive).toEqual([{ ...another, ownerId: "" }]);
+    expect(cachedFamily("a").inactive).toEqual([{ ...another, ownerId: "" }]);
   } finally {
     vi.unstubAllGlobals();
   }
@@ -184,3 +222,30 @@ test.each(["private", "group"])(
     ).toBe(true);
   },
 );
+
+test("archiving a group removes cached participant and applicant identities while keeping its offline library discoverable", () => {
+  const group = {
+    id: crypto.randomUUID(),
+    name: "Library",
+    ownerId: "former-owner",
+    invitationVersion: "a".repeat(64),
+    members: [{ id: "person", label: "member@example.test" }],
+    requests: [{ id: "request", label: "applicant@example.test" }],
+  };
+  const values = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  try {
+    const active = storeFamilies("member", [group]);
+    storeFamilies("member", [], active);
+    const raw = values.get("places-family:member")!;
+    expect(raw).not.toContain("example.test");
+    expect(raw).not.toContain("former-owner");
+    expect(raw).not.toContain("invitationVersion");
+    expect(cachedFamily("member").inactive[0]).toMatchObject({ id: group.id, name: "Library" });
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

@@ -111,6 +111,14 @@ p {
 .skip-link:focus {
   top: 12px;
 }
+.no-js .header-actions .theme-toggle,
+.no-js .usage-section[data-state="loading"],
+.usage-no-script {
+  display: none;
+}
+.no-js .usage-no-script {
+  display: block;
+}
 .site-header {
   position: sticky;
   top: 0;

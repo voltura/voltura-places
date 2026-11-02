@@ -5,9 +5,11 @@ import { validPosition } from "../foundation/location-review";
 export function useCurrentPosition() {
   const [position, setPosition] = useState<GeolocationPosition | null>(null);
   const expiry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const locationRequest = useRef(0);
   const rememberPosition = useCallback((next: GeolocationPosition | null) => {
+    locationRequest.current++;
     clearTimeout(expiry.current);
-    if (!next || !validPosition(next)) {
+    if (document.hidden || !next || !validPosition(next)) {
       setPosition(null);
 
       return;
@@ -38,8 +40,13 @@ export function useCurrentPosition() {
       const request = generation;
 
       const locate = () => {
+        const attempt = ++locationRequest.current;
+
+        const isCurrent = () =>
+          active && request === generation && attempt === locationRequest.current;
+
         const failed = () => {
-          if (active && request === generation) {
+          if (isCurrent()) {
             rememberPosition(null);
           }
         };
@@ -47,7 +54,7 @@ export function useCurrentPosition() {
         try {
           navigator.geolocation.getCurrentPosition(
             (next) => {
-              if (active && request === generation) {
+              if (isCurrent()) {
                 rememberPosition(next);
               }
             },
@@ -77,7 +84,7 @@ export function useCurrentPosition() {
             return;
           }
           permission = result;
-          permission.addEventListener("change", update);
+          permission.addEventListener?.("change", update);
           update();
         })
         .catch(() => {});
@@ -87,7 +94,7 @@ export function useCurrentPosition() {
       active = false;
       stop();
       clearTimeout(expiry.current);
-      permission?.removeEventListener("change", update);
+      permission?.removeEventListener?.("change", update);
       document.removeEventListener("visibilitychange", update);
     };
   }, [rememberPosition]);

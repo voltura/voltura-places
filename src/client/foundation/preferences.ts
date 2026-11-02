@@ -12,6 +12,7 @@ export type Preferences = {
   autoHideControls: boolean;
   units: DistanceUnits;
 };
+export const preferencesKey = "places-preferences";
 
 /** Treat device storage as untrusted input; only retain known, valid fields. */
 export function parsePreferences(
@@ -54,11 +55,38 @@ export function parsePreferences(
   };
 }
 
-export function loadPreferences(): Preferences {
+export function loadPreferences(fallback?: Preferences): Preferences {
   let value: unknown;
   try {
-    value = JSON.parse(localStorage.getItem("places-preferences") ?? "null");
-  } catch {}
+    value = JSON.parse(localStorage.getItem(preferencesKey) ?? "null");
+  } catch {
+    if (fallback) {
+      return fallback;
+    }
+  }
 
   return parsePreferences(value, location.search, navigator.language ?? "");
+}
+
+// Merge only fields edited by this tab. Another tab may already have changed other fields.
+export function storePreferences(fallback: Preferences, changes: Partial<Preferences>) {
+  let merged = { ...fallback, ...changes };
+  try {
+    const raw = localStorage.getItem(preferencesKey);
+    let value: unknown;
+    if (raw) {
+      try {
+        value = JSON.parse(raw);
+      } catch {}
+    }
+    merged = { ...parsePreferences(value, "", navigator.language ?? ""), ...changes };
+    const encoded = JSON.stringify(merged);
+    if (encoded !== raw) {
+      localStorage.setItem(preferencesKey, encoded);
+    }
+
+    return { value: merged, saved: true };
+  } catch {
+    return { value: merged, saved: false };
+  }
 }

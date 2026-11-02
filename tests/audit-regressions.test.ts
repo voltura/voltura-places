@@ -255,7 +255,7 @@ test("storage denial retains archived group metadata supplied by composition", (
     requests: [],
   };
   expect(storeFamilies("account", [], { families: [group], inactive: [] }).inactive).toEqual([
-    group,
+    { ...group, ownerId: "" },
   ]);
 });
 test("date-line bounds choose a small shared arc while ordinary coordinates stay unchanged", () => {

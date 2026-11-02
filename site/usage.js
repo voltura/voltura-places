@@ -7,22 +7,30 @@ if (section) {
   const locale = sv ? "sv-SE" : "en-GB";
   const status = section.querySelector("[data-usage-status]");
   const metrics = [...section.querySelectorAll("[data-metric]")];
-  const endpoint =
-    location.origin === "http://127.0.0.1:5175"
-      ? "http://127.0.0.1:5173/api/v1/statistics"
-      : "https://places.voltura.se/api/v1/statistics";
-  let busy = false;
+  const endpoint = ["http://127.0.0.1:5175", "http://localhost:5175"].includes(location.origin)
+    ? "http://127.0.0.1:5173/api/v1/statistics"
+    : "https://places.voltura.se/api/v1/statistics";
+  const counts = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  const averages = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  let active;
+  let timer;
+  let lastSuccess = -Infinity;
 
   async function refresh() {
-    if (busy || document.visibilityState !== "visible") {
+    if (active || document.visibilityState !== "visible") {
       return;
     }
-    busy = true;
+    const controller = new AbortController();
+    active = controller;
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
+      if (!navigator.onLine) {
+        throw new Error("offline");
+      }
       const response = await fetch(endpoint, {
         credentials: "omit",
         cache: "no-store",
-        signal: AbortSignal.timeout(8000),
+        signal: controller.signal,
       });
       if (!response.ok) {
         throw new Error("unavailable");
@@ -32,8 +40,10 @@ if (section) {
         data.version !== 1 ||
         !Number.isSafeInteger(data.generatedAt) ||
         data.generatedAt <= 0 ||
+        !Number.isFinite(new Date(data.generatedAt).getTime()) ||
         !Number.isSafeInteger(data.activityStartedAt) ||
         data.activityStartedAt <= 0 ||
+        !Number.isFinite(new Date(data.activityStartedAt).getTime()) ||
         metrics.some(
           (node) =>
             !Number.isFinite(data[node.dataset.metric]) ||
@@ -44,17 +54,24 @@ if (section) {
       ) {
         throw new Error("invalidStatistics");
       }
+      if (active !== controller) {
+        return;
+      }
+      lastSuccess = performance.now();
       section.dataset.state = "ready";
       section.setAttribute("aria-busy", "false");
       for (const node of metrics) {
-        node.textContent = data[node.dataset.metric].toLocaleString(locale, {
-          maximumFractionDigits: node.dataset.metric === "averagePersonalPlaces" ? 1 : 0,
-        });
+        const formatter = node.dataset.metric === "averagePersonalPlaces" ? averages : counts;
+        node.textContent = formatter.format(data[node.dataset.metric]);
       }
       status.textContent = `${t("Updated", "Uppdaterad")} ${new Date(data.generatedAt).toLocaleString(locale)}`;
       section.querySelector("[data-activity-start]").textContent =
         `${t("Activity history since", "Aktivitetshistorik sedan")} ${new Date(data.activityStartedAt).toLocaleDateString(locale)}.`;
     } catch {
+      if (active !== controller) {
+        return;
+      }
+      lastSuccess = -Infinity;
       section.dataset.state = "unavailable";
       section.setAttribute("aria-busy", "false");
       for (const node of metrics) {
@@ -62,12 +79,34 @@ if (section) {
       }
       status.textContent = t("Usage unavailable.", "Användning ej tillgänglig.");
     } finally {
-      busy = false;
+      clearTimeout(timeout);
+      if (active === controller) {
+        active = undefined;
+      }
     }
   }
 
-  document.addEventListener("visibilitychange", () => void refresh());
-  window.addEventListener("online", () => void refresh());
-  setInterval(() => void refresh(), 60_000);
-  void refresh();
+  function schedule() {
+    clearTimeout(timer);
+    if (document.visibilityState !== "visible" || !navigator.onLine) {
+      active?.abort();
+      active = undefined;
+      if (document.visibilityState === "visible" && !navigator.onLine) {
+        void refresh();
+      }
+
+      return;
+    }
+    const remaining = Math.max(0, 60_000 - (performance.now() - lastSuccess));
+    if (remaining === 0) {
+      void refresh();
+    }
+    timer = setTimeout(schedule, remaining || 60_000);
+  }
+
+  document.addEventListener("visibilitychange", schedule);
+  window.addEventListener("online", schedule);
+  window.addEventListener("offline", schedule);
+  window.addEventListener("pageshow", schedule);
+  schedule();
 }

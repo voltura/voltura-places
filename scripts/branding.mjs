@@ -1,13 +1,9 @@
-import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { readFile, mkdir, writeFile, lstat, rename, unlink } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 
-export const startupDevices = JSON.parse(
-  await readFile(new URL("../assets/branding/apple-startup-devices.json", import.meta.url), "utf8"),
-);
-
-export const startupName = (device, theme, orientation) =>
-  `${device.name}-${device.width}x${device.height}-${device.dpr}x-${theme}-${orientation}.png`;
+import { startupDevices, startupName } from "./startup-images.mjs";
 
 const font = {
   fontFiles: [resolve("assets/branding/Inter.ttf")],
@@ -39,10 +35,15 @@ const png = (markup, size) =>
     .render()
     .asPng();
 
+const socialCards = new Map();
+
 export function socialImage(language) {
+  if (socialCards.has(language)) {
+    return socialCards.get(language);
+  }
   const swedish = language === "sv";
 
-  return png(
+  const image = png(
     svg(
       1200,
       630,
@@ -61,13 +62,48 @@ export function socialImage(language) {
     <rect x="878" y="46" width="252" height="541" rx="26" fill="none" stroke="#344b3d" stroke-width="4"/>`,
     ),
   );
+  socialCards.set(language, image);
+
+  return image;
+}
+
+async function readGenerated(path) {
+  if (!(await lstat(path)).isFile()) {
+    throw new Error("Linked or non-regular generated Places file");
+  }
+
+  return readFile(path);
+}
+
+async function writeGenerated(path, bytes) {
+  const data = Buffer.from(bytes);
+  try {
+    if ((await readGenerated(path)).equals(data)) {
+      return;
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  const temporary = `${path}.${crypto.randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, data, { flag: "wx" });
+    await rename(temporary, path);
+  } finally {
+    await unlink(temporary).catch((error) => {
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    });
+  }
 }
 
 export async function generateBranding() {
   await mkdir("public/startup-images", { recursive: true });
   for (const size of [192, 512]) {
-    await writeFile(`public/icon-${size}.png`, png(source, size));
-    await writeFile(
+    await writeGenerated(`public/icon-${size}.png`, png(source, size));
+    await writeGenerated(
       `public/icon-maskable-${size}.png`,
       png(
         svg(
@@ -81,15 +117,16 @@ export async function generateBranding() {
   }
   const apple = svg(512, 512, inside.replace('rx="112"', ""));
   for (const size of [152, 167, 180]) {
-    await writeFile(
+    await writeGenerated(
       `public/apple-touch-icon${size === 180 ? "" : `-${size}`}.png`,
       png(apple, size),
     );
   }
-  for (const size of [16, 32, 48, 150]) {
-    await writeFile(`public/icon-${size}.png`, png(source, size));
-  }
   const small = [16, 32, 48].map((size) => ({ size, bytes: png(source, size) }));
+  for (const { size, bytes } of small) {
+    await writeGenerated(`public/icon-${size}.png`, bytes);
+  }
+  await writeGenerated("public/icon-150.png", png(source, 150));
   const header = Buffer.alloc(6 + 16 * small.length);
   header.writeUInt16LE(1, 2);
   header.writeUInt16LE(small.length, 4);
@@ -104,35 +141,80 @@ export async function generateBranding() {
     header.writeUInt32LE(offset, at + 12);
     offset += bytes.length;
   });
-  await writeFile("public/favicon.ico", Buffer.concat([header, ...small.map((p) => p.bytes)]));
-  for (const device of startupDevices) {
-    for (const theme of ["dark", "light"]) {
-      for (const orientation of ["portrait", "landscape"]) {
-        const width = (orientation === "portrait" ? device.width : device.height) * device.dpr;
-        const height = (orientation === "portrait" ? device.height : device.width) * device.dpr;
-        const size = Math.round(Math.min(width, height) * 0.28);
-        const textSize = Math.round(Math.min(width, height) * 0.055);
-        const top = Math.round((height - size - textSize * 2) / 2);
-        await writeFile(
-          `public/startup-images/${startupName(device, theme, orientation)}`,
-          png(
-            svg(
-              width,
-              height,
-              `
+  await writeGenerated("public/favicon.ico", Buffer.concat([header, ...small.map((p) => p.bytes)]));
+  await generateStartupImages();
+  for (const lang of ["en", "sv"]) {
+    await writeGenerated(`public/social-${lang}.png`, socialImage(lang));
+  }
+  console.log(
+    `Prepared Places icons, social cards and ${startupDevices.length * 4} Apple startup images.`,
+  );
+}
+
+async function generateStartupImages() {
+  const configs = startupDevices.flatMap((device) =>
+    ["dark", "light"].flatMap((theme) =>
+      ["portrait", "landscape"].map((orientation) => ({ device, theme, orientation })),
+    ),
+  );
+  const directory = "public/startup-images";
+  const cachePath = ".artifacts/startup-images.sha256";
+  const hash = createHash("sha256").update(
+    JSON.stringify([process.platform, process.arch, configs, font]),
+  );
+  for (const path of [
+    "scripts/branding.mjs",
+    "scripts/startup-images.mjs",
+    "public/icon.svg",
+    "assets/branding/Inter.ttf",
+    "package-lock.json",
+  ]) {
+    hash.update(
+      createHash("sha256")
+        .update(await readFile(path))
+        .digest(),
+    );
+  }
+
+  const signature = async () => {
+    const combined = hash.copy();
+    for (const { device, theme, orientation } of configs) {
+      const file = await readGenerated(`${directory}/${startupName(device, theme, orientation)}`);
+      combined.update(createHash("sha256").update(file).digest());
+    }
+
+    return combined.digest("hex");
+  };
+
+  try {
+    if ((await readGenerated(cachePath)).toString("utf8") === (await signature())) {
+      return;
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+  for (const { device, theme, orientation } of configs) {
+    const width = (orientation === "portrait" ? device.width : device.height) * device.dpr;
+    const height = (orientation === "portrait" ? device.height : device.width) * device.dpr;
+    const size = Math.round(Math.min(width, height) * 0.28);
+    const textSize = Math.round(Math.min(width, height) * 0.055);
+    const top = Math.round((height - size - textSize * 2) / 2);
+    await writeGenerated(
+      `public/startup-images/${startupName(device, theme, orientation)}`,
+      png(
+        svg(
+          width,
+          height,
+          `
       <rect width="${width}" height="${height}" fill="${theme === "dark" ? "#111b17" : "#f5f7f4"}"/>
       ${mark((width - size) / 2, top, size)}
       <text x="${width / 2}" y="${top + size + textSize * 1.5}" text-anchor="middle" fill="${theme === "dark" ? "#f5f7f4" : "#172d24"}" font-family="Inter" font-size="${textSize}" font-weight="600">Voltura Places</text>`,
-            ),
-          ),
-        );
-      }
-    }
+        ),
+      ),
+    );
   }
-  for (const lang of ["en", "sv"]) {
-    await writeFile(`public/social-${lang}.png`, socialImage(lang));
-  }
-  console.log(
-    `Generated Places icons, social cards and ${startupDevices.length * 4} Apple startup images.`,
-  );
+  await mkdir(".artifacts", { recursive: true });
+  await writeGenerated(cachePath, await signature());
 }

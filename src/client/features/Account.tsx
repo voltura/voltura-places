@@ -1,8 +1,140 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Cloud, ArrowRight, Mail, Trash2, MonitorX } from "lucide-react";
-import { api } from "../foundation/http";
-import { type AccountState } from "../foundation/account-contract";
+import { api, ApiError } from "../foundation/http";
+import { displayNameSchema } from "../../shared/display-name";
+import { type Account, type AccountState } from "../foundation/account-contract";
 import type { Message } from "../foundation/i18n";
+
+function ProfileName({
+  account,
+  t,
+  busy,
+  setBusy,
+  onRefresh,
+}: {
+  account: Account;
+  t: (k: Message) => string;
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Message | null>(null);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [acknowledged, setAcknowledged] = useState<string | null>();
+  const pending = useRef(false);
+  const hint = useId();
+  const error = useId();
+  const saved = acknowledged !== undefined ? acknowledged : (account.displayName ?? null);
+  const value = draft ?? saved ?? "";
+  const parsed = displayNameSchema.safeParse(value);
+  const changed = parsed.success && parsed.data !== saved;
+  const failed = feedback !== null && feedback !== "profileSaved";
+
+  async function submit() {
+    if (busy || pending.current || !parsed.success || (!needsRefresh && !changed)) {
+      return;
+    }
+    pending.current = true;
+    setBusy(true);
+    let persisted = needsRefresh;
+    try {
+      if (!persisted) {
+        const result = await api<{ account?: { id?: unknown; displayName?: unknown } }>(
+          "/api/account/display-name",
+          { displayName: parsed.data },
+          account.id,
+        );
+        if (result?.account?.id !== account.id || result.account.displayName !== parsed.data) {
+          throw new Error("invalidResponse");
+        }
+        persisted = true;
+        setAcknowledged(parsed.data);
+        setNeedsRefresh(true);
+        setDraft(parsed.data ?? "");
+      }
+      await onRefresh();
+      setAcknowledged(undefined);
+      setNeedsRefresh(false);
+      setDraft(null);
+      setFeedback("profileSaved");
+    } catch (error) {
+      setFeedback(
+        persisted
+          ? "profileRefreshFailed"
+          : error instanceof ApiError && (error.status === 401 || error.status === 409)
+            ? "accountChanged"
+            : "profileSaveFailed",
+      );
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      className="stack profile-name"
+      aria-label={t("profileName")}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <label>
+        {t("profileName")}
+        <input
+          autoComplete="nickname"
+          value={value}
+          disabled={busy}
+          aria-invalid={!parsed.success}
+          aria-describedby={parsed.success ? hint : hint + " " + error}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setFeedback(null);
+            setNeedsRefresh(false);
+          }}
+        />
+      </label>
+      <p id={hint} className="muted small">
+        {t("profileNameHint")}
+      </p>
+      {!parsed.success && (
+        <p id={error} className="error" role="alert">
+          {t("profileInvalid")}
+        </p>
+      )}
+      <div className="account-actions">
+        <button
+          type="submit"
+          className="button outline"
+          disabled={busy || (!changed && !needsRefresh) || !parsed.success}
+        >
+          {t(needsRefresh ? "retry" : "profileSave")}
+        </button>
+        {value && (
+          <button
+            type="button"
+            className="button outline subdued"
+            disabled={busy}
+            onClick={() => {
+              setDraft("");
+              setNeedsRefresh(false);
+              setFeedback(null);
+            }}
+          >
+            {t("profileClear")}
+          </button>
+        )}
+      </div>
+      {feedback && (
+        <p role={failed ? "alert" : "status"} className={failed ? "error" : "muted small"}>
+          {t(feedback)}
+        </p>
+      )}
+    </form>
+  );
+}
 
 export function AccountPanel({
   state,
@@ -25,7 +157,8 @@ export function AccountPanel({
 }) {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [sent, setSent] = useState(false);
+  const [phase, setPhase] = useState<"email" | "code" | "verified" | "connected">("email");
+  const sent = phase !== "email";
   const [linking, setLinking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -80,16 +213,42 @@ export function AccountPanel({
       await startLink("email");
       setLinking(!!state.account);
       await api("/api/auth/email-otp/send-verification-otp", { email, type: "sign-in" });
-      setSent(true);
+      setPhase("code");
     });
 
   const verify = () =>
     execute(async () => {
-      await api("/api/auth/sign-in/email-otp", { email, otp });
-      await api("/api/account/connect", { provider: "email", linking });
-      setSent(false);
-      setOtp("");
+      if (phase === "code") {
+        try {
+          await api("/api/auth/sign-in/email-otp", { email, otp });
+        } catch (error) {
+          if (error instanceof ApiError && [400, 401, 403].includes(error.status)) {
+            setError(t("invalidSignInCode"));
+
+            return;
+          }
+          throw error;
+        }
+        setPhase("verified");
+      }
+      if (phase !== "connected") {
+        try {
+          await api("/api/account/connect", { provider: "email", linking });
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            setPhase("email");
+            setOtp("");
+            setError(t("invalidSignInCode"));
+
+            return;
+          }
+          throw error;
+        }
+        setPhase("connected");
+      }
       await onRefresh();
+      setPhase("email");
+      setOtp("");
     });
 
   const signInControls = (
@@ -140,7 +299,7 @@ export function AccountPanel({
                 maxLength={254}
                 required
                 value={email}
-                disabled={sent}
+                disabled={sent || busy}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
@@ -150,6 +309,7 @@ export function AccountPanel({
                 <label>
                   {t("code")}
                   <input
+                    disabled={busy || phase !== "code"}
                     value={otp}
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -169,7 +329,12 @@ export function AccountPanel({
               <button
                 className="button outline subdued"
                 type="button"
-                onClick={() => setSent(false)}
+                disabled={busy}
+                onClick={() => {
+                  setPhase("email");
+                  setOtp("");
+                  setError("");
+                }}
               >
                 {t("cancel")}
               </button>
@@ -202,10 +367,22 @@ export function AccountPanel({
           <div className="account-summary">
             <Cloud className="account-cloud" aria-hidden="true" />
             <div>
-              <strong>{t("signedIn")}</strong>
-              <span>{[...new Set(state.account.methods.map((m) => m.label))].join(" · ")}</span>
+              <strong>{state.account.displayName || t("signedIn")}</strong>
+              <span>
+                {state.account.displayName
+                  ? t("signedIn")
+                  : [...new Set(state.account.methods.map((m) => m.label))].join(" · ")}
+              </span>
             </div>
           </div>
+          <ProfileName
+            key={state.account.id}
+            account={state.account}
+            t={t}
+            busy={busy}
+            setBusy={setBusy}
+            onRefresh={onRefresh}
+          />
           <p className="muted">{t("accountSyncIntro")}</p>
           <div className="account-actions">
             <button
@@ -246,7 +423,7 @@ export function AccountPanel({
                 {state.account.methods.map((m) => (
                   <li key={m.provider}>
                     {m.provider === "email"
-                      ? "Email"
+                      ? t("email")
                       : m.provider === "google"
                         ? "Google"
                         : "ChatGPT"}

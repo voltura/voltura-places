@@ -18,3 +18,4 @@ jobs:
       - run: npm run build
       - run: npm run test:api
       - run: npm run test:auth
+      - run: node --test tests/statistics-runtime.test.mjs tests/mail-relay-runtime.test.mjs

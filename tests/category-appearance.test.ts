@@ -37,6 +37,9 @@ test("legacy defaults do not rewrite saved categories", () => {
   expect(records.every((r) => r.kind === "category" && r.value.icon === undefined)).toBe(true);
   for (const record of records) {
     if (record.kind === "category") {
+      expect(
+        categoryAppearance({ ...record, value: { ...record.value, builtIn: "__proto__" } }).icon,
+      ).toBe("pin");
       expect(categoryAppearance({ ...record, value: { ...record.value, icon: "none" } }).icon).toBe(
         "none",
       );

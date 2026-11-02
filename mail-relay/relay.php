@@ -86,7 +86,12 @@ if (
     finish(503);
 }
 $now = time();
-$state['nonces'] = array_filter($state['nonces'], fn($time) => $time > $now - 120);
+if (abs($now - $input['timestamp']) > 60) {
+    flock($file, LOCK_UN);
+    fclose($file);
+    finish(400);
+}
+$state['nonces'] = array_filter($state['nonces'], fn($time) => $time >= $now - 120);
 $state['recipients'] = array_filter(
     $state['recipients'],
     fn($times) => $times && max($times) > $now - 3600,

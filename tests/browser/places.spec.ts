@@ -600,7 +600,8 @@ test("accuracy review shows waiting, live quality, stale fix protection and retr
   await expect(review.getByRole("meter")).toHaveCount(0);
   await expect(review).not.toContainText("Location search finished");
   await page.clock.runFor(44000);
-  await expect(review).toContainText("Location search finished");
+  await expect(review.getByRole("alert")).toHaveText("Couldn’t find your location.");
+  await expect(review).not.toContainText("Location search finished");
   await expect(review.locator(".gps-spinner")).toHaveCount(0);
   await expect(confirm).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("gps-finished.png") });

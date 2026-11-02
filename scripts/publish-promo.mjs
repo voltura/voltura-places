@@ -1,9 +1,9 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { captureValidatedSource } from "./validated-source.mjs";
 import { dirname, resolve } from "node:path";
 import { connectSftp } from "./sftp-connection.mjs";
-import { assertDestination, digest, promoManifest } from "./promo-manifest.mjs";
+import { assertDestination, digest, promoManifest, rollbackPayload } from "./promo-manifest.mjs";
 
 const wait = () => new Promise((r) => setTimeout(r, 1100));
 
@@ -11,6 +11,15 @@ let client;
 try {
   const args = process.argv.slice(2);
   const rollbackId = args[0] === "--rollback" ? args[1] : null;
+  if (
+    !(
+      args.length === 0 ||
+      (args.length === 1 && args[0] === "--dry-run") ||
+      (args.length === 2 && rollbackId && /^[0-9TZ-]+$/.test(rollbackId))
+    )
+  ) {
+    throw new Error("Usage: publish:promo [--dry-run | --rollback <backup-id>]");
+  }
   const source = args[0] === "--dry-run" ? null : captureValidatedSource();
 
   const assertSource = () => source?.assertCurrent();
@@ -36,9 +45,6 @@ try {
       ),
     );
   } else {
-    if (args.length && !rollbackId) {
-      throw new Error("Usage: publish:promo [--dry-run | --rollback <backup-id>]");
-    }
     assertSource();
     client = await connectSftp({ allowFirstUse: false });
 
@@ -58,46 +64,46 @@ try {
     };
 
     if (rollbackId) {
-      if (!/^[0-9TZ-]+$/.test(rollbackId)) {
-        throw new Error("Invalid backup ID");
-      }
       const folder = resolve(".artifacts/backups", rollbackId);
       const record = JSON.parse(await readFile(`${folder}/journal.json`, "utf8"));
       const restore = [];
       for (const item of record.files.filter((f) => f.attempted).reverse()) {
         await safe(item.path);
         const current = (await client.exists(item.path)) ? await client.get(item.path) : null;
-        if (current && digest(current) !== item.sha256 && digest(current) !== item.previousHash) {
-          throw new Error("Rollback would overwrite unrelated content.");
+        const { changed, bytes } = rollbackPayload(item, current);
+        if (changed) {
+          restore.push({ item, bytes });
         }
-        const bytes = item.previous ? Buffer.from(item.previous, "base64") : null;
-        if (bytes && digest(bytes) !== item.previousHash) {
-          throw new Error("Backup hash mismatch; no rollback files written.");
-        }
-        restore.push({ path: item.path, bytes, exists: Boolean(current) });
       }
-      for (const item of restore) {
-        if (item.bytes) {
-          await atomic(item.path, item.bytes);
-        } else if (item.exists) {
+      for (const { item, bytes } of restore) {
+        assertSource();
+        await safe(item.path);
+        const current = (await client.exists(item.path)) ? await client.get(item.path) : null;
+        if (!rollbackPayload(item, current).changed) {
+          continue;
+        }
+        if (bytes) {
+          await atomic(item.path, bytes, item.sha256, safe);
+        } else {
           await client.delete(item.path);
         }
       }
       console.log("Restored owned Places files.");
     } else {
-      const id = new Date()
-        .toISOString()
-        .replaceAll(":", "-")
-        .replace(/\.\d{3}/, "");
+      const id = new Date().toISOString().replaceAll(":", "-").replace(".", "-");
       const folder = resolve(".artifacts/backups", id);
-      await mkdir(folder, { recursive: true });
+      await mkdir(dirname(folder), { recursive: true });
+      await mkdir(folder);
       const record = {
         id,
         commit: source.sha,
         files: [],
       };
 
-      const journal = () => writeFile(`${folder}/journal.json`, JSON.stringify(record, null, 2));
+      const journal = async () => {
+        await writeFile(`${folder}/journal.tmp`, JSON.stringify(record, null, 2));
+        await rename(`${folder}/journal.tmp`, `${folder}/journal.json`);
+      };
 
       await journal();
       for (const entry of manifest) {
@@ -118,24 +124,41 @@ try {
       // Confirm the server's atomic overwrite extension using exclusively owned paths.
       const probe = `places/assets/.places-probe-${crypto.randomUUID()}`;
       const replacement = probe + "-replacement";
-      await client.put(Buffer.from("a"), probe, { writeStreamOptions: { flags: "wx" } });
-      await client.put(Buffer.from("b"), replacement, { writeStreamOptions: { flags: "wx" } });
-      await client.posixRename(replacement, probe);
-      await client.delete(probe);
+      const probes = new Set();
+      try {
+        for (const path of [probe, replacement]) {
+          await client.put(Buffer.from(path === probe ? "a" : "b"), path, {
+            writeStreamOptions: { flags: "wx" },
+          });
+          probes.add(path);
+        }
+        await client.posixRename(replacement, probe);
+        probes.delete(replacement);
+      } finally {
+        for (const path of probes) {
+          if (await client.exists(path)) {
+            await client.delete(path);
+          }
+        }
+      }
       for (const entry of record.files) {
         assertSource();
+        if (entry.previousHash === entry.sha256) {
+          continue;
+        }
         const bytes = await readFile(entry.source);
         if (digest(bytes) !== entry.sha256) {
           throw new Error("Source changed after manifest");
         }
         entry.attempted = true;
         await journal();
-        await atomic(entry.path, bytes);
+        await atomic(entry.path, bytes, entry.previousHash, safe);
       }
+      await wait();
       for (const entry of manifest) {
-        await wait();
         const response = await fetch(`https://voltura.se/${entry.path}`, {
           cache: "no-store",
+          redirect: "error",
           signal: AbortSignal.timeout(20000),
         });
         if (!response.ok || digest(Buffer.from(await response.arrayBuffer())) !== entry.sha256) {
@@ -166,20 +189,29 @@ async function ensureDir(path) {
   }
 }
 
-async function atomic(path, bytes) {
+async function atomic(path, bytes, expectedHash, safe) {
+  await safe(path);
   assertDestination(path);
   const temporary = `${path}.places-deploy-${crypto.randomUUID()}`;
+  let staged = false;
   try {
     await client.put(bytes, temporary, { writeStreamOptions: { flags: "wx" } });
+    staged = true;
     if (digest(await client.get(temporary)) !== digest(bytes)) {
       throw new Error("Staged hash mismatch");
     }
+    await safe(path);
+    const currentHash = (await client.exists(path)) ? digest(await client.get(path)) : null;
+    if (currentHash !== expectedHash) {
+      throw new Error("Remote Places payload changed during publication.");
+    }
     await client.posixRename(temporary, path);
+    staged = false;
     if (digest(await client.get(path)) !== digest(bytes)) {
       throw new Error("Published hash mismatch");
     }
   } finally {
-    if (await client.exists(temporary)) {
+    if (staged && (await client.exists(temporary))) {
       await client.delete(temporary);
     }
   }

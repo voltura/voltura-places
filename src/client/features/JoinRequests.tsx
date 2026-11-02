@@ -35,7 +35,11 @@ export function JoinRequests({
   const requests = families
     .filter((group) => group.ownerId === account)
     .flatMap((group) =>
-      group.requests.map((person) => ({ group, person, key: `${group.id}:${person.id}` })),
+      group.requests.map((person) => ({
+        group,
+        person,
+        key: `${group.id}:${group.invitationVersion ?? ""}:${person.id}`,
+      })),
     );
   const request = requests.find((r) => review || !deferred.includes(r.key));
   const requestKeys = requests.map((r) => r.key).join(",");
@@ -69,7 +73,14 @@ export function JoinRequests({
     try {
       await api(
         "/api/family",
-        { action, familyId: request.group.id, member: request.person.id },
+        {
+          action,
+          familyId: request.group.id,
+          member: request.person.id,
+          ...(request.group.invitationVersion
+            ? { invitationVersion: request.group.invitationVersion }
+            : {}),
+        },
         account,
       );
       // Refresh authoritative membership; never grant access optimistically.
@@ -126,9 +137,9 @@ export function JoinRequests({
         <Sheet title={t("familyRequests")} onClose={close} closeLabel={t("close")}>
           <div className="stack">
             <p className="join-request-message">
-              {t("familyWantsToJoin")
-                .replace("{person}", request.person.label)
-                .replace("{group}", request.group.name)}
+              {t("familyWantsToJoin").replace(/\{person\}|\{group\}/g, (token) =>
+                token === "{person}" ? request.person.label : request.group.name,
+              )}
             </p>
             {error && (
               <p className="notice error" role="alert">

@@ -1,5 +1,5 @@
-import { expect, test } from "vitest";
-import { parsePreferences } from "../src/client/foundation/preferences";
+import { expect, test, vi } from "vitest";
+import { parsePreferences, storePreferences } from "../src/client/foundation/preferences";
 
 test("linked language wins while valid device preferences survive", () => {
   expect(
@@ -65,4 +65,23 @@ test("malformed fields cannot erase valid settings or inject unknown fields", ()
     autoHideControls: false,
     units: "metric",
   });
+});
+
+test("updating a single preference merges a concurrent change to another field before storage events arrive", () => {
+  const previous = parsePreferences({ language: "en", theme: "dark", skin: "forest" }, "", "en");
+  let raw = JSON.stringify({ ...previous, skin: "matrix" });
+  vi.stubGlobal("navigator", { language: "en" });
+  vi.stubGlobal("localStorage", {
+    getItem: () => raw,
+    setItem: (_key: string, value: string) => {
+      raw = value;
+    },
+  });
+  try {
+    const result = storePreferences(previous, { provider: "apple" });
+    expect(result.saved).toBe(true);
+    expect(JSON.parse(raw)).toMatchObject({ skin: "matrix", provider: "apple" });
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

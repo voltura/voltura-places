@@ -97,7 +97,7 @@ export function App() {
       browsing.reset();
       editing.reset();
       sharing.reset();
-      backups.reset();
+      backups.reset(reason);
       setNotice(null);
       if (reason === "workspace") {
         setSettings(null);
@@ -118,6 +118,25 @@ export function App() {
     switchLibrary,
     familyChanged,
   } = workspaceController;
+  const accountId = account.account?.id;
+  const accountCaption =
+    account.account?.displayName || account.account?.methods.find((method) => method.label)?.label;
+  const groupOptions = useMemo(() => {
+    if (!accountId) {
+      return [];
+    }
+
+    return [
+      ...familyCache.families.map((group) => ({
+        value: familyKey(accountId, group.id),
+        label: group.name,
+      })),
+      ...familyCache.inactive.map((group) => ({
+        value: familyKey(accountId, group.id),
+        label: group.name + " � " + t("familyLocalCopy"),
+      })),
+    ];
+  }, [accountId, familyCache, t]);
   const browsing = useBrowsing(scope, !!currentPosition, prefs, setPrefs);
   const {
     maps,
@@ -149,20 +168,26 @@ export function App() {
     workspaceController,
     reconciling,
   );
-  const syncStatus =
-    scope === "guest"
-      ? online
-        ? "localOnly"
-        : "offline"
-      : !online
-        ? workspace?.records.some((r) => r.conflict) ||
-          personalWorkspace?.records.some((r) => r.conflict)
-          ? "syncConflict"
-          : workspace?.records.some((r) => r.dirty) ||
-              personalWorkspace?.records.some((r) => r.dirty)
-            ? "savedPending"
-            : "offline"
-        : status;
+  const syncStatus = useMemo(() => {
+    if (!online && scope !== "guest") {
+      const libraries =
+        workspace === personalWorkspace ? [workspace] : [workspace, personalWorkspace];
+      if (libraries.some((library) => library?.records.some((r) => r.conflict))) {
+        return "syncConflict";
+      }
+
+      return libraries.some(
+        (library) =>
+          library?.flight ||
+          library?.deferredFlights?.length ||
+          library?.records.some((r) => r.dirty),
+      )
+        ? "savedPending"
+        : "offline";
+    }
+
+    return scope === "guest" ? (online ? "localOnly" : "offline") : status;
+  }, [online, scope, workspace, personalWorkspace, status]);
   const syncWarning = syncStatus === "actionRequired" || syncStatus === "syncConflict";
   const mobileFeedback =
     syncWarning || ["savedPending", "retryUpload", "syncPhotoUnavailable"].includes(syncStatus);
@@ -183,7 +208,9 @@ export function App() {
   const [update, setUpdate] = useState(false);
   const [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
   const fileRef = useRef<HTMLInputElement>(null);
+  const importSelection = useRef<(() => boolean) | null>(null);
   const swUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null);
+  const applyingUpdate = useRef(false);
   const updateMonitor = useRef<ReturnType<typeof watchForUpdates> | null>(null);
   const { categories, categoryLabel, categoryFor, places, visits, filtered, current, conflicts } =
     useLibraryQueries({
@@ -200,6 +227,11 @@ export function App() {
       currentPosition,
     });
   useEffect(() => {
+    if (workspace && filter !== "all" && !categories.some((category) => category.id === filter)) {
+      setFilter("all");
+    }
+  }, [workspace, categories, filter, setFilter]);
+  useEffect(() => {
     if (!filtered.length) {
       setFullscreenScope(null);
     }
@@ -207,6 +239,7 @@ export function App() {
   const editing = usePlaceEditing({
     session,
     workspace: workspaceController,
+    reconciling,
     prefs,
     setPrefs,
     categories,
@@ -216,7 +249,7 @@ export function App() {
     setStatus,
     setSelected,
     rememberPosition,
-    onRemoved: () => sharing.setMenu(null),
+    onRemoved: (id) => sharing.setMenu((current) => (current?.id === id ? null : current)),
   });
   const {
     editor,
@@ -271,10 +304,17 @@ export function App() {
             updateMonitor.current = watchForUpdates(registration, () => setUpdate(true));
           }
         },
-        onNeedReload: () =>
-          void flushDrafts()
-            .then(() => location.reload())
-            .catch(() => notify("storageFailure", true)),
+        onNeedReload: () => {
+          if (!disposed) {
+            void flushDrafts()
+              .then(() => {
+                if (!disposed) {
+                  location.reload();
+                }
+              })
+              .catch(() => notify("storageFailure", true));
+          }
+        },
         onRegisterError: () => {},
       });
     }
@@ -285,23 +325,39 @@ export function App() {
     };
   }, []);
 
-  const signOut = async () => {
-    const logout = session.signOut();
-    await refresh();
-    setStatus("localOnly");
-    await logout;
+  const applyUpdate = async () => {
+    if (applyingUpdate.current) {
+      return;
+    }
+    applyingUpdate.current = true;
+    try {
+      await flushDrafts();
+    } catch {
+      notify("storageFailure", true);
+      applyingUpdate.current = false;
+
+      return;
+    }
+    try {
+      await swUpdate.current?.(true);
+    } catch {
+      notify("serviceUnavailable", true);
+    } finally {
+      applyingUpdate.current = false;
+    }
   };
 
-  const formatDate = (value: string) =>
-    new Intl.DateTimeFormat(prefs.language, { dateStyle: "medium", timeStyle: "short" }).format(
-      new Date(value),
-    );
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(prefs.language, { dateStyle: "medium", timeStyle: "short" }),
+    [prefs.language],
+  );
 
-  const categoryColor = (id: string) => {
-    const c = categoryFor(id);
+  const formatDate = (value: string) => dateFormatter.format(new Date(value));
 
-    return categoryAppearance(c).color;
-  };
+  const categoryColor = useCallback(
+    (id: string) => categoryAppearance(categoryFor(id)).color,
+    [categoryFor],
+  );
 
   const mapFullscreen = fullscreenScope === scope && libraryView === "map" && filtered.length > 0;
   const controls = useAutoHideSaveBar(
@@ -398,6 +454,7 @@ export function App() {
       expandMap={(place) => {
         setSearch("");
         setFilter("all");
+        setVisitFilter("all");
         setLibraryView("map");
         setMapFocus((previous) => ({
           workspace: scope,
@@ -450,7 +507,13 @@ export function App() {
             <button
               className={`sync-pill ${syncWarning ? "warning" : ""}`}
               onClick={() => setSettings("account")}
-              aria-describedby={account.account ? "account-sync-status" : undefined}
+              aria-describedby={
+                account.account
+                  ? accountCaption
+                    ? "header-account-identity account-sync-status"
+                    : "account-sync-status"
+                  : undefined
+              }
               aria-label={
                 account.account
                   ? t("account")
@@ -461,16 +524,23 @@ export function App() {
                 <UserRound size={24} aria-hidden="true" />
                 {account.account && <span className="status-dot" aria-hidden="true" />}
               </span>
-              <span
-                id="account-sync-status"
-                className="account-label"
-                role={account.account ? "status" : undefined}
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {!account.account
-                  ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
-                  : t(syncStatus)}
+              <span className="header-account-copy">
+                {accountCaption && (
+                  <bdi id="header-account-identity" className="header-account-identity">
+                    {accountCaption}
+                  </bdi>
+                )}
+                <span
+                  id="account-sync-status"
+                  className="account-label"
+                  role={account.account ? "status" : undefined}
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {!account.account
+                    ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+                    : t(syncStatus)}
+                </span>
               </span>
             </button>
             <button
@@ -498,14 +568,7 @@ export function App() {
             open={!!libraryOpen}
             placement={libraryOpen === "dock" ? "dock" : "selector"}
             onOpenChange={changeLibraryOpen}
-            groups={[...familyCache.families, ...familyCache.inactive].map((group) => ({
-              value: familyKey(account.account!.id, group.id),
-              label:
-                group.name +
-                (!familyCache.families.some((f) => f.id === group.id)
-                  ? ` · ${t("familyLocalCopy")}`
-                  : ""),
-            }))}
+            groups={groupOptions}
             onChange={switchLibrary}
             createGroupLabel={t("familyCreateNew")}
             onCreateGroup={() => setSettings("createGroup")}
@@ -741,7 +804,10 @@ export function App() {
         type="file"
         accept=".json,application/json"
         onChange={(e) => {
-          void loadFile(e.target.files?.[0]);
+          if (!importSelection.current || importSelection.current()) {
+            void loadFile(e.target.files?.[0]);
+          }
+          importSelection.current = null;
           e.target.value = "";
         }}
       />
@@ -770,7 +836,7 @@ export function App() {
           renderedOperation,
           setFilter,
         }}
-        onUpdate={() => swUpdate.current?.(true)}
+        onUpdate={applyUpdate}
       />
       <SharingDialogs
         {...{ sharing, editing, workspaceController, session, reconciling, t, openMaps }}
@@ -809,9 +875,15 @@ export function App() {
           onPreferences={setPrefs}
           onClose={() => setSettings(null)}
           onCheckUpdates={() => {
-            void updateMonitor.current
-              ?.check(true)
-              ?.then((result) => {
+            const monitor = updateMonitor.current;
+            if (!monitor) {
+              notify(navigator.onLine ? "serviceUnavailable" : "offline", true);
+
+              return;
+            }
+            void monitor
+              .check(true)
+              .then((result) => {
                 if (result === "ready") {
                   setNotice(null);
                   setUpdate(true);
@@ -830,7 +902,8 @@ export function App() {
           }}
           onExport={() => void download()}
           onImport={() => {
-            if (canWrite) {
+            if (workspaceController.canWriteNow()) {
+              importSelection.current = workspaceController.beginWrite().isCurrent;
               fileRef.current?.click();
             } else {
               notify("familyAccessEnded", true);
@@ -847,8 +920,9 @@ export function App() {
           account={account}
           onAccount={async () => {
             await refreshAccount();
+            await workspaceController.refreshFamilyData().catch(() => {});
           }}
-          onSignOut={signOut}
+          onSignOut={session.signOut}
           syncStatus={syncStatus}
           onSync={manualSync}
           onDeleteAccount={session.deleteAccount}
@@ -888,14 +962,7 @@ export function App() {
         >
           <div className="stack">
             <p>{t("updateHint")}</p>
-            <button
-              className="button primary"
-              onClick={() =>
-                void flushDrafts()
-                  .then(() => swUpdate.current?.(true))
-                  .catch(() => notify("storageFailure", true))
-              }
-            >
+            <button className="button primary" onClick={() => void applyUpdate()}>
               {t("update")}
             </button>
             <button className="button outline subdued" onClick={() => setUpdate(false)}>

@@ -13,6 +13,8 @@ for (const [width, scale] of [
     page,
     context,
   }, testInfo) => {
+    // This scenario drives six complete saves plus screenshot and geometry checks.
+    test.setTimeout(60000);
     await page.setViewportSize({ width, height: 844 });
     await context.grantPermissions(["geolocation"]);
     await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 6 });
@@ -92,6 +94,9 @@ for (const [width, scale] of [
       "mushrooms",
       "other",
     ].entries()) {
+      // Browser-provided test fixes retain their injection timestamp. Each save
+      // requests a fresh device reading even when the coordinates are unchanged.
+      await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 6 });
       await page.getByRole("button", { name: "Save position", exact: true }).click();
       await page
         .getByRole("textbox", { name: "Name", exact: true })

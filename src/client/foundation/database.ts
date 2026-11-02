@@ -44,3 +44,19 @@ export function localDatabase<T extends DBSchema>(
     return pending;
   };
 }
+
+// Cross-tab signals are optional. Unavailable channels must not prevent local
+// database access or turn a completed transaction into a reported failure.
+export function openChannel(name: string): BroadcastChannel | null {
+  try {
+    return typeof BroadcastChannel === "function" ? new BroadcastChannel(name) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function broadcast(channel: BroadcastChannel | null, data: unknown) {
+  try {
+    channel?.postMessage(data);
+  } catch {}
+}

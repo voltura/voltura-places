@@ -1,11 +1,11 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Plus,
   Search,
   X,
   ArrowDownUp,
-  Map,
+  Map as MapIcon,
   List,
   MoreHorizontal,
   ListFilter,
@@ -101,6 +101,7 @@ export function LibraryView({
   prefs,
 }: Props) {
   const [fitRequest, setFitRequest] = useState(0);
+  const searchField = useRef<HTMLInputElement>(null);
   const dateFormat = useMemo(
     () => new Intl.DateTimeFormat(prefs.language, { day: "numeric", month: "short" }),
     [prefs.language],
@@ -109,6 +110,35 @@ export function LibraryView({
     () => new Set(places.map((p) => categoryFor(p.value.categoryId)?.id ?? "other")),
     [places, categoryFor],
   );
+
+  const cards = useMemo(
+    () =>
+      view === "list"
+        ? filtered.map((place) => {
+            const category = categoryFor(place.value.categoryId);
+
+            return {
+              place,
+              category,
+              color: categoryColor(place.value.categoryId),
+              label: category ? categoryLabel(category) : t("other"),
+              visit: visits.get(place.id),
+              date: dateAppearsInPlaceName(place.value)
+                ? null
+                : dateFormat.format(new Date(place.value.capturedAt)),
+            };
+          })
+        : [],
+    [view, filtered, categoryFor, categoryColor, categoryLabel, visits, t, dateFormat],
+  );
+
+  const conflictPlaceNames = useMemo(() => {
+    if (!conflicts.some((r) => r.kind === "visit")) {
+      return null;
+    }
+
+    return new Map(places.map((place) => [place.id, place.value.name]));
+  }, [places, conflicts]);
 
   return (
     <main
@@ -141,7 +171,7 @@ export function LibraryView({
                   {mode === "list" ? (
                     <List size={20} aria-hidden="true" />
                   ) : (
-                    <Map size={20} aria-hidden="true" />
+                    <MapIcon size={20} aria-hidden="true" />
                   )}
                   {t(mode === "list" ? "listView" : "mapView")}
                 </button>
@@ -152,15 +182,23 @@ export function LibraryView({
                 <Search size={20} />
                 <input
                   aria-label={t("search")}
+                  ref={searchField}
                   placeholder={t("search")}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    onClearMapFocus();
+                  }}
                 />
                 {search && (
                   <button
                     className="icon-button"
                     aria-label={t("clearSearch")}
-                    onClick={() => setSearch("")}
+                    onClick={() => {
+                      setSearch("");
+                      onClearMapFocus();
+                      searchField.current?.focus();
+                    }}
                   >
                     <X size={18} />
                   </button>
@@ -220,7 +258,10 @@ export function LibraryView({
                     key={c.id}
                     aria-pressed={filter === c.id}
                     className={filter === c.id ? "active" : ""}
-                    onClick={() => setFilter(c.id)}
+                    onClick={() => {
+                      setFilter(c.id);
+                      onClearMapFocus();
+                    }}
                   >
                     <CategoryIcon record={c} size={18} />
                     {categoryLabel(c)}
@@ -244,6 +285,8 @@ export function LibraryView({
                 setSearch("");
                 setFilter("all");
                 setVisitFilter("all");
+                onClearMapFocus();
+                searchField.current?.focus();
               }}
             >
               {t("clearSearch")}
@@ -268,41 +311,35 @@ export function LibraryView({
           </Suspense>
         ) : (
           <div className="place-list">
-            {filtered.map((p) => (
+            {cards.map(({ place: p, category, color, label, visit, date }) => (
               <article key={p.id} className={`place-card ${selected === p.id ? "selected" : ""}`}>
-                <button className="card-main" onClick={() => setSelected(p.id)}>
-                  <span className={`place-marker ${categoryColor(p.value.categoryId)}`}>
-                    <CategoryIcon record={categoryFor(p.value.categoryId)} size={24} />
+                <button
+                  className="card-main"
+                  aria-current={selected === p.id ? "true" : undefined}
+                  onClick={() => setSelected(p.id)}
+                >
+                  <span className={`place-marker ${color}`}>
+                    <CategoryIcon record={category} size={24} />
                   </span>
                   <span className="card-text">
                     <strong>
                       {p.value.name}
-                      {visits.get(p.id) && visits.get(p.id) !== "none" && (
+                      {visit && visit !== "none" && (
                         <span
                           className="card-visit"
                           role="img"
-                          aria-label={t(
-                            visits.get(p.id) === "visited" ? "visitVisited" : "visitWant",
-                          )}
+                          aria-label={t(visit === "visited" ? "visitVisited" : "visitWant")}
                         >
-                          {visits.get(p.id) === "visited" ? (
-                            <Check size={15} />
-                          ) : (
-                            <Bookmark size={15} />
-                          )}
+                          {visit === "visited" ? <Check size={15} /> : <Bookmark size={15} />}
                         </span>
                       )}
                     </strong>
                     <span>
-                      {categoryFor(p.value.categoryId)
-                        ? categoryLabel(categoryFor(p.value.categoryId)!)
-                        : t("other")}
-                      {!dateAppearsInPlaceName(p.value) && (
+                      {label}
+                      {date && (
                         <>
                           <span className="middle-dot">·</span>
-                          <span className="card-date">
-                            {dateFormat.format(new Date(p.value.capturedAt))}
-                          </span>
+                          <span className="card-date">{date}</span>
                         </>
                       )}
                     </span>
@@ -310,7 +347,7 @@ export function LibraryView({
                 </button>
                 <div className="card-actions">
                   <button className="card-maps" onClick={() => openMaps(p.value)}>
-                    <Map size={17} />
+                    <MapIcon size={17} />
                     {t("openMaps")}
                   </button>
                   <button
@@ -333,8 +370,7 @@ export function LibraryView({
                 {(r.kind === "visit" || r.deleted || r.conflict?.deleted) && (
                   <strong>
                     {r.kind === "visit"
-                      ? (places.find((p) => p.id === r.value.placeId)?.value.name ??
-                        t("myVisitStatus"))
+                      ? (conflictPlaceNames?.get(r.value.placeId) ?? t("myVisitStatus"))
                       : r.value.name}
                   </strong>
                 )}

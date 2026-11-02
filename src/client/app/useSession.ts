@@ -39,7 +39,9 @@ export function useSession(
       if (changed) {
         callbacks.current(next);
       }
-      setAccount(next);
+      setAccount((previous) =>
+        JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+      );
     },
     [operations],
   );
@@ -48,12 +50,24 @@ export function useSession(
       return;
     }
     const version = ++request.current;
-    const next = await currentAccount();
-    if (!active.current || version !== request.current) {
-      return;
+    try {
+      const next = await currentAccount();
+      if (active.current && version === request.current) {
+        accept(next);
+      }
+    } catch (error) {
+      if (active.current && version === request.current) {
+        throw error;
+      }
     }
-    accept(next);
   }, [accept]);
+  const discardStaleIdentity = useCallback(() => {
+    if (operations.account && cachedAccount().account?.id !== operations.account) {
+      request.current++;
+      accept({ ...account, account: null });
+    }
+  }, [account, accept, operations]);
+
   const signOut = useCallback(async () => {
     const id = operations.account;
     request.current++;
@@ -89,14 +103,21 @@ export function useSession(
 
   useEffect(() => {
     let current = true;
-    const value = new URL(location.href).searchParams.get("account");
+    const url = new URL(location.href);
+    const value = url.searchParams.get("account");
+
+    const clearReturnParameter = () => {
+      url.searchParams.delete("account");
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    };
+
     const operation = operations.capture("account");
     if (value && /^(google|chatgpt)(-link)?$/.test(value)) {
       connection.current = api("/api/account/connect", {
         provider: value.startsWith("google") ? "google" : "chatgpt",
         linking: value.endsWith("-link"),
       });
-      history.replaceState(null, "", location.pathname + location.hash);
+      clearReturnParameter();
     }
     // Replay the subscription, not the connect request, under React StrictMode.
     if (connection.current) {
@@ -114,7 +135,7 @@ export function useSession(
     }
     if (value === "error") {
       errors.current("serviceUnavailable", true);
-      history.replaceState(null, "", location.pathname + location.hash);
+      clearReturnParameter();
     }
 
     return () => {
@@ -122,7 +143,15 @@ export function useSession(
     };
   }, [operations, refreshAccount]);
 
-  return { account, operations, refreshAccount, signOut, deleteAccount, removeDevice };
+  return {
+    account,
+    operations,
+    refreshAccount,
+    discardStaleIdentity,
+    signOut,
+    deleteAccount,
+    removeDevice,
+  };
 }
 
 export type Session = ReturnType<typeof useSession>;

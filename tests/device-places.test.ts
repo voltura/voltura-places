@@ -7,6 +7,7 @@ import {
   devicePlacePlan,
   readWorkspace,
   reconcileDevicePlaces,
+  initializePrivateAccount,
   finishDevicePlaceTransfer,
   prepareMutation,
   acknowledge,
@@ -312,4 +313,81 @@ test("cancellation after the cleanup write restores guest records and their draf
   spy.mockRestore();
   expect(await readWorkspace("guest")).toEqual(before);
   expect(await getDraft("guest")).toEqual({ id: source.id });
+});
+
+test("an initialized cloud value match acquires a transfer receipt and can finish", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  const cloud = { ...source, id: crypto.randomUUID(), revision: 2, deleted: false };
+  await initializePrivateAccount(account, [cloud]);
+  expect(await reconcileDevicePlaces(account, [cloud], "auto")).toBe(0);
+  expect((await readWorkspace(account)).guestPlaces?.[source.id]).toBe(cloud.id);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect((await devicePlacePlan(account)).pending).toBe(0);
+});
+
+test("a retained guest edit can complete without overwriting the earlier account copy", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await reconcileDevicePlaces(account, [], "auto");
+  const first = (await live(account))[0];
+  await saveEntity(account, { ...first, value: { ...first.value, name: "Account edit" } });
+  await saveEntity("guest", { ...source, value: { ...source.value, name: "Guest edit" } });
+  expect(await reconcileDevicePlaces(account, [], "auto")).toBe(1);
+  expect(await reconcileDevicePlaces(account, [], "auto")).toBe(0);
+  expect((await live(account)).map((r) => r.value.name).sort()).toEqual([
+    "Account edit",
+    "Guest edit",
+  ]);
+  await confirmWrites(account);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect((await devicePlacePlan(account)).needed).toBe(false);
+});
+
+test("a skipped legacy receipt is pending only for another account", async () => {
+  await saveEntity("guest", place());
+  await reconcileDevicePlaces(account, [], "skip");
+  expect((await devicePlacePlan(account)).pending).toBe(0);
+  expect((await devicePlacePlan(crypto.randomUUID())).pending).toBe(1);
+});
+
+test("skipping an edit to an already owned guest place retains it without scheduling or finalizing it", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await reconcileDevicePlaces(account, [], "auto");
+  await saveEntity("guest", { ...source, value: { ...source.value, name: "Skipped edit" } });
+  await reconcileDevicePlaces(account, [], "skip");
+  await confirmWrites(account);
+  expect((await devicePlacePlan(account)).pending).toBe(0);
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+  expect(await reconcileDevicePlaces(crypto.randomUUID(), [], "auto")).toBe(0);
+  const cloud = (await readWorkspace(account)).records;
+  await removeWorkspace(account);
+  expect(await reconcileDevicePlaces(account, cloud, "auto")).toBe(0);
+  expect((await devicePlacePlan(account)).pending).toBe(0);
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+  expect((await live("guest"))[0].value.name).toBe("Skipped edit");
+});
+
+test("first private snapshot preserves offline edits and records same-id cloud conflicts", async () => {
+  const source = place();
+  const untouched = place();
+  await saveEntity(account, source);
+  await saveEntity(account, untouched);
+  const remote = {
+    ...source,
+    value: { ...source.value, name: "From cloud" },
+    deleted: false,
+    revision: 3,
+  };
+  const workspace = await initializePrivateAccount(account, [remote]);
+  expect(workspace.records.find((r) => r.id === source.id)).toMatchObject({
+    dirty: true,
+    value: source.value,
+    conflict: remote,
+  });
+  expect(workspace.records.find((r) => r.id === untouched.id)).toMatchObject({
+    dirty: true,
+    value: untouched.value,
+  });
 });

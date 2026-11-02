@@ -5,30 +5,52 @@ import type { Environment } from "./types";
 const minute = 60_000;
 const day = 24 * 60 * minute;
 
-export function stockholmMidnight(now: number) {
-  const format = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Stockholm",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
+const stockholmFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Stockholm",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
 
-  const parts = (time: number) =>
-    Object.fromEntries(format.formatToParts(time).map((p) => [p.type, p.value]));
+const parts = (time: number) =>
+  Object.fromEntries(stockholmFormat.formatToParts(time).map((p) => [p.type, p.value]));
 
-  const current = parts(now);
-  const target = Date.UTC(+current.year, +current.month - 1, +current.day);
+function utcFromParts(time: number) {
+  const p = parts(time);
+
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+}
+
+function localBoundary(target: number) {
   let result = target;
   for (let i = 0; i < 3; i++) {
-    const p = parts(result);
-    result += target - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+    const correction = target - utcFromParts(result);
+    if (!correction) {
+      break;
+    }
+    result += correction;
   }
 
   return result;
+}
+
+// Only civil-time boundaries are cached. A Stockholm day can last 23 or 25 hours.
+let cachedStart = 0;
+let cachedEnd = 0;
+
+export function stockholmMidnight(now: number) {
+  if (now < cachedStart || now >= cachedEnd) {
+    const current = parts(now);
+    const target = Date.UTC(+current.year, +current.month - 1, +current.day);
+    cachedStart = localBoundary(target);
+    cachedEnd = localBoundary(target + day);
+  }
+
+  return cachedStart;
 }
 
 export async function handleStatistics(request: Request, env: Environment) {
@@ -38,7 +60,7 @@ export async function handleStatistics(request: Request, env: Environment) {
   const allowed =
     origin === env.AUTH_ORIGIN ||
     origin === "https://voltura.se" ||
-    (local && origin === "http://127.0.0.1:5175");
+    (local && (origin === "http://127.0.0.1:5175" || origin === "http://localhost:5175"));
   const headers: Record<string, string> = { "Cache-Control": "no-store", Vary: "Origin" };
   if (!activity && origin && allowed) {
     headers["Access-Control-Allow-Origin"] = origin;
@@ -59,6 +81,7 @@ export async function handleStatistics(request: Request, env: Environment) {
     return json({ error: "serviceUnavailable" }, 503);
   }
   const now = Date.now();
+  const midnight = stockholmMidnight(now);
   if (activity) {
     let input;
     try {
@@ -85,7 +108,11 @@ export async function handleStatistics(request: Request, env: Environment) {
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO places_activity(browser_hash,last_seen) VALUES(?,?)
         ON CONFLICT(browser_hash) DO UPDATE SET last_seen=excluded.last_seen
-        WHERE places_activity.last_seen <= ?`).bind(hash, now, now - minute),
+        WHERE places_activity.last_seen <= ?`).bind(
+        hash,
+        now,
+        Math.max(now - minute, midnight - 1),
+      ),
       env.DB.prepare(`DELETE FROM places_activity WHERE browser_hash IN
         (SELECT browser_hash FROM places_activity WHERE last_seen < ? ORDER BY last_seen LIMIT 100)`).bind(
         now - 31 * day,
@@ -94,8 +121,15 @@ export async function handleStatistics(request: Request, env: Environment) {
 
     return json({ ok: true });
   }
-  // The conditional update serializes refreshes in D1, including concurrent cache misses.
-  await env.DB.prepare(`UPDATE places_statistics SET generated_at=?, payload=(
+  type StatisticsRow = { started_at: number; generated_at: number; payload: string };
+  const query = "SELECT started_at,generated_at,payload FROM places_statistics WHERE id=1";
+  const cutoff = Math.max(now - minute, midnight - 1);
+  let row = await env.DB.prepare(query + " AND payload IS NOT NULL AND generated_at > ?")
+    .bind(cutoff)
+    .first<StatisticsRow>();
+  if (!row) {
+    // The conditional update serializes refreshes in D1, including concurrent cache misses.
+    await env.DB.prepare(`UPDATE places_statistics SET generated_at=?, payload=(
     WITH people AS (SELECT id FROM places_accounts a WHERE NOT EXISTS
       (SELECT 1 FROM places_families f WHERE f.id=a.id)),
     live AS (SELECT account_id FROM places_records WHERE kind='place' AND deleted=0)
@@ -108,11 +142,10 @@ export async function handleStatistics(request: Request, env: Environment) {
       'averagePersonalPlaces',coalesce((SELECT count(*) * 1.0 FROM live WHERE account_id IN
         (SELECT id FROM people)) / nullif((SELECT count(*) FROM people),0),0))
     ) WHERE id=1 AND (payload IS NULL OR generated_at <= ?)`)
-    .bind(now, now - 2 * minute, stockholmMidnight(now), now - 30 * day, now - minute)
-    .run();
-  const row = await env.DB.prepare(
-    "SELECT started_at,generated_at,payload FROM places_statistics WHERE id=1",
-  ).first<{ started_at: number; generated_at: number; payload: string }>();
+      .bind(now, now - 2 * minute, midnight, now - 30 * day, cutoff)
+      .run();
+    row = await env.DB.prepare(query).first<StatisticsRow>();
+  }
   if (!row?.payload) {
     return json({ error: "serviceUnavailable" }, 503);
   }

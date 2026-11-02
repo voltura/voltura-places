@@ -130,10 +130,7 @@ for (const skin of skins) {
     test(`before app execution: ${skin} ${mode}`, async ({ page }) => {
       await page.addInitScript(
         ({ skin, mode }) =>
-          localStorage.setItem(
-            "places-preferences",
-            JSON.stringify({ language: "en", provider: "", theme: mode, skin }),
-          ),
+          localStorage.setItem("places-preferences", JSON.stringify({ theme: mode, skin })),
         { skin, mode },
       );
       await page.route("**/assets/*.js", (route) => route.abort());

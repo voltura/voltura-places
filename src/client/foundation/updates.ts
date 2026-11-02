@@ -50,10 +50,15 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
     if (pending) {
       return pending;
     }
-    if (!force && Date.now() - lastCheck < 10000) {
+    if (registration.installing) {
+      trackInstallation();
+
       return Promise.resolve("checking" as const);
     }
-    lastCheck = Date.now();
+    if (!force && performance.now() - lastCheck < 10000) {
+      return Promise.resolve("checking" as const);
+    }
+    lastCheck = performance.now();
     pending = (async () => {
       await registration.update();
       trackInstallation();
@@ -64,9 +69,14 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
       return registration.installing || registration.waiting
         ? ("checking" as const)
         : ("current" as const);
-    })().finally(() => {
-      pending = undefined;
-    });
+    })()
+      .catch((error: unknown) => {
+        lastCheck = -Infinity;
+        throw error;
+      })
+      .finally(() => {
+        pending = undefined;
+      });
 
     return pending;
   };

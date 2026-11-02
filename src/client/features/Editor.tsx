@@ -91,7 +91,9 @@ export function Editor({
     Math.abs(Number(latitude.replace(",", "."))) <= 90 &&
     Math.abs(Number(longitude.replace(",", "."))) <= 180;
   const [accuracy, setAccuracy] = useState<number | null>(initial?.accuracy ?? null);
-  const [capturedAt, setCapturedAt] = useState(initial?.capturedAt ?? new Date().toISOString());
+  const [capturedAt, setCapturedAt] = useState(
+    () => initial?.capturedAt ?? new Date().toISOString(),
+  );
   const [error, setError] = useState("");
   const [photoId, setPhoto] = useState<string | null>(initial?.photoId ?? null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -100,9 +102,14 @@ export function Editor({
   const [gpsReview, setGpsReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const [draftAttempt, setDraftAttempt] = useState(0);
+  const [draftReadError, setDraftReadError] = useState(false);
+  const [draftWriteError, setDraftWriteError] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [discardingPlace, setDiscardingPlace] = useState(false);
-  const id = useRef(entity?.id ?? draftId ?? crypto.randomUUID());
+  const [id] = useState(() => entity?.id ?? draftId ?? crypto.randomUUID());
+  const nameField = useRef<HTMLInputElement>(null);
+  const focusDescription = useRef(false);
   const nameSelected = useRef(false);
   const selectNameOnPointerUp = useRef(false);
   const stopCapture = useRef(() => {});
@@ -141,7 +148,7 @@ export function Editor({
     photoId,
     accuracy,
     capturedAt,
-    id: id.current,
+    id,
     base: comparisonBase.current,
   };
   useEffect(() => {
@@ -149,7 +156,7 @@ export function Editor({
     void getDraft(workspace)
       .then((d) => {
         const parsed = draftSchema.safeParse(d);
-        if (active && parsed.success && parsed.data.id === id.current) {
+        if (active && parsed.success && parsed.data.id === id) {
           const v = parsed.data;
           // Legacy drafts have no trustworthy comparison base: preserve both versions.
           comparisonBase.current = v.base ?? null;
@@ -171,14 +178,14 @@ export function Editor({
       })
       .catch(() => {
         if (active) {
-          setReady(true);
+          setDraftReadError(true);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [workspace]);
+  }, [workspace, draftAttempt]);
   useEffect(() => {
     // Only a just-captured place may refine automatically. An existing place
     // or restored photo selection must retain its explicitly selected location.
@@ -196,9 +203,26 @@ export function Editor({
     return () => stopRefinement.current();
   }, [ready, workspace]);
   useEffect(() => {
-    if (ready) {
-      void setDraft(workspace, latest.current).catch(() => {});
+    if (!ready) {
+      return;
     }
+    let current = true;
+    void setDraft(workspace, latest.current).then(
+      () => {
+        if (current) {
+          setDraftWriteError(false);
+        }
+      },
+      () => {
+        if (current) {
+          setDraftWriteError(true);
+        }
+      },
+    );
+
+    return () => {
+      current = false;
+    };
   }, [
     description,
     visitedHere,
@@ -214,7 +238,17 @@ export function Editor({
     ready,
   ]);
 
+  useEffect(() => {
+    const input = nameField.current;
+    if (ready && !fresh && input && document.activeElement === input.closest("dialog")) {
+      input.focus({ preventScroll: true });
+    }
+  }, [ready, fresh]);
+
   const save = async () => {
+    if (busy || photoBusy || locating || !ready) {
+      return;
+    }
     if (!latitude.trim() || !longitude.trim()) {
       if (manualLocation) {
         setCoordinatesExpanded(true);
@@ -251,7 +285,7 @@ export function Editor({
     stopRefinement.current();
     try {
       await onSave(
-        { id: id.current, kind: "place", value: parsed.data as Place },
+        { id, kind: "place", value: parsed.data as Place },
         comparisonBase.current,
         visitedHere,
       );
@@ -269,9 +303,15 @@ export function Editor({
     }
     stopCapture.current();
     stopRefinement.current();
-    void clearDraft(workspace, id.current)
+    setLocating(false);
+    setBusy(true);
+    void clearDraft(workspace, id)
       .then(onClose)
-      .catch(() => setError(t("storageFailure")));
+      .catch(() => {
+        setDiscarding(false);
+        setError(t("storageFailure"));
+      })
+      .finally(() => setBusy(false));
   };
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
@@ -285,7 +325,7 @@ export function Editor({
     stopRefinement.current();
     setLocating(false);
     try {
-      await onDiscardPlace(id.current);
+      await onDiscardPlace(id);
       onClose();
     } catch (error) {
       setDiscardingPlace(false);
@@ -302,10 +342,16 @@ export function Editor({
   };
 
   const dismiss = () => {
+    if (draftReadError) {
+      onClose();
+
+      return;
+    }
     if (busy || photoBusy || !ready) {
       return;
     }
     const changed =
+      visitedHere ||
       name !== (initial?.name ?? "") ||
       description !== (initial?.description ?? "") ||
       categoryId !== (initial?.categoryId ?? "other") ||
@@ -329,11 +375,35 @@ export function Editor({
         onClose={dismiss}
         closeLabel={t("close")}
       >
+        {draftReadError && (
+          <div className="notice stack">
+            <p role="alert">{t("draftReadFailure")}</p>
+            <button
+              className="button outline"
+              onClick={() => {
+                setDraftReadError(false);
+                setDraftAttempt((n) => n + 1);
+              }}
+            >
+              {t("retry")}
+            </button>
+          </div>
+        )}
+        {draftWriteError && (
+          <p className="error" role="alert">
+            {t("draftWriteFailure")}
+          </p>
+        )}
         {updateReady && (
           <div className="notice stack">
             <strong>{t("updateReady")}</strong>
             <p>{t("updateHint")}</p>
-            <button type="button" className="button outline" onClick={onUpdate}>
+            <button
+              type="button"
+              className="button outline"
+              disabled={busy || locating || photoBusy || !ready}
+              onClick={onUpdate}
+            >
               {t("update")}
             </button>
           </div>
@@ -351,6 +421,8 @@ export function Editor({
             <input
               autoComplete="off"
               disabled={busy || !ready}
+              required
+              pattern={".*\\S.*"}
               maxLength={160}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -373,13 +445,19 @@ export function Editor({
               onBlur={() => {
                 selectNameOnPointerUp.current = false;
               }}
-              autoFocus={!fresh}
+              ref={nameField}
             />
           </label>
           {descriptionOpen ? (
             <label>
               {t("description")}
               <textarea
+                ref={(field) => {
+                  if (field && focusDescription.current) {
+                    focusDescription.current = false;
+                    field.focus();
+                  }
+                }}
                 rows={3}
                 maxLength={1000}
                 value={description}
@@ -391,7 +469,10 @@ export function Editor({
             <button
               type="button"
               className="description-toggle"
-              onClick={() => setDescriptionOpen(true)}
+              onClick={() => {
+                focusDescription.current = true;
+                setDescriptionOpen(true);
+              }}
             >
               {t("addDescription")}
             </button>
@@ -524,7 +605,7 @@ export function Editor({
                 type="button"
                 className="button outline editor-coordinate-toggle"
                 aria-expanded={coordinatesExpanded}
-                aria-controls={`coordinates-${id.current}`}
+                aria-controls={`coordinates-${id}`}
                 onClick={() => setCoordinatesExpanded((expanded) => !expanded)}
               >
                 <span>{t("enterCoordinates")}</span>
@@ -535,7 +616,7 @@ export function Editor({
                 )}
               </button>
               <div
-                id={`coordinates-${id.current}`}
+                id={`coordinates-${id}`}
                 className="stack editor-coordinates"
                 hidden={!coordinatesExpanded}
               >
@@ -671,7 +752,11 @@ export function Editor({
       {discarding && (
         <Sheet
           title={t("discardChanges")}
-          onClose={() => setDiscarding(false)}
+          onClose={() => {
+            if (!busy) {
+              setDiscarding(false);
+            }
+          }}
           closeLabel={t("close")}
         >
           <div className="stack">
@@ -680,11 +765,17 @@ export function Editor({
               type="button"
               className="button outline subdued"
               data-initial-focus
+              disabled={busy}
               onClick={() => setDiscarding(false)}
             >
               {t("keepEditing")}
             </button>
-            <button type="button" className="button danger confirm" onClick={discard}>
+            <button
+              type="button"
+              className="button danger confirm"
+              disabled={busy}
+              onClick={discard}
+            >
               <Trash2 size={20} aria-hidden="true" />
               {t("discard")}
             </button>

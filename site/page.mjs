@@ -63,7 +63,7 @@ export function renderPromo({
 `;
 
   return `<!doctype html>
-<html lang="${language}" data-theme="dark"><head>
+<html lang="${language}" data-theme="dark" class="no-js"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#111b17"><script>${themeScript}</script>
 <title>Voltura Places — ${c.title}</title><meta name="description" content="${c.description}">
@@ -81,6 +81,6 @@ ${usageScriptName ? `<script type="module" src="${asset(usageScriptName)}"></scr
 </div></header>
 <main id="main">
 ${main}
-</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="${statistics ? "./" : pageUrl}">${brand}</a><nav aria-label="${c.privacy}"><a href="${statistics ? "./#privacy" : "#privacy"}">${c.privacy}</a><a href="stats.html"${statistics ? ' aria-current="page"' : ""}>${language === "sv" ? "Statistik" : "Statistics"}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
+</main><footer class="site-footer"><div class="container footer-inner"><a class="brand footer-brand" href="./">${brand}</a><nav aria-label="${c.privacy}"><a href="${statistics ? "./#privacy" : "#privacy"}">${c.privacy}</a><a href="stats.html"${statistics ? ' aria-current="page"' : ""}>${language === "sv" ? "Statistik" : "Statistics"}</a><a href="https://github.com/voltura/voltura-places">${c.sourceLink}</a><a href="https://voltura.se/">Voltura AB</a><span>MIT · 2026</span></nav></div></footer>
 </body></html>`;
 }

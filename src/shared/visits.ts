@@ -22,11 +22,12 @@ export async function visitEntity(
 export function visitStatuses(records: LocalRecord[], workspace: string) {
   const libraryId = workspaceIdentity(workspace).family;
 
-  return new Map(
-    records.flatMap((r) =>
-      r.kind === "visit" && !r.deleted && r.value.libraryId === libraryId
-        ? [[r.value.placeId, r.value.status] as const]
-        : [],
-    ),
-  );
+  const statuses = new Map<string, VisitStatus>();
+  for (const record of records) {
+    if (record.kind === "visit" && !record.deleted && record.value.libraryId === libraryId) {
+      statuses.set(record.value.placeId, record.value.status);
+    }
+  }
+
+  return statuses;
 }

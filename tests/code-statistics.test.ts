@@ -58,7 +58,11 @@ test("inventory excludes untracked files, dependencies, assets and lockfiles fro
     expect(stats.dependencies).toBe(1);
     expect(stats.dirty).toBe(true);
     await rm(join(cwd, "src", "client", "app.ts"));
+    await rm(join(cwd, "README.md"));
+    await rm(join(cwd, "image.svg"));
     const afterDeletion = await collectStatistics(cwd);
+    expect(afterDeletion.documents).toBe(0);
+    expect(afterDeletion.assets).toBe(0);
     expect(afterDeletion.files).toBe(1);
     expect(afterDeletion.lines).toBe(1);
     expect(afterDeletion.areas.client).toBeUndefined();
