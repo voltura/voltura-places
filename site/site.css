@@ -743,7 +743,7 @@ details p {
 }
 .install-guide > div {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
   padding-block: 24px;
 }
@@ -752,6 +752,22 @@ details p {
 }
 .install-guide .icon {
   color: var(--accent);
+  flex-shrink: 0;
+}
+.install-guide section {
+  min-width: 0;
+}
+.install-guide h3 {
+  font-size: 15px;
+}
+.install-steps {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  font-size: 15px;
+  color: var(--muted);
+}
+.install-steps li + li {
+  margin-top: 12px;
 }
 .install-guide p {
   font-size: 15px;

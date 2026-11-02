@@ -3,7 +3,7 @@
     "lang": "en",
     "title": "Save places.",
     "titleSecond": "Find your way back.",
-    "description": "Save your position with photos, find saved places offline, and share them with your family or other groups.",
+    "description": "Save places with photos, browse them in a list or on a map, and share with family or other groups.",
     "open": "Open Voltura Places",
     "github": "View on GitHub",
     "eyebrow": "VOLTURA PLACES",
@@ -13,28 +13,28 @@
       [
         "01",
         "Save in a moment",
-        "Tap Save position to save your current location on your device, then add a name, category or photo. Use Save with details to start with your current location or the location embedded in a photo."
+        "Tap Save position to save your current location on your device, then add a name, category or photo. Save with details also lets you use a photo’s embedded location or enter coordinates manually."
       ],
       [
         "02",
         "Keep it your way",
-        "Search and filter your places. Choose category colours and icons, add photos, and optionally sync your library across devices."
+        "Switch between List and Map with the same search and category filters. Choose category colours and icons, add photos, and optionally sync across devices."
       ],
       [
         "03",
         "Find your way back",
-        "Open the saved position in Google Maps or Apple Maps. Send a snapshot link, or keep places up to date together in a shared group."
+        "Preview a saved place on the map, then open it or get directions in Google Maps or Apple Maps. Share a snapshot link or keep places up to date together in a group."
       ]
     ],
     "offlineTitle": "Use Places offline",
     "offlineText": "After your first visit, save and search places offline. Photos already stored on your device stay available too. Signed-in changes sync when you reconnect. Settings → Backup offers device-storage retention and JSON import/export; keep backups because browser data can still be cleared. External map apps manage their own offline maps.",
     "installTitle": "Install Places",
-    "installText": "Open Places in your browser and install it. No app store. No subscription to use Places.",
-    "ios": "iPhone: Safari → Share → Add to Home Screen",
-    "android": "Android: browser menu → Install app / Add to home screen",
+    "installText": "Open Places first, then follow the steps in your browser. Menu labels can vary by browser version and language. No app store. No subscription to use Places.",
+    "ios": "iPhone: open Places in Safari",
+    "android": "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
     "privacyTitle": "Privacy and backups",
     "privacyText": "No background tracking. You choose when to use GPS or a photo location. Start without an account, or sign in for device sync and shared groups. Export a backup whenever you want.",
-    "privacyDetail": "Account data is hosted through ChatGPT Sites. Sign-in email is delivered through one.com. Group members can add, edit and delete shared places and photos; the owner approves membership. Removing access cannot recall downloaded copies. Browser data may be cleared or evicted; sync and unencrypted exported backups provide recovery. Shared place links contain a location snapshot without its photo. Anyone with the link can read it, and the link cannot be revoked. Anonymous activity uses a random browser ID. It is hashed on the server. The activity window is 31 days. Older entries are cleared during use. Turn reporting off in Settings → Privacy. Public statistics show aggregate usage and cloud totals.",
+    "privacyDetail": "Account data is hosted through ChatGPT Sites. Sign-in email is delivered through one.com. Group members can add, edit and delete shared places and photos; the owner approves membership. Removing access cannot recall downloaded copies. Browser data may be cleared or evicted; sync and unencrypted exported backups provide recovery. Shared place links contain a location snapshot without its photo. Anyone with the link can read it, and the link cannot be revoked. Anonymous activity uses a random browser ID. It is hashed on the server. The activity window is 31 days. Older entries are cleared during use. Turn reporting off in Settings → Privacy. Public statistics show aggregate usage and cloud totals. Opening a map sends the viewed areas and network information to the OpenStreetMap tile provider. Place names, photos and group identities are not included in tile requests.",
     "sourceTitle": "Open source",
     "sourceText": "Voltura Places is freeware with MIT-licensed source. Run it, inspect it, or make it your own. Development and publishing are documented in the public repository.",
     "footer": "Voltura Places",
@@ -46,7 +46,7 @@
       [
         "01",
         "Create or join a group",
-        "Sign in, then open Settings → Family sharing. You can belong to up to 20 groups, with up to 10 people in each."
+        "Sign in and create a group from the library menu or Settings → Family sharing. You can belong to up to 20 groups, with up to 10 people in each."
       ],
       [
         "02",
@@ -61,7 +61,7 @@
     ],
     "appearanceTitle": "Appearance and language",
     "appearanceText": "Dark by default, with Light and System options. English and Swedish, readable controls, and category colours and icons you can make your own.",
-    "screenshotAlt": "Current dark English Places interface with three synthetic example places and the Save position button",
+    "screenshotAlt": "Current English Places List view with three synthetic example places and the Save position button",
     "darkTheme": "Dark theme",
     "lightThemeAction": "Use light theme",
     "darkThemeAction": "Use dark theme",
@@ -69,29 +69,29 @@
     "sharingNav": "Sharing",
     "installNav": "Install",
     "platforms": "iPhone, Android & desktop",
-    "detailsTitle": "Your saved places, organised.",
-    "detailsText": "A searchable library on your phone. A clear overview on your computer. Keep the details you need to recognise a place and return to it.",
+    "detailsTitle": "Your places. List or map.",
+    "detailsText": "Browse saved places as cards or explore them on an interactive map. Search and category filters follow you between views, within your selected library.",
     "detailFeatures": [
       [
-        "search",
-        "Find a saved place",
-        "Search by name, filter by category and choose how your library is sorted."
+        "map",
+        "See your places on the map",
+        "Category-coloured pins cluster together as you zoom out. Select a pin for details, expand the map to fullscreen, or use the map preview in place details."
       ],
       [
         "palette",
         "Make categories your own",
-        "Give categories their own colour and icon. Keep photos with the places they belong to."
+        "Choose from 12 colours and 48 icons, or use a colour without an icon. Keep a photo with each place and search, filter or sort your list."
       ],
       [
         "navigation",
-        "Open your map app",
-        "Send the saved position to Google Maps or Apple Maps when you want to return."
+        "Find your way back",
+        "Open a saved position or start directions in Google Maps or Apple Maps. Choose your preferred map app in Settings."
       ]
     ],
     "capabilities": [
       ["target", "Save your position"],
-      ["image", "Add a photo"],
-      ["wifi", "Use it offline"],
+      ["map", "Browse List or Map"],
+      ["wifi", "Save places offline"],
       ["users", "Share with groups"]
     ],
     "productLabel": "THE APP",
@@ -103,24 +103,30 @@
     "familyLabel": "Family",
     "walksLabel": "Weekend walks",
     "separateLabel": "Separate places, photos and members",
-    "offlineShort": "Save and search without a connection after your first visit. Changes are stored on your device. If you are signed in, they sync when you are online again.",
+    "offlineShort": "Save and search without a connection after your first visit. Changes are stored on your device. If you are signed in, they sync when you are online again. Map backgrounds need an internet connection; there are no downloadable map regions. Your saved pins and place details remain available if tiles cannot load.",
     "offlinePoints": [
       "Places saved on your device",
       "Photos available after download",
       "Optional account sync"
     ],
-    "installShort": "Install from your browser. Open it from your Home Screen.",
+    "installShort": "Open Places in your browser, then install it. Launch it from your Home Screen.",
     "sourceLink": "Source on GitHub",
-    "desktopAlt": "Desktop Places app showing the library and details of a synthetic saved place",
+    "desktopAlt": "Current English Places Map view with category-coloured pins and a synthetic Mushrooms place showing the owner-supplied mushroom photo",
     "navLabel": "Main navigation",
     "skip": "Skip to content",
-    "backupLabel": "Storage and backups"
+    "backupLabel": "Storage and backups",
+    "iosSteps": [
+      "Tap Safari’s menu (three lines) beside the address bar, then Share. If Share is already visible in the toolbar, tap it directly.",
+      "In the share sheet, tap View More (⌄) if the full list of actions is hidden.",
+      "Scroll down and tap Add to Home Screen.",
+      "Keep Open as Web App enabled if shown, then tap Add."
+    ]
   },
   "sv": {
     "lang": "sv",
     "title": "Spara platser.",
     "titleSecond": "Hitta tillbaka.",
-    "description": "Spara din position med foton, hitta sparade platser offline och dela dem med familjen eller andra grupper.",
+    "description": "Spara platser med foton, se dem i en lista eller på en karta och dela med familjen eller andra grupper.",
     "open": "Öppna Voltura Places",
     "github": "Visa på GitHub",
     "eyebrow": "VOLTURA PLACES",
@@ -130,28 +136,28 @@
       [
         "01",
         "Spara på ett ögonblick",
-        "Tryck Spara position för att spara din nuvarande plats på enheten. Lägg sedan till namn, kategori eller foto. Välj Spara med detaljer för att börja med din nuvarande plats eller platsinformationen i ett foto."
+        "Tryck Spara position för att spara din nuvarande plats på enheten. Lägg sedan till namn, kategori eller foto. Med Spara med detaljer kan du också använda platsinformationen i ett foto eller ange koordinater manuellt."
       ],
       [
         "02",
         "Ordna som du vill",
-        "Sök och filtrera bland dina platser. Välj färger och ikoner för kategorier, lägg till foton och synkronisera biblioteket mellan enheter om du vill."
+        "Växla mellan Lista och Karta med samma sökning och kategorifilter. Välj färger och ikoner för kategorier, lägg till foton och synkronisera mellan enheter om du vill."
       ],
       [
         "03",
         "Hitta tillbaka",
-        "Öppna platsen i Google Maps eller Apple Maps. Skicka en länk med en kopia eller håll platser uppdaterade tillsammans i en delad grupp."
+        "Förhandsvisa en sparad plats på kartan och öppna den sedan eller få en vägbeskrivning i Google Maps eller Apple Maps. Dela en länk med en kopia eller håll platser uppdaterade tillsammans i en grupp."
       ]
     ],
     "offlineTitle": "Använd Places offline",
     "offlineText": "Efter ditt första besök kan du spara och söka platser offline. Foton som redan finns på enheten är också tillgängliga. Inloggade ändringar synkroniseras när anslutningen är tillbaka. Inställningar → Säkerhetskopia erbjuder beständig lagring och JSON-import/export. Behåll säkerhetskopior eftersom webbläsardata fortfarande kan raderas. Externa kartappar hanterar sina egna offlinekartor.",
     "installTitle": "Installera Places",
-    "installText": "Öppna Places i webbläsaren och installera. Ingen appbutik. Inget abonnemang för att använda Places.",
-    "ios": "iPhone: Safari → Dela → Lägg till på hemskärmen",
-    "android": "Android: webbläsarmenyn → Installera app / Lägg till på hemskärmen",
+    "installText": "Öppna Places först och följ sedan stegen i webbläsaren. Menynamn kan variera med webbläsarversion och språk. Ingen appbutik. Inget abonnemang för att använda Places.",
+    "ios": "iPhone: öppna Places i Safari",
+    "android": "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",
     "privacyTitle": "Integritet och säkerhetskopior",
     "privacyText": "Ingen bakgrundsspårning. Du väljer när GPS eller platsen från ett foto används. Börja utan konto eller logga in för synkronisering och delade grupper. Exportera en säkerhetskopia när du vill.",
-    "privacyDetail": "Kontodata lagras via ChatGPT Sites. Inloggningsmejl skickas via one.com. Gruppmedlemmar kan lägga till, redigera och radera delade platser och foton. Ägaren godkänner medlemskap. Borttagen åtkomst återkallar inte nedladdade kopior. Webbläsardata kan raderas eller rensas; synkronisering och okrypterade exporter ger möjlighet till återställning. Delade platslänkar innehåller en ögonblickskopia av platsen utan fotot. Alla med länken kan läsa kopian och länken kan inte återkallas. Anonym aktivitet använder ett slumpat webbläsar-ID. Det hashas på servern. Aktivitetsfönstret är 31 dagar. Äldre poster rensas vid användning. Stäng av rapportering i Inställningar → Integritet. Offentlig statistik visar samlad användning och molntotaler.",
+    "privacyDetail": "Kontodata lagras via ChatGPT Sites. Inloggningsmejl skickas via one.com. Gruppmedlemmar kan lägga till, redigera och radera delade platser och foton. Ägaren godkänner medlemskap. Borttagen åtkomst återkallar inte nedladdade kopior. Webbläsardata kan raderas eller rensas; synkronisering och okrypterade exporter ger möjlighet till återställning. Delade platslänkar innehåller en ögonblickskopia av platsen utan fotot. Alla med länken kan läsa kopian och länken kan inte återkallas. Anonym aktivitet använder ett slumpat webbläsar-ID. Det hashas på servern. Aktivitetsfönstret är 31 dagar. Äldre poster rensas vid användning. Stäng av rapportering i Inställningar → Integritet. Offentlig statistik visar samlad användning och molntotaler. När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMaps kartbildsleverantör. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna.",
     "sourceTitle": "Öppen källkod",
     "sourceText": "Voltura Places är freeware med MIT-licensierad källkod. Kör, granska eller anpassa. Utveckling och publicering beskrivs i det publika kodarkivet.",
     "footer": "Voltura Places",
@@ -163,7 +169,7 @@
       [
         "01",
         "Skapa eller gå med i en grupp",
-        "Logga in och öppna Inställningar → Familjedelning. Du kan vara med i upp till 20 grupper med upp till 10 personer i varje."
+        "Logga in och skapa en grupp från biblioteksmenyn eller Inställningar → Familjedelning. Du kan vara med i upp till 20 grupper med upp till 10 personer i varje."
       ],
       [
         "02",
@@ -178,7 +184,7 @@
     ],
     "appearanceTitle": "Utseende och språk",
     "appearanceText": "Mörkt från början, med ljust tema och systemtema som alternativ. Svenska och engelska, lättlästa kontroller och kategorifärger och ikoner som du väljer själv.",
-    "screenshotAlt": "Nuvarande mörka svenska Places-gränssnitt med tre syntetiska exempelplatser och knappen Spara position",
+    "screenshotAlt": "Nuvarande svenska listvy i Places med tre syntetiska exempelplatser och knappen Spara position",
     "darkTheme": "Mörkt tema",
     "lightThemeAction": "Använd ljust tema",
     "darkThemeAction": "Använd mörkt tema",
@@ -186,29 +192,29 @@
     "sharingNav": "Delning",
     "installNav": "Installera",
     "platforms": "iPhone, Android och dator",
-    "detailsTitle": "Dina sparade platser, samlade.",
-    "detailsText": "Ett sökbart bibliotek i telefonen. En tydlig överblick på datorn. Spara detaljerna som hjälper dig att känna igen en plats och hitta dit igen.",
+    "detailsTitle": "Dina platser. Lista eller karta.",
+    "detailsText": "Bläddra bland sparade platser som kort eller utforska dem på en interaktiv karta. Sökning och kategorifilter följer med mellan vyerna i ditt valda bibliotek.",
     "detailFeatures": [
       [
-        "search",
-        "Hitta en sparad plats",
-        "Sök efter namn, filtrera på kategori och välj hur biblioteket sorteras."
+        "map",
+        "Se dina platser på kartan",
+        "Nålar med kategorifärger samlas i kluster när du zoomar ut. Välj en nål för detaljer, visa kartan i helskärm eller använd kartförhandsvisningen i platsdetaljerna."
       ],
       [
         "palette",
         "Anpassa kategorierna",
-        "Välj färg och ikon för kategorierna. Spara foton tillsammans med platserna de hör till."
+        "Välj bland 12 färger och 48 ikoner eller använd en färg utan ikon. Spara ett foto till varje plats och sök, filtrera eller sortera listan."
       ],
       [
         "navigation",
-        "Öppna din kartapp",
-        "Öppna den sparade positionen i Google Maps eller Apple Maps när du vill tillbaka."
+        "Hitta tillbaka",
+        "Öppna en sparad position eller starta en vägbeskrivning i Google Maps eller Apple Maps. Välj din föredragna kartapp i Inställningar."
       ]
     ],
     "capabilities": [
       ["target", "Spara din position"],
-      ["image", "Lägg till ett foto"],
-      ["wifi", "Använd offline"],
+      ["map", "Välj Lista eller Karta"],
+      ["wifi", "Spara platser offline"],
       ["users", "Dela med grupper"]
     ],
     "productLabel": "APPEN",
@@ -220,17 +226,23 @@
     "familyLabel": "Familjen",
     "walksLabel": "Helgpromenader",
     "separateLabel": "Separata platser, foton och medlemmar",
-    "offlineShort": "Spara och sök utan anslutning efter ditt första besök. Ändringar lagras på enheten. Om du är inloggad synkroniseras de när du är online igen.",
+    "offlineShort": "Spara och sök utan anslutning efter ditt första besök. Ändringar lagras på enheten. Om du är inloggad synkroniseras de när du är online igen. Kartbakgrunder kräver internetanslutning och det finns inga nedladdningsbara kartområden. Dina sparade nålar och platsdetaljer finns kvar även om kartbilderna inte kan laddas.",
     "offlinePoints": [
       "Platser sparas på enheten",
       "Foton finns tillgängliga efter nedladdning",
       "Valfri kontosynkronisering"
     ],
-    "installShort": "Installera från webbläsaren. Öppna från hemskärmen.",
+    "installShort": "Öppna Places i webbläsaren och installera. Starta sedan från hemskärmen.",
     "sourceLink": "Källkod på GitHub",
-    "desktopAlt": "Places på dator med bibliotek och detaljer för en syntetisk sparad plats",
+    "desktopAlt": "Nuvarande svenska kartvy i Places med kategorifärgade nålar och en syntetisk plats i kategorin Svamp med ägarens svampfoto",
     "navLabel": "Huvudnavigation",
     "skip": "Hoppa till innehållet",
-    "backupLabel": "Lagring och säkerhetskopior"
+    "backupLabel": "Lagring och säkerhetskopior",
+    "iosSteps": [
+      "Tryck på Safaris meny (tre streck) bredvid adressfältet och sedan på Dela. Om delningsknappen redan syns i verktygsfältet kan du trycka direkt på den.",
+      "Tryck på Visa mer (⌄) i delningspanelen om hela listan med åtgärder är dold.",
+      "Rulla ned och tryck på Lägg till på hemskärmen.",
+      "Behåll Öppna som webbapp aktiverat om det visas och tryck sedan på Lägg till."
+    ]
   }
 }

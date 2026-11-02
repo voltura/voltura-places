@@ -1,3 +1,9 @@
+# Promo feature refresh — 2 November 2026 (local, unpublished)
+
+The English/Swedish promo now describes List/Map browsing, clustered category-coloured pins, fullscreen maps, place previews, manual coordinates, navigation and current group creation. Offline and privacy copy explains online-only map backgrounds and tile-provider requests. Four localized Chromium captures use synthetic places, with desktop map attribution visible; regenerated social cards were visually inspected.
+
+Type/document checks, the integrated production build, six promo-installation/branding/publisher tests and the promo dry run pass. The manifest contains thirteen Places-only files. Chromium checks cover both languages at 390px and 1440px in both themes, image decoding, app URLs, anchor targets, language switching and both statistics pages. Full-page captures were visually inspected. Owner feedback identified stale installation guidance: both languages now use the app's four Safari steps, including the address-bar menu, conditional View More and Open as Web App, plus current Android Chrome guidance. A parity test protects these strings against future drift; the revised installation layouts were visually inspected. These are browser/emulation checks, not physical-device validation. The existing build chunk-size advisory remains. Publication is pending validation of the clean source commit.
+
 # 0.1.12 — App-wide join requests, 1 November 2026
 
 Owners receive live join-request prompts across the app, showing the requester and group with Approve/Decline. Owner feedback removed the extra approval explanation and Later button; closing with × leaves a session reminder. Approve uses a checkmark and Decline uses UserRoundX. The owner approved the final screenshot and requested commit/publication. English/Swedish previews were visually inspected on the shared 5173 preview. Automated browser fixtures use synthetic identities, not real invitations.
