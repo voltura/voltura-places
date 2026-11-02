@@ -113,8 +113,10 @@ export const en = {
   familyExportLocal: "Export local shared backup",
   copyTo: "Copy to",
   copyToGroup: "Copy to group",
+  shareToGroup: "Share with a group",
+  shareLink: "Share link…",
   copyToGroupBody:
-    "Choose a group for this copy. The original stays private. Later changes are not shared between the copies.",
+    "Choose a group. The original stays. Each copy is edited separately.",
   copiedToGroup: "Copied to the selected group",
   familyReadonly: "This is a local copy. Shared access has ended; you can view and export it.",
   checkUpdates: "Check for updates",
@@ -590,8 +592,10 @@ export const sv: Record<Message, string> = {
   familyExportLocal: "Exportera lokal gemensam säkerhetskopia",
   copyTo: "Kopiera till",
   copyToGroup: "Kopiera till grupp",
+  shareToGroup: "Dela med en grupp",
+  shareLink: "Dela länk…",
   copyToGroupBody:
-    "Välj en grupp för kopian. Originalet förblir privat. Senare ändringar delas inte mellan kopiorna.",
+    "Välj grupp. Originalet ligger kvar. Kopiorna ändras var för sig.",
   copiedToGroup: "Kopierad till den valda gruppen",
   familyReadonly:
     "Detta är en lokal kopia. Delad åtkomst har upphört; du kan visa och exportera den.",
