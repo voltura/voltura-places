@@ -508,7 +508,7 @@ test("signing out in one tab promptly hides its account library in another tab",
   await second.close();
 });
 
-test("automatic copying at category capacity offers account-only access instead of an endless retry", async ({
+test("automatic transfer at category capacity retains device places and offers retry", async ({
   page,
 }, testInfo) => {
   const account = "capacity-account";
@@ -566,10 +566,16 @@ test("automatic copying at category capacity offers account-only access instead 
   ]);
   signedIn = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByRole("dialog")).toContainText("Some device places could not be copied");
+  await expect(page.locator(".device-transfer-notice")).toContainText(
+    "They are safe on this device",
+  );
   await page.screenshot({ path: testInfo.outputPath("copy-capacity-recovery.png") });
-  await page.getByRole("button", { name: "Keep them on this device", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Skip for now", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+  await expect(page.locator(".device-transfer-notice")).toContainText(
+    "You can retry when you’re ready",
+  );
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
 });

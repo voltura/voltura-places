@@ -34,6 +34,7 @@ export type Workspace = {
   presetRevision?: number;
   deviceAccounts?: string[];
   guestPlaces?: Record<string, string | null>;
+  deviceTransfers?: Record<string, { account: string; destination: string; generation: number }>;
 };
 interface PlacesDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
@@ -413,9 +414,18 @@ function applyImport(w: Workspace, b: Backup, replace: boolean) {
 type DevicePlace = LocalRecord & { kind: "place" };
 const liveDevicePlaces = (guest: Workspace) =>
   guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
-// Values use the shared flat place/category schemas. Match their JSON wire
-// representation: member order is irrelevant and undefined members are omitted.
-const valueKey = (value: unknown) => JSON.stringify(value, Object.keys(value as object).sort());
+// Compare JSON values independently of member order, including localized names.
+// Undefined optional fields retain their normal JSON omission semantics.
+const valueKey = (value: unknown) =>
+  JSON.stringify(value, (_key, entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? Object.fromEntries(
+          Object.keys(entry)
+            .sort()
+            .map((key) => [key, entry[key]]),
+        )
+      : entry,
+  );
 const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
 function handledDevicePlaces(w: Workspace, guest: Workspace) {
   const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
@@ -465,21 +475,86 @@ function knownAccounts(guest: Workspace, workspaces: Workspace[]) {
     ]),
   ];
 }
+function deviceTransfers(guest: Workspace, workspaces: Workspace[]) {
+  const transfers: NonNullable<Workspace["deviceTransfers"]> = Object.assign(
+    Object.create(null),
+    guest.deviceTransfers,
+  );
+  const places = liveDevicePlaces(guest);
+  for (const w of workspaces) {
+    if (w.key === "guest" || workspaceIdentity(w.key).family) continue;
+    const legacy = w.reconciled && !w.guestPlaces ? handledDevicePlaces(w, guest) : null;
+    const matches = legacy ? placeMatches(w.records) : null;
+    for (const r of places) {
+      const destination =
+        (w.guestPlaces && Object.hasOwn(w.guestPlaces, r.id) ? w.guestPlaces[r.id] : null) ??
+        (legacy?.has(r.id) ? matches?.find(r.id, r.value)?.id : null);
+      if (destination && !transfers[r.id])
+        transfers[r.id] = { account: w.key, destination, generation: r.generation };
+    }
+  }
+  return transfers;
+}
+async function legacyTransferWorkspaces(guest: Workspace) {
+  if (guest.deviceTransfers) return [];
+  const db = await database();
+  if (!guest.deviceAccounts?.length) return db.getAll("workspaces");
+  const workspaces = await Promise.all(
+    guest.deviceAccounts.map((key) => db.get("workspaces", key)),
+  );
+  return workspaces.filter((w): w is Workspace => !!w);
+}
 export async function devicePlacePlan(key: string) {
   if (key === "guest" || workspaceIdentity(key).family)
     return { needed: false, ask: false, pending: 0 };
   const guest = await readWorkspace("guest"),
     account = await readWorkspace(key);
-  const accounts = guest.deviceAccounts?.length
-    ? guest.deviceAccounts
-    : knownAccounts(guest, await (await database()).getAll("workspaces"));
-  const handled = handledDevicePlaces(account, guest);
-  const pending = liveDevicePlaces(guest).filter((r) => !handled.has(r.id)).length;
+  const transfers = deviceTransfers(guest, await legacyTransferWorkspaces(guest));
+  const pending = liveDevicePlaces(guest).filter(
+    (r) => !transfers[r.id] || transfers[r.id].account === key,
+  ).length;
   return {
     needed: !account.reconciled || pending > 0 || !guest.deviceAccounts?.includes(key),
-    ask: pending > 0 && accounts.length > 0 && accounts.at(-1) !== key,
+    ask: false,
     pending,
   };
+}
+function initializePrivateRecords(w: Workspace, cloud: RecordState[]) {
+  w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
+  const presets = [
+    starters.find((e) => e.id === "other")!,
+    ...starters.filter((e) => e.id !== "other"),
+  ];
+  let count = w.records.filter((r) => r.kind === "category" && !r.deleted).length;
+  for (const e of presets)
+    if (count < 200 && !w.records.some((r) => r.id === e.id)) {
+      w.records.push({
+        ...structuredClone(e),
+        revision: 0,
+        deleted: false,
+        generation: 0,
+        dirty: false,
+      });
+      count++;
+    }
+}
+export async function initializePrivateAccount(
+  key: string,
+  cloud: RecordState[],
+  isCurrent = () => true,
+) {
+  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
+  return changeWorkspace(
+    key,
+    (w) => {
+      if (w.reconciled) return false;
+      initializePrivateRecords(w, cloud);
+      w.reconciled = true;
+      w.guestPlaces ??= {};
+    },
+    undefined,
+    isCurrent,
+  );
 }
 export async function reconcileDevicePlaces(
   key: string,
@@ -488,15 +563,17 @@ export async function reconcileDevicePlaces(
   isCurrent = () => true,
 ) {
   if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
-  const plan = await devicePlacePlan(key);
-  if (decision === "auto" && plan.ask) throw new Error("accountChoiceRequired");
   const guest = await readWorkspace("guest"),
     account = await readWorkspace(key);
+  const transfers = deviceTransfers(guest, await legacyTransferWorkspaces(guest));
   const handled = handledDevicePlaces(account, guest);
-  const source = liveDevicePlaces(guest).filter((r) => !handled.has(r.id));
+  const source = liveDevicePlaces(guest).filter(
+    (r) => !handled.has(r.id) && (!transfers[r.id] || transfers[r.id].account === key),
+  );
   const ids = new Map(
     await Promise.all(
       source.map(async (r) => {
+        if (transfers[r.id]?.account === key) return [r.id, transfers[r.id].destination] as const;
         const hash = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(JSON.stringify([key, r.id])),
@@ -531,33 +608,15 @@ export async function reconcileDevicePlaces(
       ? currentGuest.deviceAccounts
       : knownAccounts(currentGuest, await tx.store.getAll());
     if (!isCurrent()) throw new Error("accountChanged");
-    const handledNow = handledDevicePlaces(w, currentGuest);
-    if (
-      decision === "auto" &&
-      source.some((r) => !handledNow.has(r.id)) &&
-      accounts.length > 0 &&
-      accounts.at(-1) !== key
-    )
-      throw new Error("accountChoiceRequired");
-    if (!w.reconciled) {
-      w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
-      const presets = [
-        starters.find((e) => e.id === "other")!,
-        ...starters.filter((e) => e.id !== "other"),
-      ];
-      let categoryCount = w.records.filter((r) => r.kind === "category" && !r.deleted).length;
-      for (const e of presets)
-        if (categoryCount < 200 && !w.records.some((r) => r.id === e.id)) {
-          w.records.push({
-            ...structuredClone(e),
-            revision: 0,
-            deleted: false,
-            generation: 0,
-            dirty: false,
-          });
-          categoryCount++;
-        }
-    }
+    const legacy = currentGuest.deviceTransfers
+      ? []
+      : currentGuest.deviceAccounts?.length
+        ? (await Promise.all(currentGuest.deviceAccounts.map((id) => tx.store.get(id)))).filter(
+            (w): w is Workspace => !!w,
+          )
+        : await tx.store.getAll();
+    currentGuest.deviceTransfers = deviceTransfers(currentGuest, legacy);
+    if (!w.reconciled) initializePrivateRecords(w, cloud);
     if (w.reconciled && !w.guestPlaces) {
       const legacyIds = new Set(w.records.filter((r) => r.kind === "place").map((r) => r.id));
       w.guestPlaces = Object.fromEntries(
@@ -580,6 +639,8 @@ export async function reconcileDevicePlaces(
     for (const r of source) {
       const current = guestById.get(r.id);
       if (!current || current.deleted || current.generation !== r.generation) continue;
+      const owner = currentGuest.deviceTransfers[r.id];
+      if (owner && owner.account !== key) continue;
       if (Object.hasOwn(w.guestPlaces, r.id)) continue;
       const existing = existingPlaces.find(ids.get(r.id)!, r.value);
       if (existing) {
@@ -621,6 +682,16 @@ export async function reconcileDevicePlaces(
       added++;
     }
     batch.commit();
+    if (decision !== "skip")
+      for (const r of liveDevicePlaces(currentGuest)) {
+        const destination = Object.hasOwn(w.guestPlaces, r.id) ? w.guestPlaces[r.id] : null;
+        if (destination && !currentGuest.deviceTransfers[r.id])
+          currentGuest.deviceTransfers[r.id] = {
+            account: key,
+            destination,
+            generation: r.generation,
+          };
+      }
     w.reconciled = true;
     currentGuest.deviceAccounts = [...accounts.filter((id) => id !== key), key];
     enforceCapacity(w);
@@ -639,6 +710,65 @@ export async function reconcileDevicePlaces(
   }
   changed();
   return added;
+}
+// Retain the guest source until the account's record has a cloud revision and
+// no pending write/conflict. Ownership outlives the source and the account cache.
+export async function finishDevicePlaceTransfer(key: string, isCurrent = () => true) {
+  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
+  await flushDrafts();
+  const db = await database(),
+    tx = db.transaction(["workspaces", "drafts"], "readwrite");
+  let completed = 0;
+  try {
+    const guest = (await tx.objectStore("workspaces").get("guest")) ?? seed("guest");
+    const account = (await tx.objectStore("workspaces").get(key)) ?? seed(key);
+    const byId = new Map(account.records.map((r) => [r.id, r]));
+    const removed = new Set<string>();
+    for (const r of liveDevicePlaces(guest)) {
+      const transfer = guest.deviceTransfers?.[r.id];
+      if (!transfer || transfer.account !== key || transfer.generation !== r.generation) continue;
+      const destination = byId.get(transfer.destination);
+      if (
+        !destination ||
+        destination.kind !== "place" ||
+        destination.dirty ||
+        destination.conflict ||
+        destination.revision < 1
+      )
+        continue;
+      if (
+        account.flight?.mutation.entity.id === destination.id ||
+        account.deferredFlights?.some((f) => f.mutation.entity.id === destination.id)
+      )
+        continue;
+      removed.add(r.id);
+    }
+    if (!isCurrent()) throw new Error("accountChanged");
+    if (removed.size) {
+      guest.records = guest.records.filter((r) => !removed.has(r.id));
+      await tx.objectStore("workspaces").put(guest);
+      const draft = await tx.objectStore("drafts").get("guest");
+      if (
+        draft &&
+        typeof draft === "object" &&
+        "id" in draft &&
+        typeof draft.id === "string" &&
+        removed.has(draft.id)
+      )
+        await tx.objectStore("drafts").delete("guest");
+      completed = removed.size;
+    }
+    if (!isCurrent()) throw new Error("accountChanged");
+    await tx.done;
+  } catch (error) {
+    try {
+      tx.abort();
+    } catch {}
+    await tx.done.catch(() => {});
+    throw error;
+  }
+  if (completed) changed();
+  return completed;
 }
 export async function reconcileAccount(
   key: string,

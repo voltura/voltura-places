@@ -382,15 +382,16 @@ export const en = {
   syncBusy: "Finish the pending sync or retry it before importing.",
   libraryLimit:
     "The library has reached its supported capacity. Export a backup before removing entries.",
-  reconcileTitle: "Add device places to this account?",
-  copyRecoveryBody:
-    "Some device places could not be copied. Keep them on this device to open the account without copying, or try adding them again after addressing the error below.",
-  reconcileBody:
-    "You’re signing into a different account on this device. Copy the places saved while signed out?",
-  mergeGuest: "Add places and continue",
-  cloudOnly: "Keep them on this device",
-  reconcileCloseHint: "Closing this screen signs you out.",
-  reconcilePending: "Choose a library before syncing.",
+  reconcilePending: "Adding your places to Private places…",
+  transferSaveFailed:
+    "Could not add your places to Private places. They are safe on this device. Retry to finish the transfer.",
+  transferAddedOne: "1 place added to Private places.",
+  transferAddedMany: "{count} places added to Private places.",
+  categoryNameLanguage: "Category name language",
+  categoryNameHint: "If you enter only one name, it is used in both app languages.",
+  skipTransfer: "Skip for now",
+  transferDeferred:
+    "Some device places are waiting to be added to Private places. You can retry when you’re ready.",
   conflicts: "Changes need your choice",
   conflictBody: "This place changed on another device. Both versions have been preserved.",
   device: "Device copy",
@@ -865,15 +866,16 @@ export const sv: Record<Message, string> = {
   syncBusy: "Slutför eller försök igen med väntande synkronisering före import.",
   libraryLimit:
     "Biblioteket har nått sin gräns. Exportera en säkerhetskopia innan du tar bort poster.",
-  reconcileTitle: "Lägg till enhetens platser i det här kontot?",
-  copyRecoveryBody:
-    "Vissa platser på enheten kunde inte kopieras. Behåll dem på enheten för att öppna kontot utan kopiering, eller försök lägga till dem igen när felet nedan är löst.",
-  reconcileBody:
-    "Du loggar in på ett annat konto på enheten. Kopiera platserna som sparats utan inloggning?",
-  mergeGuest: "Lägg till och fortsätt",
-  cloudOnly: "Behåll dem på enheten",
-  reconcileCloseHint: "Om du stänger den här rutan loggas du ut.",
-  reconcilePending: "Välj ett bibliotek före synkronisering.",
+  reconcilePending: "Lägger till dina platser i Privata platser…",
+  transferSaveFailed:
+    "Det gick inte att lägga till dina platser i Privata platser. De finns kvar på den här enheten. Försök igen för att slutföra överföringen.",
+  transferAddedOne: "1 plats har lagts till i Privata platser.",
+  transferAddedMany: "{count} platser har lagts till i Privata platser.",
+  categoryNameLanguage: "Språk för kategorinamn",
+  categoryNameHint: "Om du bara anger ett namn används det på båda språken i appen.",
+  skipTransfer: "Hoppa över tills vidare",
+  transferDeferred:
+    "Några platser på enheten väntar på att läggas till i Privata platser. Du kan försöka igen när du vill.",
   conflicts: "Ändringar behöver ditt val",
   conflictBody: "Platsen har ändrats på en annan enhet. Båda versionerna har sparats.",
   device: "Enhetens kopia",

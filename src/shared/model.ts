@@ -70,6 +70,14 @@ export const categoryColors = [
 export const categorySchema = z
   .object({
     name: z.string().trim().min(1).max(60),
+    names: z
+      .object({
+        en: z.string().trim().min(1).max(60).optional(),
+        sv: z.string().trim().min(1).max(60).optional(),
+      })
+      .strict()
+      .refine((names) => !!(names.en || names.sv))
+      .optional(),
     color: z.enum(categoryColors),
     icon: z.enum(categoryIcons).optional(),
     builtIn: z.string().max(30).optional(),

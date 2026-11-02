@@ -93,7 +93,11 @@ for (const theme of ["dark", "light"])
       const scrolledSaveBox = await save.boundingBox();
       expect(Math.abs(scrolledSaveBox!.y - initialSaveBox!.y)).toBeLessThan(1);
       const body = page.locator(".category-editor-body");
-      if (height >= 740) {
+      if (
+        await page
+          .locator(".category-appearance-picker")
+          .evaluate((el) => el.classList.contains("scroll-icons"))
+      ) {
         expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
         await expect(page.getByRole("textbox", { name: "Name", exact: true })).toBeInViewport({
           ratio: 1,
@@ -139,7 +143,7 @@ for (const theme of ["dark", "light"])
       await page.setViewportSize({ width: 320, height: 480 });
       await expect(page.locator(".category-appearance-picker")).not.toHaveClass(/scroll-icons/);
       await expect(save).toBeInViewport({ ratio: 1 });
-      await page.setViewportSize({ width: 320, height: 740 });
+      await page.setViewportSize({ width: 320, height: 1000 });
       await expect(page.locator(".category-appearance-picker")).toHaveClass(/scroll-icons/);
       await expect(save).toBeInViewport({ ratio: 1 });
     });

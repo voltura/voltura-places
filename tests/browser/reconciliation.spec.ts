@@ -1,165 +1,224 @@
 import { test, expect, type Page } from "./fixtures";
+import type { RecordState } from "../../src/shared/model";
 
-const title = "Add device places to this account?";
-const identity = { id: "reconciliation-fixture", methods: [] };
-const cloudPlace = {
-  id: "cloud-place",
+const accountId = "transfer-fixture";
+const familyId = "e4c4ef13-a164-4aa3-a45e-426e2c62e1e8";
+const place = (id: string): RecordState => ({
+  id,
   kind: "place",
   revision: 1,
   deleted: false,
   value: {
-    name: "Account fixture",
+    name: id,
     categoryId: "other",
     latitude: 0,
     longitude: 0,
     accuracy: null,
-    capturedAt: "2026-10-30T00:00:00.000Z",
-    updatedAt: "2026-10-30T00:00:00.000Z",
+    capturedAt: "2026-11-02T08:00:00Z",
+    updatedAt: "2026-11-02T08:00:00Z",
   },
-};
-async function workspace(page: Page, key: string) {
+});
+async function local(page: Page, key: string) {
   return page.evaluate(async (key) => {
     const db = await new Promise<IDBDatabase>((resolve) => {
-      const request = indexedDB.open("voltura-places", 1);
-      request.onsuccess = () => resolve(request.result);
+      const r = indexedDB.open("voltura-places", 1);
+      r.onsuccess = () => resolve(r.result);
     });
-    return new Promise<{ reconciled: boolean; records: { kind: string; deleted: boolean }[] }>(
-      (resolve) => {
-        const request = db.transaction("workspaces").objectStore("workspaces").get(key);
-        request.onsuccess = () => {
-          db.close();
-          resolve(request.result ?? { reconciled: false, records: [] });
-        };
-      },
-    );
+    const tx = db.transaction("workspaces");
+    const value = await new Promise<{
+      records: RecordState[];
+      deviceTransfers?: Record<string, { account: string }>;
+    }>((resolve) => {
+      const r = tx.objectStore("workspaces").get(key);
+      r.onsuccess = () => resolve(r.result ?? { records: [] });
+    });
+    db.close();
+    return value;
   }, key);
 }
 
-for (const mode of ["empty", "deleted", "add", "skip", "close", "retry", "wrong-account"]) {
-  test(`first account opening: ${mode}`, async ({ page, context }, testInfo) => {
-    let signedIn = mode === "empty" || mode === "retry" || mode === "wrong-account";
-    let fail = mode === "retry";
-    let wrong = mode === "wrong-account";
-    await context.grantPermissions(["geolocation"]);
-    await context.setGeolocation({ latitude: 0, longitude: 0, accuracy: 5 });
+for (const scenario of [
+  "merge",
+  "retry-write",
+  "retry-read",
+  "wrong-account",
+  "family",
+  "swedish",
+] as const) {
+  test(`automatic guest transfer: ${scenario}`, async ({ page }, testInfo) => {
+    let signedIn = false;
+    let identity = accountId;
+    let failing = scenario === "retry-read";
+    let failWrites = scenario === "retry-write";
+    let wrong = scenario === "wrong-account";
+    const records = new Map<string, RecordState>([["cloud-place", place("cloud-place")]]);
+    const family = {
+      id: familyId,
+      name: "Test family",
+      ownerId: accountId,
+      members: [{ id: accountId, label: "Fixture" }],
+      requests: [],
+    };
     await page.route("**/api/account", (route) =>
       route.fulfill({
         json: {
           enabled: true,
-          providers: { email: true },
-          account: signedIn ? identity : null,
+          providers: {},
+          account: signedIn ? { id: identity, methods: [] } : null,
         },
       }),
     );
-    await page.route("**/api/account/sign-out", (route) => {
-      signedIn = false;
-      return route.fulfill({ json: { ok: true } });
-    });
-    await page.route("**/api/family", (route) => route.fulfill({ json: { family: null } }));
-    await page.route("**/api/v1/sync", (route) =>
-      route.fulfill(
-        fail || route.request().method() !== "GET"
-          ? { status: 503, json: { error: "serviceUnavailable" } }
-          : {
-              json: {
-                version: 1,
-                accountId: wrong ? "another-account" : identity.id,
-                records: [cloudPlace],
-              },
-            },
-      ),
+    await page.route("**/api/family", (route) =>
+      route.fulfill({ json: { families: scenario === "family" ? [family] : [] } }),
     );
-    await page.goto("/");
-    if (!["empty", "retry", "wrong-account"].includes(mode)) {
-      await page.getByRole("button", { name: "Save position", exact: true }).click();
-      await page.getByRole("textbox", { name: "Name", exact: true }).fill("Device fixture");
-      await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
-      if (mode === "deleted") {
-        await page.getByRole("button", { name: "Edit place: Device fixture", exact: true }).click();
-        await page.getByRole("button", { name: "Delete", exact: true }).click();
-        await page
-          .getByRole("dialog", { name: "Delete this place?", exact: true })
-          .getByRole("button", { name: "Delete", exact: true })
-          .click();
-        // Sign in only after the asynchronous deletion has committed locally.
-        await expect(
-          page.getByRole("dialog", { name: "Delete this place?", exact: true }),
-        ).toHaveCount(0);
-        await expect(
-          page.getByRole("button", { name: "Edit place: Device fixture", exact: true }),
-        ).toHaveCount(0);
-      }
-      if (mode === "skip" || mode === "close") {
-        await page.evaluate(async () => {
-          const db = await new Promise<IDBDatabase>((resolve) => {
-            const r = indexedDB.open("voltura-places", 1);
-            r.onsuccess = () => resolve(r.result);
-          });
-          const tx = db.transaction("workspaces", "readwrite"),
-            store = tx.objectStore("workspaces");
-          const r = store.get("guest");
-          r.onsuccess = () => store.put({ ...r.result, deviceAccounts: ["previous-account"] });
-          await new Promise<void>((resolve) => {
-            tx.oncomplete = () => {
-              db.close();
-              resolve();
-            };
-          });
+    const writes: string[] = [];
+    await page.route("**/api/v1/sync", (route) => {
+      const request = route.request();
+      const isFamily = !!request.headers()["x-places-family"];
+      if (isFamily)
+        return route.fulfill({
+          json: { version: 1, accountId: `family:${identity}:${familyId}`, records: [] },
         });
+      if (failing || (failWrites && request.method() === "POST"))
+        return route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+      if (request.method() === "POST") {
+        expect(request.headers()["x-places-account"]).toBe(accountId);
+        const body = request.postDataJSON();
+        const record = {
+          ...body.entity,
+          revision: body.baseRevision + 1,
+          deleted: body.deleted,
+        } as RecordState;
+        records.set(record.id, record);
+        writes.push(record.id);
+        return route.fulfill({ json: { accountId: identity, record } });
       }
-      signedIn = true;
-      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    }
-    const dialog = page.getByRole("dialog", { name: title, exact: true });
-    if (["skip", "close"].includes(mode)) {
-      await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText("Closing this screen signs you out.");
-      await page.screenshot({ path: testInfo.outputPath("reconciliation.png") });
-      if (mode === "close") {
-        await dialog.getByRole("button", { name: "Sign out", exact: true }).click();
+      return route.fulfill({
+        json: {
+          version: 1,
+          accountId: wrong ? "wrong-account" : identity,
+          records:
+            identity === accountId
+              ? [...records.values()].sort((a, b) => a.id.localeCompare(b.id))
+              : [],
+        },
+      });
+    });
+    await page.goto(`/?lang=${scenario === "swedish" ? "sv" : "en"}`);
+    await expect(
+      page.getByRole("button", {
+        name: scenario === "swedish" ? "Spara position" : "Save position",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await page.evaluate(
+      async (records) => {
+        const db = await new Promise<IDBDatabase>((resolve) => {
+          const r = indexedDB.open("voltura-places", 1);
+          r.onsuccess = () => resolve(r.result);
+        });
+        const tx = db.transaction("workspaces", "readwrite");
+        tx.objectStore("workspaces").put({
+          key: "guest",
+          reconciled: true,
+          presetRevision: 2,
+          deviceAccounts: ["previous-account"],
+          records: records.map((r) => ({ ...r, revision: 0, generation: 1, dirty: true })),
+        });
+        await new Promise<void>((resolve) => {
+          tx.oncomplete = () => resolve();
+        });
+        db.close();
+        window.dispatchEvent(new Event("places-library"));
+      },
+      [place("device-one"), place("device-two"), place("device-three")],
+    );
+    signedIn = true;
+    if (scenario === "family") {
+      await page.evaluate(
+        ({ family, accountId, familyId }) => {
+          localStorage.setItem(
+            "places-account",
+            JSON.stringify({
+              enabled: true,
+              providers: {},
+              account: { id: accountId, methods: [] },
+            }),
+          );
+          localStorage.setItem(
+            `places-family:${accountId}`,
+            JSON.stringify({ families: [family], inactive: [] }),
+          );
+          localStorage.setItem(`places-workspace:${accountId}`, `family:${accountId}:${familyId}`);
+        },
+        { family, accountId, familyId },
+      );
+      await page.reload();
+    } else await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    if (["retry-write", "retry-read", "wrong-account"].includes(scenario)) {
+      const failure = page.locator(".device-transfer-notice");
+      await expect(failure).toBeVisible();
+      expect((await local(page, "guest")).records.filter((r) => r.kind === "place")).toHaveLength(
+        3,
+      );
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      if (scenario === "retry-write") {
+        expect(
+          Object.values((await local(page, "guest")).deviceTransfers ?? {}).every(
+            (t) => t.account === accountId,
+          ),
+        ).toBe(true);
+        await page.reload();
+        await expect(failure).toBeVisible();
+      }
+      if (scenario === "retry-write") {
+        await page.getByRole("button", { name: "Skip for now", exact: true }).click();
         await expect(
           page.getByRole("button", { name: "Save position", exact: true }),
         ).toBeEnabled();
-        expect(signedIn).toBe(false);
-        expect((await workspace(page, identity.id)).reconciled).toBe(false);
-        return;
+        await expect(failure).toContainText("You can retry when you’re ready");
+        await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+        await expect(page.getByRole("button", { name: "Skip for now", exact: true })).toHaveCount(
+          0,
+        );
+        expect((await local(page, "guest")).records.filter((r) => r.kind === "place")).toHaveLength(
+          3,
+        );
       }
-      await dialog
-        .getByRole("button", {
-          name: "Keep them on this device",
-          exact: true,
-        })
-        .click();
-    }
-    if (mode === "retry" || mode === "wrong-account") {
-      await expect(page.getByRole("alert")).toBeVisible();
-      expect((await workspace(page, identity.id)).reconciled).toBe(false);
-      await expect(dialog).toHaveCount(0);
-      fail = false;
+      await page.screenshot({ path: testInfo.outputPath("transfer-retry.png") });
+      failing = false;
+      failWrites = false;
       wrong = false;
       await page.getByRole("button", { name: "Retry", exact: true }).click();
     }
-    await expect.poll(async () => (await workspace(page, identity.id))?.reconciled).toBe(true);
-    await expect(dialog).toHaveCount(0);
-    const places = (key: string) =>
-      workspace(page, key).then(
-        (w) => w.records.filter((r) => r.kind === "place" && !r.deleted).length,
-      );
-    expect(await places(identity.id)).toBe(mode === "add" ? 2 : 1);
-    expect(await places("guest")).toBe(["add", "skip"].includes(mode) ? 1 : 0);
-    if (mode === "add") {
-      await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
-      signedIn = false;
-      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-      await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
-      signedIn = true;
-      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-      await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
-      expect(await places(identity.id)).toBe(2);
-    }
+    const confirmation =
+      scenario === "swedish"
+        ? "3 platser har lagts till i Privata platser."
+        : "3 places added to Private places.";
+    await expect(page.getByRole("status").filter({ hasText: confirmation })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("transfer-confirmation.png") });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect((await local(page, "guest")).records.filter((r) => r.kind === "place")).toHaveLength(0);
+    expect(
+      (await local(page, accountId)).records.filter((r) => r.kind === "place" && !r.deleted),
+    ).toHaveLength(4);
+    expect(new Set(writes).size).toBe(3);
+    if (scenario === "family")
+      expect(
+        (await local(page, `family:${accountId}:${familyId}`)).records.filter(
+          (r) => r.kind === "place",
+        ),
+      ).toHaveLength(0);
     await page.reload();
-    await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
-    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(records.size).toBe(4);
+    identity = "different-account";
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect
+      .poll(
+        async () => (await local(page, identity)).records.filter((r) => r.kind === "place").length,
+      )
+      .toBe(0);
+    expect(records.size).toBe(4);
   });
 }

@@ -175,7 +175,7 @@ export function CategoryAppearancePicker({
     const body = picker.closest<HTMLElement>(".category-editor-body");
     const sheet = picker.closest<HTMLElement>(".category-editor-sheet");
     if (!body || !sheet) return;
-    const name = body.querySelector("label")!;
+    const name = body.querySelector(".category-name-editor")!;
     const colors = picker.querySelector("fieldset")!;
     const heading = picker.querySelector(".category-icons-heading")!;
     const measure = () => {

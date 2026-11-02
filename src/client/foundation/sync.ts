@@ -83,18 +83,35 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
   }
   throw new Error("libraryLimit");
 };
-const running = new Set<string>();
+const running = new Map<string, Promise<void>>();
 const requestedAgain = new Set<string>();
+export async function synchronizeAndWait(
+  account: string,
+  onStatus: (status: string) => void,
+  isCurrent = () => true,
+) {
+  let previous;
+  while ((previous = running.get(account))) {
+    await previous;
+    if (!isCurrent()) return;
+  }
+  await synchronize(account, onStatus, isCurrent);
+}
 export async function synchronize(
   account: string,
   onStatus: (s: string) => void,
   isCurrent: () => boolean = () => true,
 ) {
-  if (running.has(account)) {
+  const previous = running.get(account);
+  if (previous) {
     requestedAgain.add(account);
     return;
   }
-  running.add(account);
+  let complete!: () => void;
+  const completion = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  running.set(account, completion);
   const run = async () => {
     try {
       if (!isCurrent()) return;
@@ -208,6 +225,7 @@ export async function synchronize(
     else if (isCurrent()) onStatus(navigator.onLine ? "actionRequired" : "offline");
   } finally {
     running.delete(account);
+    complete();
   }
   if (requestedAgain.delete(account) && isCurrent())
     await synchronize(account, onStatus, isCurrent);

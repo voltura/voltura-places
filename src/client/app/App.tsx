@@ -1,3 +1,9 @@
+import {
+  categoryName,
+  categoryNameDraft,
+  categoryNameValue,
+  type CategoryLanguage,
+} from "../../shared/category-names";
 import { applyAppearance, validSkin } from "../foundation/appearance";
 import { startActivityReporting } from "../foundation/activity";
 import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
@@ -38,7 +44,7 @@ import { MapAppChooser } from "../features/MapAppChooser";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
 import { LibrarySelector } from "../features/LibrarySelector";
-import { ImportDialog, ReconcileDialog } from "../features/LibraryTransfers";
+import { ImportDialog, DevicePlaceTransfer } from "../features/LibraryTransfers";
 import { FamilyPanel } from "../features/Family";
 import { JoinRequests } from "../features/JoinRequests";
 import {
@@ -230,7 +236,9 @@ export function App() {
     [maps, setMaps] = useState<{ place: Place; action: MapAction } | null>(null);
   const [categoryEdit, setCategoryEdit] = useState<{
       entity?: LocalRecord;
-      name: string;
+      names: Partial<Record<CategoryLanguage, string>>;
+      nameLanguage: CategoryLanguage;
+      namesChanged: boolean;
       color: string;
       icon: NonNullable<Category["icon"]>;
     } | null>(null),
@@ -250,6 +258,7 @@ export function App() {
   const [reconciling, setReconciling] = useState(false),
     [menu, setMenu] = useState<PlaceRecord | null>(null),
     [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
+  const deferredTransfers = useRef(new Set<string>());
   const [copyGroupPicker, setCopyGroupPicker] = useState(false);
   const [copyingToGroup, setCopyingToGroup] = useState(false);
   const copyInProgress = useRef(false);
@@ -267,24 +276,8 @@ export function App() {
     [workspace],
   );
   const categoryLabel = useCallback(
-    (r: LocalRecord) =>
-      r.kind === "category"
-        ? r.value.builtIn &&
-          r.value.name ===
-            (
-              {
-                parking: "Parking",
-                food: "Food & drink",
-                outdoors: "Outdoors",
-                accommodation: "Accommodation",
-                mushrooms: "Mushrooms",
-                other: "Other",
-              } as Record<string, string>
-            )[r.value.builtIn]
-          ? t(r.value.builtIn as Message)
-          : r.value.name
-        : "",
-    [t],
+    (r: LocalRecord) => (r.kind === "category" ? categoryName(r.value, prefs.language) : ""),
+    [prefs.language],
   );
   const categoryIndex = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const categoryFor = useCallback(
@@ -333,12 +326,16 @@ export function App() {
   const notify = (key: Message, error = false) => setNotice({ text: t(key), error });
   const refresh = useCallback(async () => {
     const key = scopeRef.current;
+    const accountId = authRef.current;
     try {
       const w = await readWorkspace(key);
-      const plan = await devicePlacePlan(key);
-      if (scopeRef.current === key) {
+      const plan = await devicePlacePlan(accountId ?? "guest");
+      if (scopeRef.current === key && authRef.current === accountId) {
         setWorkspace(w);
-        setReconciling(plan.needed);
+        setReconciling(
+          (previous) =>
+            !!accountId && !deferredTransfers.current.has(accountId) && (plan.needed || previous),
+        );
       }
     } catch {
       setNotice({ text: t("storageFailure"), error: true });
@@ -386,10 +383,15 @@ export function App() {
     }
     const selectedKey = scopeRef.current;
     const w = await readWorkspace(selectedKey);
-    const plan = await devicePlacePlan(selectedKey);
+    const plan = await devicePlacePlan(key);
     if (request !== accountRequest.current || scopeRef.current !== selectedKey) return;
     setWorkspace(w);
-    setReconciling(plan.needed);
+    setReconciling(
+      (previous) =>
+        !!next.account &&
+        !deferredTransfers.current.has(next.account.id) &&
+        (plan.needed || previous),
+    );
     const familyCheck = ++familyRequest.current;
     if (next.account && !familyActionPending.current)
       void fetchFamily(next.account.id)
@@ -804,7 +806,6 @@ export function App() {
     scopeRef.current = key;
     setScope(key);
     setMapFocus(null);
-    setReconciling(false);
     setWorkspace(null);
     setSelected(null);
     setEditor(null);
@@ -1053,6 +1054,36 @@ export function App() {
             </button>
           )}
         </div>
+      )}
+      {account.account && (reconciling || deferredTransfers.current.has(account.account.id)) && (
+        <DevicePlaceTransfer
+          key={account.account.id}
+          accountId={account.account.id}
+          t={t}
+          onDeferred={() => {
+            deferredTransfers.current.add(account.account!.id);
+            setReconciling(false);
+            void refresh();
+            sync();
+          }}
+          onRetry={() => {
+            deferredTransfers.current.delete(account.account!.id);
+            setReconciling(true);
+          }}
+          onComplete={(added) => {
+            deferredTransfers.current.delete(account.account!.id);
+            setReconciling(false);
+            if (added > 0)
+              setNotice({
+                text: t(added === 1 ? "transferAddedOne" : "transferAddedMany").replace(
+                  "{count}",
+                  String(added),
+                ),
+              });
+            void refresh();
+            sync();
+          }}
+        />
       )}
       <LibraryView
         onBrowse={controls.browse}
@@ -1392,7 +1423,10 @@ export function App() {
             canWrite &&
             setCategoryEdit({
               entity,
-              name: entity ? categoryLabel(entity) : "",
+              ...categoryNameDraft(
+                entity?.kind === "category" ? entity.value : undefined,
+                prefs.language,
+              ),
               ...categoryAppearance(entity),
             })
           }
@@ -1441,15 +1475,13 @@ export function App() {
               e.preventDefault();
               if (categorySavePending.current) return;
               const original = categoryEdit.entity;
-              const unchangedName =
-                original?.kind === "category" && categoryEdit.name === categoryLabel(original);
               const parsed = categorySchema.safeParse({
-                name: unchangedName ? original.value.name : categoryEdit.name,
+                ...categoryNameValue(
+                  original?.kind === "category" ? original.value : undefined,
+                  categoryEdit,
+                ),
                 color: categoryEdit.color,
                 icon: categoryEdit.icon,
-                ...(unchangedName && original.value.builtIn
-                  ? { builtIn: original.value.builtIn }
-                  : {}),
               });
               if (!parsed.success) return;
               categorySavePending.current = true;
@@ -1476,8 +1508,32 @@ export function App() {
             }}
           >
             <div className="stack category-editor-body">
-              <label>
-                {t("name")}
+              <div className="category-name-editor">
+                <div className="category-name-heading">
+                  <label htmlFor="category-name">{t("name")}</label>
+                  <div className="category-name-language">
+                    <img
+                      className="language-flag"
+                      src={`/flags/${categoryEdit.nameLanguage === "sv" ? "se" : "gb"}.svg`}
+                      alt=""
+                      width="24"
+                      height="18"
+                    />
+                    <select
+                      aria-label={t("categoryNameLanguage")}
+                      value={categoryEdit.nameLanguage}
+                      onChange={(event) =>
+                        setCategoryEdit({
+                          ...categoryEdit,
+                          nameLanguage: event.target.value as CategoryLanguage,
+                        })
+                      }
+                    >
+                      <option value="en">English</option>
+                      <option value="sv">Svenska</option>
+                    </select>
+                  </div>
+                </div>
                 <span
                   className={`category-name-field ${categoryEdit.icon === "none" ? "no-icon" : ""}`}
                 >
@@ -1487,13 +1543,25 @@ export function App() {
                     </span>
                   )}
                   <input
-                    value={categoryEdit.name}
+                    id="category-name"
+                    value={categoryEdit.names[categoryEdit.nameLanguage] ?? ""}
+                    placeholder={categoryEdit.names.en || categoryEdit.names.sv || ""}
                     maxLength={60}
-                    required
-                    onChange={(e) => setCategoryEdit({ ...categoryEdit, name: e.target.value })}
+                    required={!Object.values(categoryEdit.names).some((name) => name?.trim())}
+                    onChange={(e) =>
+                      setCategoryEdit({
+                        ...categoryEdit,
+                        names: {
+                          ...categoryEdit.names,
+                          [categoryEdit.nameLanguage]: e.target.value,
+                        },
+                        namesChanged: true,
+                      })
+                    }
                   />
                 </span>
-              </label>
+                <p className="muted small category-name-hint">{t("categoryNameHint")}</p>
+              </div>
               <CategoryAppearancePicker
                 icon={categoryEdit.icon}
                 color={categoryEdit.color}
@@ -1668,21 +1736,6 @@ export function App() {
           onComplete={() => {
             setBackup(null);
             notify("imported");
-            void refresh();
-            sync();
-          }}
-        />
-      )}
-      {reconciling && account.account && (
-        <ReconcileDialog
-          key={account.account.id}
-          accountId={account.account.id}
-          t={t}
-          onClose={() => {
-            void signOut();
-          }}
-          onComplete={() => {
-            setReconciling(false);
             void refresh();
             sync();
           }}

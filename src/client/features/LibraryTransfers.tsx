@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
-import { importBackup, devicePlacePlan, reconcileDevicePlaces } from "../foundation/library";
-import { fetchSnapshot } from "../foundation/sync";
+import {
+  importBackup,
+  devicePlacePlan,
+  reconcileDevicePlaces,
+  finishDevicePlaceTransfer,
+  initializePrivateAccount,
+} from "../foundation/library";
+import { fetchSnapshot, synchronizeAndWait } from "../foundation/sync";
 import type { Backup } from "../../shared/model";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
 type Common = { t: (key: Message) => string; onClose: () => void; onComplete: () => void };
@@ -69,101 +75,93 @@ export function ImportDialog({
     </Sheet>
   );
 }
-export function ReconcileDialog({
+export function DevicePlaceTransfer({
   accountId,
   t,
-  onClose,
   onComplete,
-}: Omit<Common, "onComplete"> & { accountId: string; onComplete: (added: number) => void }) {
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [checking, setChecking] = useState(true),
-    [hasPlaces, setHasPlaces] = useState(false),
-    [copyRecovery, setCopyRecovery] = useState(false),
-    [attempt, setAttempt] = useState(0);
-  const active = useRef(true);
+  onDeferred,
+  onRetry,
+}: {
+  accountId: string;
+  t: (key: Message) => string;
+  onComplete: (added: number) => void;
+  onDeferred: () => void;
+  onRetry: () => void;
+}) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [deferred, setDeferred] = useState(false);
+  const callbacks = useRef({ t, onComplete, onDeferred, onRetry });
+  callbacks.current = { t, onComplete, onDeferred, onRetry };
   useEffect(() => {
-    active.current = true;
     let current = true;
+    const isCurrent = () => current;
+    setBusy(true);
     void (async () => {
       try {
-        const plan = await devicePlacePlan(accountId);
+        if (!(await devicePlacePlan(accountId)).needed) {
+          if (current) callbacks.current.onComplete(0);
+          return;
+        }
+        const snapshot = await fetchSnapshot(accountId, isCurrent);
         if (!current) return;
-        setHasPlaces(plan.ask);
-        if (!plan.ask) await choose("auto", () => current);
-      } catch {
-        if (current) setError(t("storageFailure"));
+        await initializePrivateAccount(accountId, snapshot.records, isCurrent);
+        await reconcileDevicePlaces(accountId, snapshot.records, "auto", isCurrent);
+        if (!(await devicePlacePlan(accountId)).pending) {
+          if (current) callbacks.current.onComplete(0);
+          return;
+        }
+        await synchronizeAndWait(accountId, () => {}, isCurrent);
+        if (!current) return;
+        const completed = await finishDevicePlaceTransfer(accountId, isCurrent);
+        if ((await devicePlacePlan(accountId)).pending) throw new Error("transferSaveFailed");
+        if (current) callbacks.current.onComplete(completed);
+      } catch (error) {
+        if (current)
+          setError(callbacks.current.t(libraryErrorMessage(error, "transferSaveFailed")));
       } finally {
-        if (current) setChecking(false);
+        if (current) setBusy(false);
       }
     })();
     return () => {
       current = false;
-      active.current = false;
     };
   }, [accountId, attempt]);
-  async function choose(decision: "auto" | "copy" | "skip", isCurrent = () => active.current) {
-    setBusy(true);
-    setError("");
-    try {
-      const snapshot = await fetchSnapshot(accountId, isCurrent);
-      if (!isCurrent()) return;
-      const added = await reconcileDevicePlaces(accountId, snapshot.records, decision, isCurrent);
-      if (isCurrent()) onComplete(added);
-    } catch (error) {
-      if (isCurrent()) {
-        if (error instanceof Error && error.message === "accountChoiceRequired") setHasPlaces(true);
-        else {
-          if (
-            decision === "auto" &&
-            error instanceof Error &&
-            ["libraryLimit", "photoQuota", "photoUnavailable"].includes(error.message)
-          ) {
-            setHasPlaces(true);
-            setCopyRecovery(true);
-          }
-          setError(t(libraryErrorMessage(error, "serviceUnavailable")));
-        }
-      }
-    } finally {
-      if (isCurrent()) setBusy(false);
-    }
-  }
-  if (checking || (!hasPlaces && !error)) return null;
+  if (!error) return null;
   return (
-    <Sheet
-      title={t(hasPlaces ? "reconcileTitle" : "privateLibrary")}
-      onClose={onClose}
-      closeLabel={t("signOut")}
+    <section
+      className="device-transfer-notice"
+      role={busy || deferred ? "status" : "alert"}
+      aria-label={t("privateLibrary")}
     >
-      <div className="stack">
-        {hasPlaces && (
-          <p className="muted">{t(copyRecovery ? "copyRecoveryBody" : "reconcileBody")}</p>
-        )}
-        {(hasPlaces ? [true, false] : [false]).map((merge) => (
-          <button
-            key={String(merge)}
-            className={`button ${merge ? "primary" : "outline"}`}
-            disabled={busy}
-            onClick={() => {
-              if (hasPlaces) void choose(merge ? "copy" : "skip");
-              else {
-                setChecking(true);
-                setError("");
-                setAttempt((value) => value + 1);
-              }
-            }}
-          >
-            {t(hasPlaces ? (merge ? "mergeGuest" : "cloudOnly") : "retry")}
-          </button>
-        ))}
-        <p className="muted small">{t("reconcileCloseHint")}</p>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    </Sheet>
+      <p>{t(deferred ? "transferDeferred" : busy ? "reconcilePending" : "transferSaveFailed")}</p>
+      {!busy && !deferred && error !== t("transferSaveFailed") && (
+        <p className="muted small">{error}</p>
+      )}
+      <button
+        className="button outline"
+        disabled={busy}
+        onClick={() => {
+          callbacks.current.onRetry();
+          setDeferred(false);
+          setAttempt((value) => value + 1);
+        }}
+      >
+        {t(busy ? "working" : "retry")}
+      </button>
+      {!deferred && (
+        <button
+          className="button outline"
+          disabled={busy}
+          onClick={() => {
+            setDeferred(true);
+            callbacks.current.onDeferred();
+          }}
+        >
+          {t("skipTransfer")}
+        </button>
+      )}
+    </section>
   );
 }

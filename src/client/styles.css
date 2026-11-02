@@ -1074,6 +1074,16 @@ hr {
   font-size: 13px;
   font-weight: 600;
 }
+.device-transfer-notice {
+  width: min(100% - 32px, 960px);
+  margin: 16px auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  display: grid;
+  gap: 12px;
+}
 .place-photo {
   display: block;
   width: 100%;
@@ -3840,7 +3850,7 @@ select option .category-icon {
   flex-direction: column;
   overflow: hidden;
 }
-.category-editor-body:has(.scroll-icons) > label,
+.category-editor-body:has(.scroll-icons) > .category-name-editor,
 .scroll-icons > fieldset {
   flex: none;
 }
@@ -3863,7 +3873,7 @@ select option .category-icon {
   padding: 2px;
 }
 
-.category-editor-body > label,
+.category-editor-body .category-name-heading label,
 .category-editor-body .category-appearance-picker legend,
 .category-editor-body .category-icons-heading {
   font-size: 1.0625rem;
@@ -3874,6 +3884,33 @@ select option .category-icon {
   position: relative;
   display: block;
   min-width: 0;
+}
+.category-name-editor {
+  display: grid;
+  gap: 8px;
+  flex: none;
+}
+.category-name-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.category-name-language {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.category-editor-sheet .category-name-language select {
+  width: auto;
+  min-height: 48px;
+  max-width: 100%;
+  padding-block: 8px;
+}
+.category-name-hint {
+  font-weight: 400;
 }
 .category-name-preview {
   position: absolute;

@@ -200,7 +200,12 @@ try {
   const appearanceCategory = {
     id: crypto.randomUUID(),
     kind: "category",
-    value: { name: "Synthetic category", color: "cyan", icon: "none" },
+    value: {
+      name: "Synthetic category",
+      names: { en: "Synthetic category", sv: "Syntetisk kategori" },
+      color: "cyan",
+      icon: "none",
+    },
   };
   const appearanceMutation = {
     version: 1,
@@ -220,7 +225,14 @@ try {
     appearanceCategory.value,
   );
   check(true, "Expanded category appearance survives sync pull");
-  for (const invalid of [{ color: "unknown" }, { icon: "unknown" }]) {
+  for (const invalid of [
+    { color: "unknown" },
+    { icon: "unknown" },
+    { names: {} },
+    { names: { en: "" } },
+    { names: { de: "Name" } },
+    { names: { sv: "x".repeat(61) } },
+  ]) {
     const rejected = await request("/api/v1/sync", {
       ...appearanceAccount,
       body: {

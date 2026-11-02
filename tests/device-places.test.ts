@@ -7,6 +7,11 @@ import {
   devicePlacePlan,
   readWorkspace,
   reconcileDevicePlaces,
+  finishDevicePlaceTransfer,
+  prepareMutation,
+  acknowledge,
+  getDraft,
+  setDraft,
   removeWorkspace,
   saveEntity,
 } from "../src/client/foundation/library";
@@ -14,7 +19,7 @@ import { getPhoto, makeStoredPhoto, putPhotos } from "../src/client/foundation/p
 import type { Entity, RecordState } from "../src/shared/model";
 
 const account = "normal-account";
-const place = (id = crypto.randomUUID()): Extract<Entity, { kind: "place" }> => ({
+const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place" }> => ({
   id,
   kind: "place",
   value: {
@@ -29,6 +34,23 @@ const place = (id = crypto.randomUUID()): Extract<Entity, { kind: "place" }> => 
 });
 const live = async (key: string) =>
   (await readWorkspace(key)).records.filter((r) => r.kind === "place" && !r.deleted);
+async function confirmWrites(key: string) {
+  for (let i = 0; i < 6000; i++) {
+    const flight = await prepareMutation(key);
+    if (!flight) return;
+    await acknowledge(
+      key,
+      flight.mutation.mutationId,
+      {
+        ...flight.mutation.entity,
+        deleted: flight.mutation.deleted,
+        revision: flight.mutation.baseRevision + 1,
+      },
+      false,
+    );
+  }
+  throw new Error("Unexpected pending writes");
+}
 beforeEach(async () => {
   vi.stubGlobal("window", new EventTarget());
   await removeWorkspace(account);
@@ -52,6 +74,11 @@ test("automatic copying preserves cloud collisions, originals and repeated sign-
   expect(await live("guest")).toHaveLength(1);
   expect(await reconcileDevicePlaces(account, [], "auto")).toBe(0);
   expect(await live(account)).toHaveLength(2);
+  expect((await devicePlacePlan(account)).needed).toBe(true);
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+  await confirmWrites(account);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect(await live("guest")).toHaveLength(0);
   expect((await devicePlacePlan(account)).needed).toBe(false);
 });
 
@@ -74,29 +101,35 @@ test("new signed-out places copy on return without overwriting account edits or 
   );
 });
 
-test("a different account requires consent and skipping keeps all guest places private", async () => {
+test("a different account automatically takes new guest places without a storage choice", async () => {
   const other = crypto.randomUUID();
-  await saveEntity("guest", place());
-  expect((await devicePlacePlan(other)).ask).toBe(true);
-  await expect(reconcileDevicePlaces(other, [], "auto")).rejects.toThrow("accountChoiceRequired");
-  expect((await readWorkspace(other)).reconciled).toBe(false);
-  await reconcileDevicePlaces(other, [], "skip");
-  expect(await live(other)).toHaveLength(0);
-  expect(await live("guest")).toHaveLength(1);
-  expect((await devicePlacePlan(other)).needed).toBe(false);
   await saveEntity("guest", place());
   expect((await devicePlacePlan(other)).ask).toBe(false);
   expect(await reconcileDevicePlaces(other, [], "auto")).toBe(1);
   expect(await live(other)).toHaveLength(1);
+  expect(await live("guest")).toHaveLength(1);
+  expect((await devicePlacePlan(other)).needed).toBe(true);
+  expect(await reconcileDevicePlaces(account, [], "auto")).toBe(0);
+  expect(await live(account)).toHaveLength(0);
+  await confirmWrites(other);
+  expect(await finishDevicePlaceTransfer(other)).toBe(1);
+  await saveEntity("guest", place());
+  expect((await devicePlacePlan(other)).ask).toBe(false);
+  expect(await reconcileDevicePlaces(other, [], "auto")).toBe(1);
+  expect(await live(other)).toHaveLength(2);
 });
 
-test("explicit approval copies into a different account and remembers that account", async () => {
+test("ownership persists after cloud save and prevents imports into another account", async () => {
   const other = crypto.randomUUID();
   await saveEntity("guest", place());
   expect(await reconcileDevicePlaces(other, [], "copy")).toBe(1);
   expect(await live(other)).toHaveLength(1);
+  expect((await devicePlacePlan(other)).needed).toBe(true);
+  expect((await devicePlacePlan(account)).pending).toBe(0);
+  await confirmWrites(other);
+  expect(await finishDevicePlaceTransfer(other)).toBe(1);
   expect((await devicePlacePlan(other)).needed).toBe(false);
-  expect((await devicePlacePlan(account)).ask).toBe(true);
+  expect(await reconcileDevicePlaces(account, [], "auto")).toBe(0);
 });
 
 test("cancelled and over-capacity transfers commit neither account records nor transfer receipts", async () => {
@@ -170,9 +203,102 @@ test("legacy copies with account edits or tombstones are adopted without adding 
       deleted: true,
     });
   });
-  expect((await devicePlacePlan(account)).pending).toBe(0);
+  expect((await devicePlacePlan(account)).pending).toBe(1);
   expect(await reconcileDevicePlaces(account, [], "auto")).toBe(0);
   expect((await readWorkspace(account)).guestPlaces?.[source.id]).toBe(source.id);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
   expect((await devicePlacePlan(account)).pending).toBe(0);
   expect(await live(account)).toHaveLength(0);
+});
+
+test("cloud failure, account cache loss and a delayed retry retain one account's ownership", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await reconcileDevicePlaces(account, [], "auto");
+  const records = (await readWorkspace(account)).records;
+  await removeWorkspace(account);
+  const other = crypto.randomUUID();
+  expect(await reconcileDevicePlaces(other, [], "auto")).toBe(0);
+  expect(await live("guest")).toHaveLength(1);
+  expect(await live(other)).toHaveLength(0);
+  expect(
+    await reconcileDevicePlaces(
+      account,
+      records.map((r) => ({ ...r, revision: 1 })),
+      "auto",
+    ),
+  ).toBe(0);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect(await live(account)).toHaveLength(1);
+});
+
+test("cloud confirmation clears only matching guest sources and drafts atomically", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await setDraft("guest", { id: source.id, name: "Unfinished edit" });
+  await reconcileDevicePlaces(account, [], "auto");
+  await confirmWrites(account);
+  await expect(finishDevicePlaceTransfer(account, () => false)).rejects.toThrow("accountChanged");
+  expect(await live("guest")).toHaveLength(1);
+  expect(await getDraft("guest")).toBeDefined();
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect(await getDraft("guest")).toBeUndefined();
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+});
+
+test("a guest edit received during transfer is retained rather than erased", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await reconcileDevicePlaces(account, [], "auto");
+  await saveEntity("guest", { ...source, value: { ...source.value, name: "Newer guest edit" } });
+  await confirmWrites(account);
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+  expect((await live("guest"))[0].value.name).toBe("Newer guest edit");
+});
+
+test("a family workspace cannot receive or finalize a guest transfer", async () => {
+  await saveEntity("guest", place());
+  const key = `family:normal-account:${crypto.randomUUID()}`;
+  await expect(reconcileDevicePlaces(key, [], "auto")).rejects.toThrow("invalidImport");
+  await expect(finishDevicePlaceTransfer(key)).rejects.toThrow("invalidImport");
+  expect(await live("guest")).toHaveLength(1);
+});
+
+test("concurrent account openings can claim each guest place only once", async () => {
+  const other = crypto.randomUUID();
+  const source = place("constructor");
+  await saveEntity("guest", source);
+  const added = await Promise.all([
+    reconcileDevicePlaces(account, [], "auto"),
+    reconcileDevicePlaces(other, [], "auto"),
+  ]);
+  expect(added.reduce((a, b) => a + b, 0)).toBe(1);
+  expect((await live(account)).length + (await live(other)).length).toBe(1);
+  const owner = (await readWorkspace("guest")).deviceTransfers![source.id].account;
+  await confirmWrites(owner);
+  expect(await finishDevicePlaceTransfer(owner)).toBe(1);
+});
+
+test("cancellation after the cleanup write restores guest records and their draft", async () => {
+  const source = place();
+  await saveEntity("guest", source);
+  await setDraft("guest", { id: source.id });
+  await reconcileDevicePlaces(account, [], "auto");
+  await confirmWrites(account);
+  const before = await readWorkspace("guest");
+  let current = true;
+  const put = IDBObjectStore.prototype.put;
+  const spy = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (
+    this: IDBObjectStore,
+    value,
+    key,
+  ) {
+    const request = put.call(this, value, key);
+    if (this.name === "workspaces" && value.key === "guest") current = false;
+    return request;
+  });
+  await expect(finishDevicePlaceTransfer(account, () => current)).rejects.toThrow("accountChanged");
+  spy.mockRestore();
+  expect(await readWorkspace("guest")).toEqual(before);
+  expect(await getDraft("guest")).toEqual({ id: source.id });
 });
