@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
-import { Camera, ImagePlus, Trash2 } from "lucide-react";
+import { Camera, ImagePlus, Trash2, Maximize, Minimize } from "lucide-react";
+import { createPortal } from "react-dom";
 import { loadPhoto, preparePhoto } from "../foundation/photos";
 import { watchPhoto } from "../foundation/photo-store";
 import type { Message } from "../foundation/i18n";
@@ -42,9 +43,84 @@ export function PlacePhoto({
   }, [workspace, id, attempt]);
   if (!id) return null;
   return url ? (
-    <img className="place-photo" src={url} alt={t("placePhoto")} />
+    <PhotoView key={`${workspace}:${id}`} url={url} t={t} />
   ) : (
     <p className="muted small">{t("photoUnavailable")}</p>
+  );
+}
+function PhotoView({ url, t }: { url: string; t: (key: Message) => string }) {
+  const [fullscreen, setFullscreen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  return (
+    <div className="place-photo-frame">
+      <img className="place-photo" src={url} alt={t("placePhoto")} />
+      <button
+        ref={toggle}
+        type="button"
+        className="icon-button photo-fullscreen-toggle"
+        aria-label={t("fullscreenPhoto")}
+        aria-haspopup="dialog"
+        onClick={() => setFullscreen(true)}
+      >
+        <Maximize aria-hidden="true" />
+      </button>
+      {fullscreen && (
+        <FullscreenPhoto
+          url={url}
+          t={t}
+          onClose={() => setFullscreen(false)}
+          returnFocus={() => toggle.current?.focus({ preventScroll: true })}
+        />
+      )}
+    </div>
+  );
+}
+
+function FullscreenPhoto({
+  url,
+  t,
+  onClose,
+  returnFocus,
+}: {
+  url: string;
+  t: (key: Message) => string;
+  onClose: () => void;
+  returnFocus: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const surface = dialog.current!;
+    const { scrollX, scrollY } = window;
+    surface.showModal();
+    surface.querySelector("button")?.focus({ preventScroll: true });
+    return () => {
+      surface.close();
+      window.scrollTo(scrollX, scrollY);
+      returnFocus();
+    };
+  }, []);
+  return createPortal(
+    <dialog
+      ref={dialog}
+      className="photo-fullscreen"
+      aria-label={t("placePhoto")}
+      onCancel={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+    >
+      <img src={url} alt={t("placePhoto")} />
+      <button
+        type="button"
+        className="icon-button photo-fullscreen-toggle"
+        aria-label={t("exitFullscreenPhoto")}
+        onClick={onClose}
+      >
+        <Minimize aria-hidden="true" />
+      </button>
+    </dialog>,
+    document.body,
   );
 }
 export function PhotoPicker({

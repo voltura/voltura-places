@@ -1,5 +1,7 @@
 # UI contract
 
+Available place photos in details and editors have a 48px upper-right fullscreen control, matching the map icon. The photo viewer fills the app viewport with the whole image contained against a dark background; a collapse icon remains upper-right and respects safe areas. Collapse or Escape returns to the previous view, scroll position and focused control. The native modal keeps underlying details/editor or fullscreen map inactive; Escape closes only the photo. It uses the existing local photo without additional network requests or changes to saved data. English and Swedish accessible labels are supported.
+
 Synchronous errors and missing methods in browser permission/location APIs are treated as unavailable background location support. They do not prevent startup, Settings or explicit saving. Update prompts use the actual active-worker plus waiting-replacement state, including after a slow first installation; Workbox's external-install timing heuristic alone never offers an update.
 
 Background map changes retain unchanged pin elements and keyboard focus. Pin names/colours update in place; additions, deletions and coordinate changes update the cluster index. Changing language updates zoom controls and cluster accessible labels without resetting the map. A GPS save whose refresh finishes after a library switch cannot reopen its editor in that new library or seed a draft there.
