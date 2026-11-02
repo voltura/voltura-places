@@ -17,7 +17,12 @@ export function enforceCapacity(w: Workspace) {
   }
 }
 
-function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = false): LocalRecord {
+function editedRecord(
+  w: Workspace,
+  previous: LocalRecord | undefined,
+  e: Entity,
+  deleted = false,
+): LocalRecord {
   if (e.kind !== "visit" && e.id.startsWith("visit-")) {
     throw new Error("invalidImport");
   }
@@ -25,10 +30,17 @@ function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = fa
     throw new Error("invalidImport");
   }
 
+  // A guest record can be removed after transfer and later restored from a backup.
+  // Never reuse a generation already acknowledged or skipped for this source ID.
+  const receipt =
+    !previous && w.key === "guest" && e.kind === "place" ? w.deviceTransfers?.[e.id] : undefined;
+  const generation =
+    previous?.generation ?? Math.max(receipt?.generation ?? 0, receipt?.skippedGeneration ?? 0);
+
   return {
     ...entitySchema.parse(e),
     revision: previous?.revision ?? 0,
-    generation: (previous?.generation ?? 0) + 1,
+    generation: generation + 1,
     dirty: true,
     deleted,
     ...(previous?.conflict ? { conflict: previous.conflict } : {}),
@@ -37,7 +49,7 @@ function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = fa
 
 export function write(w: Workspace, e: Entity, deleted = false) {
   const index = w.records.findIndex((record) => record.id === e.id);
-  const next = editedRecord(index < 0 ? undefined : w.records[index], e, deleted);
+  const next = editedRecord(w, index < 0 ? undefined : w.records[index], e, deleted);
   if (index >= 0) {
     w.records.splice(index, 1);
   }
@@ -54,7 +66,7 @@ export function recordBatch(w: Workspace) {
   return {
     get: (id: string) => records.get(id),
     write(e: Entity, deleted = false) {
-      const next = editedRecord(records.get(e.id), e, deleted);
+      const next = editedRecord(w, records.get(e.id), e, deleted);
       records.delete(e.id);
       records.set(e.id, next);
 

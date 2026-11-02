@@ -293,34 +293,56 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    let disposed = false;
-    if (import.meta.env.PROD) {
-      swUpdate.current = registerSW({
-        // Workbox's time-based "external install" heuristic can also fire on
-        // a slow first installation. Only the monitor's actual active+waiting
-        // replacement state may offer an update; Workbox still owns activation.
-        onRegisteredSW: (_url, registration) => {
-          if (registration && !disposed) {
-            updateMonitor.current = watchForUpdates(registration, () => setUpdate(true));
-          }
-        },
-        onNeedReload: () => {
-          if (!disposed) {
-            void flushDrafts()
-              .then(() => {
-                if (!disposed) {
-                  location.reload();
-                }
-              })
-              .catch(() => notify("storageFailure", true));
-          }
-        },
-        onRegisterError: () => {},
-      });
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) {
+      return;
     }
+    let disposed = false;
+    let reloading = false;
+    const workers = navigator.serviceWorker;
+    let controller = workers.controller;
+
+    const reloadAfterDrafts = () => {
+      if (disposed || reloading) {
+        return;
+      }
+      reloading = true;
+      void flushDrafts()
+        .then(() => {
+          if (!disposed) {
+            location.reload();
+          }
+        })
+        .catch(() => {
+          reloading = false;
+          if (!disposed) {
+            notify("storageFailure", true);
+          }
+        });
+    };
+
+    // A replacement can take control before Workbox has announced its waiting event.
+    const controllerChanged = () => {
+      const previous = controller;
+      controller = workers.controller;
+      if (previous && controller && previous !== controller) {
+        reloadAfterDrafts();
+      }
+    };
+
+    workers.addEventListener("controllerchange", controllerChanged);
+    swUpdate.current = registerSW({
+      onRegisteredSW: (_url, registration) => {
+        if (registration && !disposed) {
+          updateMonitor.current = watchForUpdates(registration, () => setUpdate(true));
+        }
+      },
+      onNeedReload: reloadAfterDrafts,
+      onRegisterError: () => {},
+    });
 
     return () => {
       disposed = true;
+      workers.removeEventListener("controllerchange", controllerChanged);
       updateMonitor.current?.dispose();
     };
   }, []);

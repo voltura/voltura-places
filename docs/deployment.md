@@ -47,3 +47,5 @@ Usage statistics use the existing Sites Worker and DB; there are no new secrets 
 Migration 0009 (`0009_personal_visits.sql`) must be applied before deploying the personal-status client/server. It creates the private visit table and index without rewriting existing place records. Refresh older devices before syncing new descriptions/statuses because the shared schemas are strict. This source change does not itself publish or migrate production.
 
 Promo publication checks each hashed asset against its filename and requires one file for each expected asset. Identical remote payloads skip promotion and still receive paced HTTPS verification. Temporary HTTP 429 and 503 responses receive bounded retries. Rollback verifies the prior bytes, including empty files, and rejects unrelated remote changes or deletions. The email relay uses its own installer and is outside the promo manifest.
+
+Use --skip-https-verification with the promo publisher when the operator will check the live pages manually. SFTP integrity and rollback protections still apply.

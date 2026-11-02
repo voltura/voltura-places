@@ -281,6 +281,7 @@ export async function synchronize(
       }
       const cachedPhotos = photoIds.size ? await workspacePhotoIds(account) : new Set<string>();
       let missingPhoto = false;
+      let lastPhotoHadServerError = false;
       for (const id of photoIds) {
         if (!isCurrent()) {
           return;
@@ -290,17 +291,22 @@ export async function synchronize(
         }
         try {
           await loadPhoto(account, id, isCurrent);
+          lastPhotoHadServerError = false;
         } catch (error) {
           if (!isCurrent()) {
             return;
           }
+          // A single unavailable attachment must not block healthy photos.
+          // Consecutive server errors indicate an outage; throttling stops immediately.
+          const serverError = error instanceof ApiError && error.status >= 500;
           if (
             !navigator.onLine ||
-            temporarySyncFailure(error) ||
+            (temporarySyncFailure(error) && (!serverError || lastPhotoHadServerError)) ||
             (error instanceof ApiError && [401, 403, 409].includes(error.status))
           ) {
             throw error;
           }
+          lastPhotoHadServerError = serverError;
           missingPhoto = true;
         }
       }

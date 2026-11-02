@@ -147,3 +147,24 @@ test("manual entry returns after GPS cancellation or denial and hides after a fi
   await expect(page.getByText("Manual location", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Update location", exact: true })).toBeVisible();
 });
+
+test("an uncached map cannot blank the library after an offline save", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/?lang=en");
+  await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+  const editor = page.getByRole("dialog", { name: "Add place" });
+  await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Offline sample");
+  await editor.getByRole("button", { name: "Enter coordinates manually" }).click();
+  await editor.getByLabel("Latitude", { exact: true }).fill("10");
+  await editor.getByLabel("Longitude", { exact: true }).fill("20");
+  await context.setOffline(true);
+  await editor.getByRole("button", { name: "Save", exact: true }).click();
+  await page.locator(".card-main").click();
+  await expect(page.getByText("The map could not load.", { exact: false })).toBeVisible();
+  await expect(page.locator(".card-main")).toContainText("Offline sample");
+  await context.setOffline(false);
+  await page.reload();
+  await expect(page.locator(".card-main")).toContainText("Offline sample");
+});

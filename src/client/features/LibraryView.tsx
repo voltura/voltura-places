@@ -1,5 +1,5 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Plus,
   Search,
@@ -18,7 +18,8 @@ import type { PlaceRecord } from "../../shared/model";
 import { Tooltip } from "../ui/Tooltip";
 import { dateAppearsInPlaceName } from "../foundation/place-labels";
 
-const PlacesMap = lazy(() => import("./PlacesMap"));
+import { DeferredPlacesMap as PlacesMap } from "./DeferredPlacesMap";
+
 type Props = {
   view: "list" | "map";
   setView: (view: "list" | "map") => void;

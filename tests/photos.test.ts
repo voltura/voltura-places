@@ -267,7 +267,13 @@ test("photo backups round trip offline and reject missing images without changin
   await saveEntity(key, entity);
   const backup = await exportWithPhotos(await readWorkspace(key));
   expect(backup.version).toBe(2);
-  await importBackup(target, backup);
+  const decodes = vi.spyOn(globalThis, "atob");
+  try {
+    await importBackup(target, backup);
+    expect(decodes).toHaveBeenCalledTimes(backup.photos!.length);
+  } finally {
+    decodes.mockRestore();
+  }
   expect((await getPhoto(target, id))?.hash).toBe(photo.hash);
   await importBackup(target, backup);
   expect((await readWorkspace(target)).records.filter((r) => r.kind === "place")).toHaveLength(1);

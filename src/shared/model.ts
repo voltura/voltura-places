@@ -303,7 +303,7 @@ export function parseShare(hash: string) {
   }
 }
 
-export function validateBackup(input: unknown) {
+export function parseBackupManifest(input: unknown) {
   // Array validators collect element errors even when the array already exceeds
   // the protocol limit. Reject impossible cardinalities before walking elements.
   if (input && typeof input === "object") {
@@ -338,7 +338,13 @@ export function validateBackup(input: unknown) {
       throw new Error("photoQuota");
     }
   }
-  for (const p of photos) {
+
+  return backup;
+}
+
+export function validateBackup(input: unknown) {
+  const backup = parseBackupManifest(input);
+  for (const p of backup.photos ?? []) {
     decodePhoto(p.data);
   }
 

@@ -15,6 +15,8 @@ import {
   setDraft,
   removeWorkspace,
   saveEntity,
+  exportBackup,
+  importBackup,
 } from "../src/client/foundation/library";
 import { getPhoto, makeStoredPhoto, putPhotos } from "../src/client/foundation/photo-store";
 import type { Entity, RecordState } from "../src/shared/model";
@@ -390,4 +392,22 @@ test("first private snapshot preserves offline edits and records same-id cloud c
     dirty: true,
     value: untouched.value,
   });
+});
+
+test("a reimported guest ID cannot be finalized against its previous incarnation", async () => {
+  const source = place("restored-place");
+  await saveEntity("guest", source);
+  const backup = exportBackup(await readWorkspace("guest"));
+  await reconcileDevicePlaces(account, [], "auto");
+  await confirmWrites(account);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  backup.places[0].value.name = "Restored from a different backup";
+  await importBackup("guest", backup);
+  expect(await finishDevicePlaceTransfer(account)).toBe(0);
+  expect(await reconcileDevicePlaces(account, [], "auto")).toBe(1);
+  await confirmWrites(account);
+  expect(await finishDevicePlaceTransfer(account)).toBe(1);
+  expect((await live(account)).map((r) => r.value.name).sort()).toEqual(
+    [backup.places[0].value.name, source.value.name].sort(),
+  );
 });

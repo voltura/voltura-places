@@ -2,14 +2,14 @@ import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { placeDetailsName } from "../foundation/place-labels";
 import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info } from "lucide-react";
-import { lazy, Suspense, useId, useMemo, useState } from "react";
+import { Suspense, useId, useMemo, useState } from "react";
 import type { LocalRecord, Place, Entity, VisitStatus, PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 import { Tooltip } from "../ui/Tooltip";
 
-const PlacesMap = lazy(() => import("./PlacesMap"));
+import { DeferredPlacesMap as PlacesMap } from "./DeferredPlacesMap";
 
 export function PlaceDetails({
   canWrite,

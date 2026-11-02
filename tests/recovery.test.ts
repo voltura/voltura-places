@@ -629,3 +629,19 @@ test("a photo-free replacement migrates legacy presets before applying its delet
     deleted: true,
   });
 });
+
+test("saving an untouched editor closes its draft without overwriting a concurrent change", async () => {
+  const key = crypto.randomUUID();
+  const base = place();
+  await saveEntity(key, base);
+  await setDraft(key, { id: base.id, name: base.value.name });
+  await saveEntity(key, place(base.id, "Newer edit"));
+  const before = await readWorkspace(key);
+  const form = {
+    ...base,
+    value: { ...base.value, updatedAt: new Date().toISOString(), photoId: null, description: "" },
+  };
+  await saveEntity(key, form, base, true);
+  expect(await readWorkspace(key)).toEqual(before);
+  expect(await getDraft(key)).toBeUndefined();
+});

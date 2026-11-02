@@ -1495,6 +1495,24 @@ try {
     ).ok,
     "Existing identities remain editable when snapshot history is full",
   );
+  const rosterOwner = await login("roster-signout-race");
+  const rosterGroup = await (
+    await familyCall(rosterOwner, { action: "create", name: "Race fixture" })
+  ).json();
+  await db
+    .prepare(
+      "CREATE TRIGGER fixture_signout_after_rename AFTER UPDATE OF name ON places_families BEGIN DELETE FROM places_sessions WHERE account_id=NEW.owner_id; END",
+    )
+    .run();
+  const staleRoster = await familyCall(rosterOwner, {
+    action: "rename",
+    familyId: rosterGroup.familyId,
+    name: "Updated fixture",
+  });
+  check(
+    staleRoster.status === 401 && !(await staleRoster.json()).families,
+    "Group responses do not disclose the roster after session revocation",
+  );
   console.log(
     `Passed ${checks} real workerd/D1 authorization, CAS, retry and recovery checks. No production data or emails used.`,
   );

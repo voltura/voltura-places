@@ -455,6 +455,25 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       401,
       "logout also invalidates the temporary provider proof; no silent reconnect",
     );
+    // Revoke the originating session precisely between ticket redemption and session rotation.
+    assert.equal((await send("link-race@example.invalid")).status, 200);
+    assert.equal((await sign("link-race@example.invalid", mails.at(-1).code)).status, 200);
+    expectedAccount = (await (await call("/api/account/connect", { provider: "email" })).json())
+      .account.id;
+    nativeId = "race-native-subject";
+    assert.equal((await call("/api/account/link", { provider: "chatgpt" })).status, 200);
+    await db
+      .prepare(
+        "CREATE TRIGGER fixture_revoke_on_redeem AFTER DELETE ON places_link_tickets BEGIN DELETE FROM places_sessions WHERE account_id=OLD.account_id; END",
+      )
+      .run();
+    const revokedLink = await call("/api/account/connect", { provider: "chatgpt", linking: true });
+    assert.equal(
+      revokedLink.status,
+      401,
+      "A revoked ticket origin cannot mint a replacement session",
+    );
+    assert.equal((await (await call("/api/account")).json()).account, null);
   } finally {
     await mf.dispose();
   }

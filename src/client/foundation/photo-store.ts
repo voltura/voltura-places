@@ -1,7 +1,13 @@
 import { type DBSchema } from "idb";
 import { abortTransaction, broadcast, localDatabase, openChannel } from "./database";
 import { workspaceIdentity } from "../../shared/families";
-import { PHOTO_BYTES, PHOTO_QUOTA, jpegDimensions, photoHash } from "../../shared/photos";
+import {
+  PHOTO_BYTES,
+  PHOTO_QUOTA,
+  jpegDimensions,
+  photoHash,
+  decodePhoto,
+} from "../../shared/photos";
 
 export type StoredPhoto = {
   workspace: string;
@@ -102,6 +108,19 @@ async function decodeJpeg(blob: Blob) {
 
 export const makeStoredPhoto = (workspace: string, id: string, blob: Blob) =>
   storedJpeg(workspace, id, blob, true);
+
+// Reuse the structurally checked backup bytes for hashing and browser pixel validation.
+export async function makeBackupPhoto(
+  workspace: string,
+  id: string,
+  data: string,
+): Promise<StoredPhoto> {
+  const bytes = decodePhoto(data);
+  const blob = new Blob([bytes], { type: "image/jpeg" });
+  await decodeJpeg(blob);
+
+  return { workspace, id, blob, hash: await photoHash(bytes), uploaded: false };
+}
 
 // Only the browser canvas encoder uses this path. Imported and downloaded bytes
 // retain both the structural and pixel decoder checks.

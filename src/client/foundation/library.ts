@@ -18,19 +18,20 @@ import {
   copyPhotos,
   clearPhotos,
   clearAccountPhotos,
-  makeStoredPhoto,
+  makeBackupPhoto,
   putPhotos,
   workspacePhotos,
   type StoredPhoto,
 } from "./photo-store";
 import { loadPhoto } from "./photos";
-import { decodePhoto } from "../../shared/photos";
 import {
   starters,
   recordSchema,
   validateBackup,
+  parseBackupManifest,
   type Backup,
   type Entity,
+  type Place,
   type LocalRecord,
   type RecordState,
   type VisitStatus,
@@ -265,6 +266,16 @@ function applyPersonalVisits(personal: Workspace, visits: Entity[], preserve: bo
   return changed;
 }
 
+// Editors stamp Save time and materialize blank optional fields even on an untouched form.
+function editablePlace(value: Place) {
+  return {
+    ...value,
+    updatedAt: undefined,
+    photoId: value.photoId ?? null,
+    description: value.description ?? "",
+  };
+}
+
 export async function saveEntity(
   key: string,
   e: Entity,
@@ -283,6 +294,17 @@ export async function saveEntity(
   return changeWorkspace(
     key,
     (w) => {
+      if (
+        clearDraft &&
+        !personalStatus &&
+        base?.kind === "place" &&
+        e.kind === "place" &&
+        base.id === e.id &&
+        sameValue(editablePlace(base.value), editablePlace(e.value))
+      ) {
+        // The draft still clears in this transaction. Preserve any other tab's newer record.
+        return false;
+      }
       const previous = w.records.find((r) => r.id === e.id);
       const stale =
         base !== undefined &&
@@ -482,7 +504,17 @@ export async function importBackup(
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
-  const b = validateBackup(input);
+  const b = parseBackupManifest(input);
+  const prepared = [];
+  for (const item of b.photos ?? []) {
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
+    prepared.push(await makeBackupPhoto(key, item.id, item.data));
+  }
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
   const existingWorkspace = await readWorkspace(key);
   if (existingWorkspace.flight || existingWorkspace.deferredFlights?.length) {
     throw new Error("syncBusy");
@@ -503,8 +535,7 @@ export async function importBackup(
     ),
   );
   const personalVisits: Entity[] = [];
-  const photos = b.photos ?? [];
-  if (!photos.length) {
+  if (!prepared.length) {
     return changeWorkspace(
       key,
       (w) => {
@@ -526,16 +557,8 @@ export async function importBackup(
   }
   const ids = new Map<string, string>();
   const stored: StoredPhoto[] = [];
-  // Decode one bounded image at a time, especially on memory-constrained phones.
-  for (const p of photos) {
-    if (!isCurrent()) {
-      throw new Error("accountChanged");
-    }
-    const photo = await makeStoredPhoto(
-      key,
-      p.id,
-      new Blob([decodePhoto(p.data)], { type: "image/jpeg" }),
-    );
+  for (const photo of prepared) {
+    const originalId = photo.id;
     const existing = photosById.get(photo.id);
     if (existing && existing.hash !== photo.hash) {
       photo.id = idsByHash.get(photo.hash) ?? crypto.randomUUID();
@@ -544,7 +567,7 @@ export async function importBackup(
     if (!idsByHash.has(photo.hash)) {
       idsByHash.set(photo.hash, photo.id);
     }
-    ids.set(p.id, photo.id);
+    ids.set(originalId, photo.id);
     stored.push(photo);
   }
   if (!isCurrent()) {

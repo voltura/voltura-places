@@ -17,10 +17,21 @@ export const invitationVersion = (
     `family-invitation:${env.AUTH_SECRET}:${family}:${hash}${generation ? ":" + generation : ""}`,
   );
 
-export function pendingRequest(env: Environment, account: string) {
+export function pendingRequest(
+  env: Environment,
+  identity: { account: string; sessionHash: string },
+) {
   return env.DB.prepare(
-    "SELECT c.expires_at AS expiresAt FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.account_id=? AND (c.expires_at=0 OR c.expires_at>?)",
-  ).bind(account, Date.now());
+    `SELECT (SELECT c.expires_at FROM places_family_requests r JOIN places_family_codes c ON c.family_id=r.family_id AND c.code_hash=r.code_hash WHERE r.account_id=? AND (c.expires_at=0 OR c.expires_at>?)) AS expiresAt WHERE ${currentSessionSQL}`,
+  ).bind(identity.account, Date.now(), ...currentSessionArgs(identity));
+}
+
+export function checkedPending(row?: { expiresAt: number | null } | null) {
+  if (!row) {
+    throw new WorkspaceError(401, "signInAgain");
+  }
+
+  return row.expiresAt === null ? null : row;
 }
 
 async function limit(env: Environment, account: string, request: Request, purpose: string) {
@@ -90,7 +101,11 @@ export async function handleFamilyCode(
       throw new WorkspaceError(410, "invalidFamilyCode");
     }
 
-    return Response.json({ pendingRequest: await pendingRequest(env, account).first() });
+    return Response.json({
+      pendingRequest: checkedPending(
+        await pendingRequest(env, identity).first<{ expiresAt: number | null }>(),
+      ),
+    });
   }
   if (!family || family.ownerId !== account) {
     throw new WorkspaceError(403, "familyOwnerOnly");

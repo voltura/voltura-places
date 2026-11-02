@@ -9,7 +9,12 @@ import {
 } from "./workspace";
 import { starters } from "../shared/model";
 import type { Environment } from "./types";
-import { handleFamilyCode, pendingRequest, invitationVersion } from "./family-codes";
+import {
+  handleFamilyCode,
+  pendingRequest,
+  checkedPending,
+  invitationVersion,
+} from "./family-codes";
 
 const actionSchema = z
   .object({
@@ -48,8 +53,13 @@ async function details(env: Environment, account: string, id: string) {
     .first<{ id: string; ownerId: string }>();
 }
 
-async function state(env: Environment, account: string, preferred: string | null = null) {
+async function state(
+  env: Environment,
+  identity: { account: string; sessionHash: string },
+  preferred: string | null = null,
+) {
   const now = Date.now();
+  const { account } = identity;
   const [rows, members, requests, invitations, pending] = (await env.DB.batch([
     env.DB.prepare(
       "SELECT f.id,f.name,f.owner_id AS ownerId FROM places_families f JOIN places_family_members m ON m.family_id=f.id WHERE m.account_id=? ORDER BY f.created_at,f.id LIMIT 20",
@@ -63,14 +73,15 @@ async function state(env: Environment, account: string, preferred: string | null
     env.DB.prepare(
       "SELECT c.family_id AS familyId,c.code_hash AS hash,c.generation FROM places_family_codes c JOIN places_families f ON f.id=c.family_id WHERE f.owner_id=? AND (c.expires_at=0 OR c.expires_at>?)",
     ).bind(account, now),
-    pendingRequest(env, account),
+    pendingRequest(env, identity),
   ])) as [
     D1Result<{ id: string; name: string; ownerId: string }>,
     D1Result<{ familyId: string; id: string; label: string }>,
     D1Result<{ familyId: string; id: string; label: string }>,
     D1Result<{ familyId: string; hash: string; generation: string }>,
-    D1Result<{ expiresAt: number }>,
+    D1Result<{ expiresAt: number | null }>,
   ];
+  const checkedRequest = checkedPending(pending.results[0]);
   const versions = new Map(
     await Promise.all(
       invitations.results.map(
@@ -94,7 +105,7 @@ async function state(env: Environment, account: string, preferred: string | null
   return {
     familyId: families.some((f) => f.id === preferred) ? preferred : undefined,
     families,
-    pendingRequest: pending.results[0] ?? null,
+    pendingRequest: checkedRequest,
   };
 }
 
@@ -107,7 +118,7 @@ export async function handleFamilies(request: Request, env: Environment) {
     const { account } = identity;
     const sessionArgs = currentSessionArgs(identity);
     if (request.method === "GET") {
-      return Response.json(await state(env, account));
+      return Response.json(await state(env, identity));
     }
     if (request.method !== "POST") {
       throw new WorkspaceError(405, "methodNotAllowed");
@@ -233,7 +244,7 @@ export async function handleFamilies(request: Request, env: Environment) {
       }
     }
 
-    return Response.json(await state(env, account, responseFamilyId));
+    return Response.json(await state(env, identity, responseFamilyId));
   } catch (error) {
     return Response.json(
       {

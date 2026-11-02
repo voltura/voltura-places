@@ -1,3 +1,15 @@
+# Follow-up audit and lossless PNG compression, 2 November 2026
+
+Regression fixtures reproduced a reimported guest place being removed by an old transfer receipt, a revoked session receiving a group roster, and a provider link minting a fresh session after the original was revoked. Other checks cover untouched editor saves during a concurrent edit, attachment request throttling, isolated versus consecutive server failures, and one base64 decode per imported attachment.
+
+All 64 launch PNGs and both 1200×630 social cards were decoded independently before and after compression. Names, dimensions and RGBA pixels matched. The launch set changed from 2,430,234 to 1,584,458 bytes. The two social cards changed from 298,213 to 200,717 bytes. Their original decoded pixel manifests are checked by the branding tests.
+
+# Focused offline and update checks, 2 November 2026
+
+Two isolated Chromium profiles signed into the same fixture account edited one place offline. Both reconnect orders exposed both edits for conflict resolution. After selecting Keep both places, both profiles and the real local D1 backend retained both values through reload. A separate workerd fixture paused a sync request at its first body read, after authorization. Signing out or removing the writer from the group before resuming returned 401 or 403, respectively, and created neither a record nor a mutation receipt.
+
+An iPhone-sized WebKit browser upgraded an unsaved editor from an archived 0.1.13 build to 0.1.22. A real waiting worker could activate without the old page reloading. Delaying the waiting callback reproduced the race on 0.1.22. A manual reopen preserved the draft. After the native controller-change fix, the same delayed-notification check automatically reloaded, restored the draft and saved its coordinates. A separate browser regression covers an unavailable map chunk with service workers blocked. These checks used browser profiles and local builds. Physical devices, iOS Home Screen suspension, and a physical two-device transfer were not exercised.
+
 # 0.1.22 — Reliability audit and account display names, 2 November 2026
 
 The release ledger enumerates 300 distinct correctness and performance fixes. It separates offline records and sync, app behavior, interface, browser infrastructure, photos and GPS, Worker authorization, and publication tooling. The optional account display name is separate from the fix count. Independent reviewers checked the implementation groups, and authors corrected their findings before re-review.

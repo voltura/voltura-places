@@ -45,7 +45,7 @@ await cp("public/icon.svg", ".artifacts/promo/assets/icon.svg");
 for (const [language, c] of Object.entries(content)) {
   const prefix = language === "sv" ? "../" : "./";
   const appUrl = `https://places.voltura.se/?lang=${language}`;
-  const social = socialImage(language);
+  const social = await socialImage(language);
   const socialName = `social-${language}.${createHash("sha256").update(social).digest("hex").slice(0, 16)}.png`;
   await writeFile(`.artifacts/promo/assets/${socialName}`, social);
   const pageUrl = `https://voltura.se/places/${language === "sv" ? "sv/" : ""}`;

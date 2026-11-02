@@ -19,3 +19,5 @@ The app uses system fonts and Lucide icons (ISC license). React, Better Auth, Zo
 `tests/fixtures/photo.jpg` is a generated solid teal rectangle, with no personal imagery or location metadata.
 
 `photo-gps.jpg` adds synthetic EXIF GPS (59.5, 18.25) to that rectangle to verify metadata parsing. It is not a real photograph or captured user position.
+
+Startup PNGs and the English and Swedish social cards use lossless truecolour compression. The encoder removes an alpha channel only when all pixels are opaque and keeps the smaller encoding. The branding regression compares decoded RGBA pixels and dimensions against the original artwork for all 66 images. The promo and app reuse the same social-card bytes.

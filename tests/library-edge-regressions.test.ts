@@ -166,7 +166,7 @@ test("sync waits for an active import reservation without reporting an account e
   expect(network).not.toHaveBeenCalled();
 });
 
-test.each(["forbidden", "network"] as const)(
+test.each(["forbidden", "network", "throttled", "unavailable"] as const)(
   "an attachment %s failure stops the remaining snapshot downloads",
   async (failure) => {
     const key = crypto.randomUUID();
@@ -192,7 +192,9 @@ test.each(["forbidden", "network"] as const)(
             throw new TypeError("Network disconnected");
           }
 
-          return Response.json({ error: "familyAccessEnded" }, { status: 403 });
+          const status = failure === "forbidden" ? 403 : failure === "throttled" ? 429 : 503;
+
+          return new Response(null, { status });
         }
 
         return Response.json({ version: 1, accountId: key, records: originals });
@@ -200,8 +202,8 @@ test.each(["forbidden", "network"] as const)(
     );
     const statuses: string[] = [];
     await synchronize(key, (s) => statuses.push(s));
-    expect(downloads).toBe(1);
-    expect(statuses.at(-1)).toBe(failure === "network" ? "retryRefresh" : "actionRequired");
+    expect(downloads).toBe(failure === "unavailable" ? 2 : 1);
+    expect(statuses.at(-1)).toBe(failure === "forbidden" ? "actionRequired" : "retryRefresh");
   },
 );
 

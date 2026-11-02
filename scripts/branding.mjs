@@ -2,6 +2,7 @@ import { readFile, mkdir, writeFile, lstat, rename, unlink } from "node:fs/promi
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
+import sharp from "sharp";
 
 import { startupDevices, startupName } from "./startup-images.mjs";
 
@@ -35,6 +36,21 @@ const png = (markup, size) =>
     .render()
     .asPng();
 
+// The launch images and social cards contain large flat regions. Truecolour PNG
+// with an unfiltered scanline compresses these well without quantizing antialiasing.
+async function compactPng(markup) {
+  const original = png(markup);
+  const image = sharp(original);
+  if ((await image.stats()).isOpaque) {
+    image.removeAlpha();
+  }
+  const compact = await image
+    .png({ compressionLevel: 9, adaptiveFiltering: false, palette: false })
+    .toBuffer();
+
+  return compact.length < original.length ? compact : original;
+}
+
 const socialCards = new Map();
 
 export function socialImage(language) {
@@ -43,7 +59,7 @@ export function socialImage(language) {
   }
   const swedish = language === "sv";
 
-  const image = png(
+  const image = compactPng(
     svg(
       1200,
       630,
@@ -144,7 +160,7 @@ export async function generateBranding() {
   await writeGenerated("public/favicon.ico", Buffer.concat([header, ...small.map((p) => p.bytes)]));
   await generateStartupImages();
   for (const lang of ["en", "sv"]) {
-    await writeGenerated(`public/social-${lang}.png`, socialImage(lang));
+    await writeGenerated(`public/social-${lang}.png`, await socialImage(lang));
   }
   console.log(
     `Prepared Places icons, social cards and ${startupDevices.length * 4} Apple startup images.`,
@@ -203,7 +219,7 @@ async function generateStartupImages() {
     const top = Math.round((height - size - textSize * 2) / 2);
     await writeGenerated(
       `public/startup-images/${startupName(device, theme, orientation)}`,
-      png(
+      await compactPng(
         svg(
           width,
           height,

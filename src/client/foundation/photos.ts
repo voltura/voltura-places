@@ -156,7 +156,7 @@ async function downloadPhoto(workspace: string, id: string, isCurrent: () => boo
             : "accountChanged",
       );
     }
-    throw new Error("photoUnavailable");
+    throw new ApiError(response.status, "photoUnavailable");
   }
   const reader = response.body?.getReader();
   if (!reader) {

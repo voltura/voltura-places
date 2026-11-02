@@ -16,15 +16,19 @@ const wait = () => new Promise((r) => setTimeout(r, 1100));
 let client;
 try {
   const args = process.argv.slice(2);
+  const skipHttps = args.length === 1 && args[0] === "--skip-https-verification";
   const rollbackId = args[0] === "--rollback" ? args[1] : null;
   if (
     !(
       args.length === 0 ||
+      skipHttps ||
       (args.length === 1 && args[0] === "--dry-run") ||
       (args.length === 2 && rollbackId && /^[0-9TZ-]+$/.test(rollbackId))
     )
   ) {
-    throw new Error("Usage: publish:promo [--dry-run | --rollback <backup-id>]");
+    throw new Error(
+      "Usage: publish:promo [--dry-run | --skip-https-verification | --rollback <backup-id>]",
+    );
   }
   const source = args[0] === "--dry-run" ? null : captureValidatedSource();
 
@@ -160,14 +164,18 @@ try {
         await journal();
         await atomic(entry.path, bytes, entry.previousHash, safe);
       }
-      for (const entry of manifest) {
-        await wait();
-        await verifyPromoPayload(entry);
+      if (!skipHttps) {
+        for (const entry of manifest) {
+          await wait();
+          await verifyPromoPayload(entry);
+        }
       }
       assertSource();
-      record.verified = true;
+      record.verified = !skipHttps;
       await journal();
-      console.log(`Published https://voltura.se/places/\nPlaces payloads verified. Backup: ${id}`);
+      console.log(
+        `Published https://voltura.se/places/\n${skipHttps ? "HTTPS checks skipped." : "Places payloads verified."} Backup: ${id}`,
+      );
     }
   }
 } catch (error) {

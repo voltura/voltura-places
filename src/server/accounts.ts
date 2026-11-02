@@ -129,17 +129,21 @@ async function proofFor(
 
 const displayNameRequest = z.object({ displayName: displayNameSchema }).strict();
 
-type ProfileRow = { displayName: string | null; provider: string | null; label: string | null };
+type ProfileRow = {
+  id: string;
+  displayName: string | null;
+  provider: string | null;
+  label: string | null;
+};
+
+const profileSelect =
+  "SELECT a.id,a.display_name AS displayName,i.provider,i.label FROM places_accounts a LEFT JOIN places_identities i ON i.account_id=a.id";
 
 function accountDetailsQuery(db: Database, id: string) {
-  return db
-    .prepare(
-      "SELECT a.display_name AS displayName,i.provider,i.label FROM places_accounts a LEFT JOIN places_identities i ON i.account_id=a.id WHERE a.id=? ORDER BY i.provider,i.subject",
-    )
-    .bind(id);
+  return db.prepare(`${profileSelect} WHERE a.id=? ORDER BY i.provider,i.subject`).bind(id);
 }
 
-function accountFromRows(id: string, rows: ProfileRow[]) {
+function accountFromRows(rows: ProfileRow[]) {
   if (!rows.length) {
     return null;
   }
@@ -147,11 +151,7 @@ function accountFromRows(id: string, rows: ProfileRow[]) {
     provider && label !== null ? [{ provider, label }] : [],
   );
 
-  return { id, displayName: rows[0].displayName, methods };
-}
-
-async function accountDetails(db: Database, id: string) {
-  return accountFromRows(id, (await accountDetailsQuery(db, id).all<ProfileRow>()).results);
+  return { id: rows[0].id, displayName: rows[0].displayName, methods };
 }
 
 /** Better Auth writes ISO dates. Older numeric rows retain their original millisecond semantics. */
@@ -338,13 +338,23 @@ export async function handleAccounts(request: Request, env: Environment) {
     if (!routeMethods[path].includes(request.method)) {
       return json({ error: "Method not allowed." }, 405, { Allow: routeMethods[path].join(", ") });
     }
-    const current = await sessionFor(request, env, db);
     if (path === "/api/account" && request.method === "GET") {
-      return json({
-        ...config,
-        account: current ? await accountDetails(db, current.account_id) : null,
-      });
+      const raw = readCookie(request, env, "session");
+      const rows =
+        raw && raw.length <= 100
+          ? (
+              await db
+                .prepare(
+                  `${profileSelect} WHERE a.id=(SELECT account_id FROM places_sessions WHERE token_hash=? AND expires_at>unixepoch('subsec')*1000) ORDER BY i.provider,i.subject`,
+                )
+                .bind(await digest(raw))
+                .all<ProfileRow>()
+            ).results
+          : [];
+
+      return json({ ...config, account: accountFromRows(rows) });
     }
+    const current = await sessionFor(request, env, db);
     if (path === "/api/account/sign-out" && request.method === "POST") {
       const expected = request.headers.get("X-Places-Account");
       if (current && expected !== current.account_id) {
@@ -480,15 +490,29 @@ export async function handleAccounts(request: Request, env: Environment) {
       }
       const raw = token();
       const now = Date.now();
-      await db.batch([
+      const priorHash = await digest(readCookie(request, env, "session"));
+      // For linking, redemption and final session rotation can be separated
+      // by a concurrent sign-out. Check the original token at the actual INSERT.
+      const result = await db.batch<ProfileRow>([
         db
           .prepare(
-            "UPDATE places_identities SET label = ? WHERE provider = ? AND subject = ? AND account_id = ?",
+            "INSERT INTO places_sessions(token_hash,account_id,created_at,expires_at) SELECT ?,?,?,? WHERE ?=0 OR EXISTS(SELECT 1 FROM places_sessions WHERE token_hash=? AND account_id=? AND expires_at>unixepoch('subsec')*1000)",
+          )
+          .bind(
+            await digest(raw),
+            accountId,
+            now,
+            now + lifetime,
+            body.linking === true ? 1 : 0,
+            priorHash,
+            accountId,
+          ),
+        db
+          .prepare(
+            "UPDATE places_identities SET label=? WHERE provider=? AND subject=? AND account_id=? AND changes()=1",
           )
           .bind(proof.label, proof.provider, proof.subject, accountId),
-        db
-          .prepare("DELETE FROM places_sessions WHERE token_hash = ?")
-          .bind(await digest(readCookie(request, env, "session"))),
+        db.prepare("DELETE FROM places_sessions WHERE token_hash=?").bind(priorHash),
         db
           .prepare(
             "DELETE FROM places_sessions WHERE token_hash IN (SELECT token_hash FROM places_sessions WHERE expires_at <= ? LIMIT 100)",
@@ -499,13 +523,12 @@ export async function handleAccounts(request: Request, env: Environment) {
             "DELETE FROM places_link_tickets WHERE token_hash IN (SELECT token_hash FROM places_link_tickets WHERE expires_at <= ? LIMIT 100)",
           )
           .bind(now),
-        db
-          .prepare(
-            "INSERT INTO places_sessions(token_hash,account_id,created_at,expires_at) VALUES(?,?,?,?)",
-          )
-          .bind(await digest(raw), accountId, now, now + lifetime),
+        accountDetailsQuery(db, accountId),
       ]);
-      const response = json({ account: await accountDetails(db, accountId) });
+      if (!result[0].meta.changes) {
+        fail(401, "Linking expired. Sign in again and retry.");
+      }
+      const response = json({ account: accountFromRows(result[5].results) });
       response.headers.append("Set-Cookie", cookie(env, "session", raw, lifetime / 1000));
       response.headers.append("Set-Cookie", cookie(env, "link", "", 0));
 
@@ -542,7 +565,7 @@ export async function handleAccounts(request: Request, env: Environment) {
         fail(401, "Sign in again.");
       }
 
-      return json({ account: accountFromRows(current.account_id, profile.results) });
+      return json({ account: accountFromRows(profile.results) });
     }
     if (path === "/api/account/link" && request.method === "POST") {
       const body = await readJSON(request, 2048);

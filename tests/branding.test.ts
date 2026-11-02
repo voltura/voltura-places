@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import sharp from "sharp";
+import { readFile, readdir } from "node:fs/promises";
 import { test, expect } from "vitest";
 import { startupDevices, startupName } from "../scripts/startup-images.mjs";
 
@@ -53,4 +55,33 @@ test("every Apple device, appearance and orientation has an exact-size launch im
     }
   }
   expect(names.size).toBe(64);
+});
+
+test("losslessly encoded launch images and social cards retain their original RGBA pixels", async () => {
+  const launch = (await readdir("public/startup-images")).sort();
+  expect(launch).toHaveLength(64);
+  const groups = [
+    [
+      "public/startup-images",
+      launch,
+      "dc86bb2121fcec70692d24ee1a8aa07bd5d949ce4c7520070f1e1f06abe9d35e",
+    ],
+    [
+      "public",
+      ["social-en.png", "social-sv.png"],
+      "6334f5962c6960e19aba7e1e60b6ee30a7cf48333184903d48f28dd6ca0385fd",
+    ],
+  ] as const;
+  for (const [directory, names, expected] of groups) {
+    const manifest = createHash("sha256");
+    for (const name of names) {
+      const { data, info } = await sharp(`${directory}/${name}`)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const pixels = createHash("sha256").update(data).digest("hex");
+      manifest.update(`${name} ${info.width}x${info.height} ${pixels}\n`);
+    }
+    expect(manifest.digest("hex")).toBe(expected);
+  }
 });

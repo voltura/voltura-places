@@ -19,6 +19,7 @@ export const en = {
   exitFullscreenMap: "Exit fullscreen map",
   mapPreview: "Map preview",
   expandMap: "Expand map",
+  mapModuleUnavailable: "The map could not load. Reopen Places when online to try again.",
   mapPreviewUnavailable: "Background map unavailable. The saved location is still shown.",
   navigate: "Navigate",
   showAllPlaces: "Show all",
@@ -527,6 +528,8 @@ export const sv: Record<Message, string> = {
   exitFullscreenPhoto: "Avsluta helskärmsfoto",
   exitFullscreenMap: "Avsluta helskärmskarta",
   mapPreview: "Kartförhandsvisning",
+  mapModuleUnavailable:
+    "Kartan kunde inte laddas. Öppna Places igen när du är online för att försöka igen.",
   expandMap: "Visa större karta",
   mapPreviewUnavailable:
     "Bakgrundskartan är inte tillgänglig. Den sparade platsen visas fortfarande.",
