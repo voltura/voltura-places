@@ -3,7 +3,13 @@ import { execFileSync } from "node:child_process";
 import { captureValidatedSource } from "./validated-source.mjs";
 import { dirname, resolve } from "node:path";
 import { connectSftp } from "./sftp-connection.mjs";
-import { assertDestination, digest, promoManifest, rollbackPayload } from "./promo-manifest.mjs";
+import {
+  assertDestination,
+  digest,
+  promoManifest,
+  rollbackPayload,
+  verifyPromoPayload,
+} from "./promo-manifest.mjs";
 
 const wait = () => new Promise((r) => setTimeout(r, 1100));
 
@@ -154,16 +160,9 @@ try {
         await journal();
         await atomic(entry.path, bytes, entry.previousHash, safe);
       }
-      await wait();
       for (const entry of manifest) {
-        const response = await fetch(`https://voltura.se/${entry.path}`, {
-          cache: "no-store",
-          redirect: "error",
-          signal: AbortSignal.timeout(20000),
-        });
-        if (!response.ok || digest(Buffer.from(await response.arrayBuffer())) !== entry.sha256) {
-          throw new Error("HTTPS payload verification failed.");
-        }
+        await wait();
+        await verifyPromoPayload(entry);
       }
       assertSource();
       record.verified = true;

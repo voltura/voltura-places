@@ -3,8 +3,58 @@ import {
   assertDestination,
   digest,
   promoManifest,
+  verifyPromoPayload,
   rollbackPayload,
 } from "../scripts/promo-manifest.mjs";
+
+test("public verification respects bounded throttling and still verifies the final bytes", async () => {
+  const entry = { path: "places/sv/stats.html", sha256: digest("expected") };
+  const delays: number[] = [];
+
+  const pause = async (ms: number) => {
+    delays.push(ms);
+  };
+
+  const responses = [
+    new Response(null, { status: 429, headers: { "Retry-After": "5" } }),
+    new Response(null, { status: 503 }),
+    new Response("expected"),
+  ];
+  await verifyPromoPayload(
+    entry,
+    async (url, options) => {
+      expect(url).toBe("https://voltura.se/places/sv/stats.html");
+      expect(options?.redirect).toBe("error");
+
+      return responses.shift()!;
+    },
+    pause,
+  );
+  expect(delays).toEqual([5000, 4000]);
+  await expect(
+    verifyPromoPayload(
+      entry,
+      async () => new Response(null, { status: 429, headers: { "Retry-After": "120" } }),
+      pause,
+    ),
+  ).rejects.toThrow("later retry");
+  await expect(
+    verifyPromoPayload(entry, async () => new Response("different"), pause),
+  ).rejects.toThrow("hash mismatch");
+  let attempts = 0;
+  await expect(
+    verifyPromoPayload(
+      entry,
+      async () => {
+        attempts++;
+
+        return new Response(null, { status: 429 });
+      },
+      pause,
+    ),
+  ).rejects.toThrow("429");
+  expect(attempts).toBe(4);
+});
 
 test("promo destination allowlist excludes Air, root configuration, traversal and secrets", () => {
   for (const path of [

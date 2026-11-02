@@ -4,6 +4,43 @@ import { createHash } from "node:crypto";
 
 export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
+export async function verifyPromoPayload(
+  entry,
+  request = fetch,
+  pause = (ms) => new Promise((done) => setTimeout(done, ms)),
+) {
+  const path = assertDestination(entry.path);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await request(`https://voltura.se/${path}`, {
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(20000),
+    });
+    if (response.ok) {
+      if (digest(Buffer.from(await response.arrayBuffer())) !== entry.sha256) {
+        throw new Error(`HTTPS payload hash mismatch for ${path}`);
+      }
+
+      return;
+    }
+    await response.body?.cancel();
+    if (![429, 503].includes(response.status) || attempt === 3) {
+      throw new Error(`HTTPS verification returned ${response.status} for ${path}`);
+    }
+    const header = response.headers.get("Retry-After");
+    const advised =
+      header && /^\d+$/.test(header)
+        ? Number(header) * 1000
+        : Date.parse(header ?? "") - Date.now();
+    if (advised > 60000) {
+      throw new Error(
+        `HTTPS verification for ${path} requires a later retry (HTTP ${response.status})`,
+      );
+    }
+    await pause(Math.max(2000 * 2 ** attempt, Number.isFinite(advised) ? advised : 0));
+  }
+}
+
 export function assertDestination(path) {
   if (
     typeof path !== "string" ||
