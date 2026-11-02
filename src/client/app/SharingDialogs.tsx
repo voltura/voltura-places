@@ -1,4 +1,4 @@
-import { Copy, MapPin, Pencil, Share2, Trash2, Users } from "lucide-react";
+import { Copy, MapPin, Pencil, Share2, Trash2, Users, Map } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { GroupCopyPicker } from "../features/GroupCopyPicker";
 import type { Sharing } from "./useSharing";
@@ -99,6 +99,7 @@ export function SharingDialogs({
               disabled={savingShared || !workspace || reconciling || !canWrite}
               onClick={() => void sharing.saveShared()}
             >
+              <Copy size={20} aria-hidden="true" />
               {t("saveCopy")}
             </button>
             <button
@@ -112,6 +113,7 @@ export function SharingDialogs({
                 setShared(null);
               }}
             >
+              <Map size={20} aria-hidden="true" />
               {t("openMaps")}
             </button>
           </div>

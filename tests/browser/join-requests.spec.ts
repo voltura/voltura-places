@@ -59,7 +59,7 @@ for (const language of ["en", "sv"] as const) {
     const prompt = page.getByRole("dialog", { name: title, exact: true });
     await expect(prompt).toBeHidden();
     await expect(page.locator("#account-sync-status")).toHaveText(
-      language === "en" ? "Synced" : "Synkroniserat",
+      language === "en" ? "Synced" : "Synkad",
     );
     await page.clock.install();
     incoming = true;

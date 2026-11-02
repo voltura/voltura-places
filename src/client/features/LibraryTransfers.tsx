@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { RotateCw, Upload } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import {
   importBackup,
@@ -114,6 +115,7 @@ export function ImportDialog({
           disabled={busy || !canWrite}
           onClick={() => void apply()}
         >
+          {!busy && <Upload size={20} aria-hidden="true" />}
           {t(busy ? "working" : "import")}
         </button>
       </div>
@@ -220,6 +222,7 @@ export function DevicePlaceTransfer({
           setAttempt((value) => value + 1);
         }}
       >
+        {!busy && <RotateCw size={20} aria-hidden="true" />}
         {t(busy ? "working" : "retry")}
       </button>
       {!deferred && (

@@ -62,7 +62,7 @@ test("activity opt-out clears the browser ID and survives reload", async ({ page
   await expect.poll(() => reports).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByText("Privacy", { exact: true }).click();
-  const toggle = page.getByRole("switch", { name: "Share anonymous activity" });
+  const toggle = page.getByRole("switch", { name: "Share usage activity" });
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
   await expect
@@ -72,7 +72,7 @@ test("activity opt-out clears the browser ID and survives reload", async ({ page
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByText("Privacy", { exact: true }).click();
-  await expect(page.getByRole("switch", { name: "Share anonymous activity" })).not.toBeChecked();
+  await expect(page.getByRole("switch", { name: "Share usage activity" })).not.toBeChecked();
   expect(reports).toBe(before);
 });
 

@@ -215,7 +215,7 @@ test("library selector keeps long group destinations explicit and private places
     await expect(
       menu.getByRole("button", { name: "Create new group…", exact: true }),
     ).toBeVisible();
-    await expect(page.locator(".account-indicator .status-dot")).toBeVisible();
+    await expect(page.locator(".header-sync-icon")).toBeVisible();
     await menu.getByRole("button", { name: longName, exact: true }).click();
     await expect(page.locator(".save-destination")).toHaveText(longName);
     await expect(page.locator(".save-destination > svg")).toBeVisible();

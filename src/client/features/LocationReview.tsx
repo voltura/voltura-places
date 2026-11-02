@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { RotateCw, LocateFixed } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import {
   accuracyLevel,
@@ -101,6 +102,7 @@ export function LocationReview({
                 }
               }}
             >
+              <LocateFixed size={20} aria-hidden="true" />
               {t("confirmLocation")}
             </button>
           )}
@@ -109,6 +111,7 @@ export function LocationReview({
               className={`button ${fresh ? "outline" : "primary"}`}
               onClick={() => setAttempt((n) => n + 1)}
             >
+              <RotateCw size={20} aria-hidden="true" />
               {t("gpsRetry")}
             </button>
           )}

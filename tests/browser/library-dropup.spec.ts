@@ -79,8 +79,40 @@ for (const engine of [chromium, webkit]) {
         await destination.tap();
         await expect(menu).toBeHidden();
       }
+      await page.evaluate(() => (document.documentElement.style.fontSize = "100%"));
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const entry of [
+        page.getByRole("button", { name: "Choose group", exact: true }),
+        destination,
+      ]) {
+        await entry.tap();
+        await page.keyboard.press("End");
+        const join = menu.getByRole("button", { name: "Join group with code…", exact: true });
+        await expect(join).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(menu).toBeHidden();
+        const code = page.getByRole("textbox", { name: "Invitation code", exact: true });
+        await expect(code).toBeFocused();
+        await expect(code).toBeInViewport();
+        await expect(
+          page.getByRole("button", { name: "Request to join", exact: true }),
+        ).toBeDisabled();
+        await code.fill("1234");
+        await expect(code).toHaveValue("1234");
+        await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+        await expect(destination).toHaveText("Weekend walks");
+      }
     } finally {
       await browser.close();
     }
   });
 }
+
+test("guest Family sharing retains the sign-in requirement", async ({ page }) => {
+  await page.route("**/api/**", (route) => route.abort());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("combobox", { name: "Settings", exact: true }).selectOption("familySharing");
+  await expect(page.locator(".family-panel").getByRole("button")).toContainText("Sign in");
+  await expect(page.getByRole("textbox", { name: "Invitation code", exact: true })).toHaveCount(0);
+});

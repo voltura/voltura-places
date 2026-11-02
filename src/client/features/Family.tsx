@@ -12,6 +12,11 @@ import {
   LogOut,
   X,
   Pencil,
+  RotateCw,
+  Plus,
+  UserRoundX,
+  Download,
+  KeyRound,
 } from "lucide-react";
 import { z } from "zod";
 import { api } from "../foundation/http";
@@ -49,6 +54,7 @@ type Props = {
   preferredGroup?: string;
   focusParticipants?: boolean;
   focusCreate?: boolean;
+  focusJoin?: boolean;
 };
 
 export function FamilyPanel({
@@ -62,11 +68,25 @@ export function FamilyPanel({
   preferredGroup,
   focusParticipants = false,
   focusCreate = false,
+  focusJoin = false,
 }: Props) {
   const actionPending = useRef(false);
   const pollVersion = useRef(0);
   const createName = useRef<HTMLInputElement>(null);
-  const [newGroupOpen, setNewGroupOpen] = useState(focusCreate);
+  const invitationCode = useRef<HTMLInputElement>(null);
+  const [newGroupOpen, setNewGroupOpen] = useState(focusCreate || focusJoin);
+  useEffect(() => {
+    if (!focusJoin || !account) {
+      return;
+    }
+    setNewGroupOpen(true);
+    const frame = requestAnimationFrame(() => {
+      invitationCode.current?.focus();
+      invitationCode.current?.scrollIntoView({ block: "nearest" });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [focusJoin, account?.id]);
   useEffect(() => {
     if (!focusCreate) {
       return;
@@ -373,6 +393,7 @@ export function FamilyPanel({
         <label>
           {t("familyInvitationCode")}
           <input
+            ref={invitationCode}
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
             inputMode="numeric"
@@ -384,6 +405,7 @@ export function FamilyPanel({
           />
         </label>
         <button className="button primary" disabled={busy || joinCode.length !== 4}>
+          <UserPlus size={20} aria-hidden="true" />
           {t("familyRequestJoin")}
         </button>
       </form>
@@ -408,6 +430,7 @@ export function FamilyPanel({
           className="button primary"
           disabled={busy || !name.trim() || cache.families.length >= 20}
         >
+          <Plus size={20} aria-hidden="true" />
           {t("familyCreate")}
         </button>
       </form>
@@ -487,6 +510,7 @@ export function FamilyPanel({
                 </label>
                 <div className="account-actions">
                   <button className="button primary" disabled={busy || !renameName.trim()}>
+                    <Check size={20} aria-hidden="true" />
                     {t("save")}
                   </button>
                   <button
@@ -548,6 +572,7 @@ export function FamilyPanel({
                         }
                       }}
                     >
+                      <KeyRound size={20} aria-hidden="true" />
                       {t("familyMakeOwner")}
                     </button>
                     <button
@@ -585,6 +610,7 @@ export function FamilyPanel({
                           void codeAction({ action: "code-approve", member: member.id })
                         }
                       >
+                        <Check size={20} aria-hidden="true" />
                         {t("familyApprove")}
                       </button>
                       <button
@@ -595,6 +621,7 @@ export function FamilyPanel({
                           void codeAction({ action: "code-reject", member: member.id })
                         }
                       >
+                        <UserRoundX size={20} aria-hidden="true" />
                         {t("familyReject")}
                       </button>
                     </div>
@@ -682,6 +709,11 @@ export function FamilyPanel({
                           disabled={busy}
                           onClick={() => void createCode()}
                         >
+                          {inviteCode ? (
+                            <UserPlus size={20} aria-hidden="true" />
+                          ) : (
+                            <RotateCw size={20} aria-hidden="true" />
+                          )}
                           {t(inviteCode ? "familyNewCode" : "familyRetryCode")}
                         </button>
                       )}
@@ -752,6 +784,7 @@ export function FamilyPanel({
               {t("familyLocalCopy")}
             </button>
             <button className="button outline" onClick={() => onExport(group.id)}>
+              <Download size={20} aria-hidden="true" />
               {t("familyExportLocal")}
             </button>
           </div>

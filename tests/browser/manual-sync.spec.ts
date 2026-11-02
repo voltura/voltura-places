@@ -5,6 +5,7 @@ for (const language of ["en", "sv"] as const) {
     page,
     context,
   }, testInfo) => {
+    await page.setViewportSize({ width: language === "en" ? 1280 : 390, height: 900 });
     const accountId = "manual-sync-fixture";
     let hold = false;
     let release: (() => Promise<void>) | undefined;
@@ -41,33 +42,81 @@ for (const language of ["en", "sv"] as const) {
       })
       .click();
     const status = page.locator("#settings-sync-status");
-    const synced = language === "sv" ? "Synkroniserat" : "Synced";
+    const toast = page.locator(".toast");
+    const synced = language === "sv" ? "Synkad" : "Synced";
     await expect(status).toHaveText(synced);
+    await expect(toast).toHaveCount(0);
+    const header = page.locator(".sync-pill");
+    const headerBounds = await header.boundingBox();
+    await expect(header.locator(".header-sync-icon .lucide-check")).toHaveCount(1);
+    await expect(status.locator(".lucide-check")).toHaveCount(1);
+    const explanation = page.getByText(
+      language === "sv" ? "Platser synkroniseras automatiskt." : "Places sync automatically.",
+      { exact: true },
+    );
+    const explanationBounds = (await explanation.boundingBox())!;
+    const statusBounds = (await status.boundingBox())!;
+    if (language === "en") {
+      expect(statusBounds.x).toBeGreaterThanOrEqual(explanationBounds.x + explanationBounds.width);
+      expect(
+        Math.abs(
+          statusBounds.y +
+            statusBounds.height / 2 -
+            explanationBounds.y -
+            explanationBounds.height / 2,
+        ),
+      ).toBeLessThanOrEqual(1);
+    } else {
+      expect(statusBounds.y).toBeGreaterThanOrEqual(explanationBounds.y + explanationBounds.height);
+      expect(Math.abs(statusBounds.x - explanationBounds.x)).toBeLessThanOrEqual(1);
+    }
+    await expect(header.locator("#account-sync-status")).toHaveClass(/sr-only/);
     const button = page.getByRole("button", {
       name: language === "sv" ? "Synkronisera nu" : "Sync now",
       exact: true,
     });
+    const actions = button.locator("..");
+    await expect(actions).toHaveClass("account-actions");
+    await expect(button).toHaveClass("button outline");
+    await expect(
+      actions.getByRole("button", {
+        name: language === "sv" ? "Logga ut" : "Sign out",
+        exact: true,
+      }),
+    ).toHaveClass("button outline");
     hold = true;
     await button.click();
     await expect(
       page.getByRole("button", {
-        name: language === "sv" ? "Synkroniserar…" : "Syncing…",
+        name: language === "sv" ? "Synkar…" : "Syncing…",
         exact: true,
       }),
     ).toBeDisabled();
-    await expect(status).toHaveText(language === "sv" ? "Synkroniserar…" : "Syncing…");
+    await expect(status).toHaveText(language === "sv" ? "Synkar…" : "Syncing…");
+    await expect(header.locator(".header-sync-icon .lucide-refresh-cw.spin")).toHaveCount(1);
+    await expect(status.locator(".lucide-refresh-cw.spin")).toHaveCount(1);
+    expect(await header.boundingBox()).toEqual(headerBounds);
     await expect.poll(() => !!release).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("sync-progress.png") });
     hold = false;
     await release!();
     await expect(status).toHaveText(synced);
+    await expect(toast).toContainText(language === "sv" ? "Synkronisering klar" : "Sync complete");
+    await expect(header.locator(".header-sync-icon .lucide-check")).toHaveCount(1);
+    expect(await header.boundingBox()).toEqual(headerBounds);
     await expect(button).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath("sync-complete.png") });
+    await page.clock.install();
+    await page.clock.runFor(3100);
+    await expect(toast).toHaveCount(0);
     fail = true;
     await button.click();
     await expect(status).toHaveText(
       language === "sv" ? "Uppdatering dröjer · försöker igen" : "Refresh delayed · will retry",
     );
+    await expect(header.locator(".header-sync-icon .lucide-triangle-alert")).toHaveCount(1);
+    await expect(status.locator(".lucide-triangle-alert")).toHaveCount(1);
+    expect(await header.boundingBox()).toEqual(headerBounds);
     await expect(button).toBeEnabled();
     await context.setOffline(true);
     await button.click();
@@ -77,6 +126,9 @@ for (const language of ["en", "sv"] as const) {
         : "Offline · changes stay on this device",
     );
     await expect(button).toBeEnabled();
+    await expect(header.locator(".header-sync-icon .lucide-cloud-off")).toHaveCount(1);
+    await expect(status.locator(".lucide-cloud-off")).toHaveCount(1);
+    expect(await header.boundingBox()).toEqual(headerBounds);
   });
 }
 

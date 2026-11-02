@@ -23,3 +23,14 @@ export function keepOfflineData(): Promise<boolean> {
 
   return pending;
 }
+
+export async function offlineDataProtected(): Promise<boolean> {
+  if (pending) {
+    return pending;
+  }
+  try {
+    return (await navigator.storage?.persisted?.()) ?? false;
+  } catch {
+    return false;
+  }
+}

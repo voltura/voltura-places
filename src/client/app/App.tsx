@@ -16,6 +16,7 @@ import { usePreferences } from "./usePreferences";
 import { startActivityReporting } from "../foundation/activity";
 import { useAutoHideSaveBar } from "./useAutoHideSaveBar";
 import { useCurrentPosition } from "./useCurrentPosition";
+import { SyncStatusIcon, syncStatusWarning } from "../features/SyncStatus";
 import { categoryAppearance } from "../features/CategoryAppearance";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,12 +28,15 @@ import {
   LoaderCircle,
   LockKeyhole,
   UserRound,
+  CircleArrowUp,
+  PanelBottomOpen,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
 import { Sheet } from "../ui/Sheet";
 import { Toast } from "../ui/Toast";
 import { Brand } from "../ui/Brand";
+import { Tooltip } from "../ui/Tooltip";
 import { MapAppChooser } from "../features/MapAppChooser";
 import { PlaceDetails } from "../features/PlaceDetails";
 import { LibraryView } from "../features/LibraryView";
@@ -188,9 +192,7 @@ export function App() {
 
     return scope === "guest" ? (online ? "localOnly" : "offline") : status;
   }, [online, scope, workspace, personalWorkspace, status]);
-  const syncWarning = syncStatus === "actionRequired" || syncStatus === "syncConflict";
-  const mobileFeedback =
-    syncWarning || ["savedPending", "retryUpload", "syncPhotoUnavailable"].includes(syncStatus);
+  const syncWarning = syncStatusWarning(syncStatus);
   const renderedOperation = operations.capture();
   const [libraryOpen, setLibraryOpen] = useState<false | "selector" | "dock">(false);
   const changeLibraryOpen = useCallback(
@@ -519,6 +521,7 @@ export function App() {
             }
           }}
         >
+          <PanelBottomOpen size={20} aria-hidden="true" />
           {t("showControls")}
         </button>
       )}
@@ -526,45 +529,52 @@ export function App() {
         <div className="header-inner">
           <Brand />
           <div className="header-actions">
-            <button
-              className={`sync-pill ${syncWarning ? "warning" : ""}`}
-              onClick={() => setSettings("account")}
-              aria-describedby={
-                account.account
-                  ? accountCaption
-                    ? "header-account-identity account-sync-status"
-                    : "account-sync-status"
-                  : undefined
-              }
-              aria-label={
-                account.account
-                  ? t("account")
-                  : `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
-              }
-            >
-              <span className="account-indicator">
-                <UserRound size={24} aria-hidden="true" />
-                {account.account && <span className="status-dot" aria-hidden="true" />}
-              </span>
-              <span className="header-account-copy">
-                {accountCaption && (
-                  <bdi id="header-account-identity" className="header-account-identity">
-                    {accountCaption}
-                  </bdi>
-                )}
-                <span
-                  id="account-sync-status"
-                  className="account-label"
-                  role={account.account ? "status" : undefined}
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {!account.account
-                    ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
-                    : t(syncStatus)}
+            <Tooltip text={account.account ? t(syncStatus) : t("signIn")}>
+              <button
+                className={`sync-pill ${syncWarning ? "warning" : ""}`}
+                onClick={() => setSettings("account")}
+                aria-describedby={
+                  account.account
+                    ? accountCaption
+                      ? "header-account-identity account-sync-status"
+                      : "account-sync-status"
+                    : undefined
+                }
+                aria-label={
+                  account.account
+                    ? t("account")
+                    : `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+                }
+              >
+                <span className="account-indicator" aria-hidden="true">
+                  {account.account ? (
+                    <span className="header-sync-icon">
+                      <SyncStatusIcon status={syncStatus} />
+                    </span>
+                  ) : (
+                    <UserRound size={24} />
+                  )}
                 </span>
-              </span>
-            </button>
+                <span className="header-account-copy">
+                  {account.account && (
+                    <bdi id="header-account-identity" className="header-account-identity">
+                      {accountCaption || t("account")}
+                    </bdi>
+                  )}
+                  <span
+                    id="account-sync-status"
+                    className={account.account ? "account-label sr-only" : "account-label"}
+                    role={account.account ? "status" : undefined}
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    {!account.account
+                      ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
+                      : t(syncStatus)}
+                  </span>
+                </span>
+              </button>
+            </Tooltip>
             <button
               className="icon-button"
               aria-label={t("settings")}
@@ -574,13 +584,8 @@ export function App() {
             </button>
           </div>
         </div>
-        {account.account && mobileFeedback && (
-          <span className="mobile-sync-feedback" aria-hidden="true">
-            {t(syncStatus)}
-          </span>
-        )}
       </header>
-      {account.account && (familyCache.families.length > 0 || familyCache.inactive.length > 0) && (
+      {account.account && (
         <div className="library-switcher">
           <LibrarySelector
             value={scope}
@@ -594,6 +599,8 @@ export function App() {
             onChange={switchLibrary}
             createGroupLabel={t("familyCreateNew")}
             onCreateGroup={() => setSettings("createGroup")}
+            joinGroupLabel={t("familyJoinWithCode")}
+            onJoinGroup={() => setSettings("joinGroup")}
           />
         </div>
       )}
@@ -691,12 +698,7 @@ export function App() {
                 className="save-destination"
                 id="save-destination"
                 aria-expanded={libraryOpen === "dock"}
-                onClick={() =>
-                  account.account &&
-                  (familyCache.families.length > 0 || familyCache.inactive.length > 0)
-                    ? setLibraryOpen(libraryOpen === "dock" ? false : "dock")
-                    : setSettings("familySharing")
-                }
+                onClick={() => setLibraryOpen(libraryOpen === "dock" ? false : "dock")}
               >
                 {selectedFamily ? (
                   <Users size={18} aria-hidden="true" />
@@ -867,7 +869,9 @@ export function App() {
         <Settings
           canWrite={canWrite}
           initial={
-            settings === "participants" || settings === "createGroup" ? "familySharing" : settings
+            settings === "participants" || settings === "createGroup" || settings === "joinGroup"
+              ? "familySharing"
+              : settings
           }
           familyPanel={(onSignIn) => (
             <FamilyPanel
@@ -879,6 +883,7 @@ export function App() {
               preferredGroup={selectedFamily ?? undefined}
               focusParticipants={settings === "participants"}
               focusCreate={settings === "createGroup"}
+              focusJoin={settings === "joinGroup"}
               onOpen={(groupId) => {
                 if (account.account) {
                   switchLibrary(familyKey(account.account.id, groupId));
@@ -985,6 +990,7 @@ export function App() {
           <div className="stack">
             <p>{t("updateHint")}</p>
             <button className="button primary" onClick={() => void applyUpdate()}>
+              <CircleArrowUp size={20} aria-hidden="true" />
               {t("update")}
             </button>
             <button className="button outline subdued" onClick={() => setUpdate(false)}>

@@ -88,16 +88,17 @@ export const en = {
   addWithDetails: "Save with details",
   saveOptions: "Save options",
   libraryChoice: "Choose group",
-  familyIntro:
-    "Share places with family or other groups. Each group has its own members and places. Your private places stay private.",
+  familyIntro: "Share places with family or groups. Your private places stay private.",
   familySignIn: "Sign in to share",
-  familySharedNotice: "Members can add, edit and delete shared places and photos.",
+  familySharedNotice:
+    "Each group has its own members and places. Members can add, edit and delete shared places and photos.",
   familyOwner: "Owner",
   familyParticipants: "Members",
   familyYou: "You",
   familyName: "Group name",
   familyCreate: "Create group",
   familyCreateNew: "Create new group…",
+  familyJoinWithCode: "Join group with code…",
   familyRename: "Rename group",
   familyRenamed: "Group renamed",
   openFamilyLibrary: "Open shared places",
@@ -176,11 +177,12 @@ export const en = {
   name: "Name",
   category: "Category",
   coordinates: "Coordinates",
-  reviewGpsSetting: "Review GPS accuracy before saving",
+  reviewGpsSetting: "Check GPS accuracy before saving",
   distanceUnits: "Distance units",
   metres: "Metres (m)",
   feet: "Feet (ft)",
-  reviewGpsHint: "Refine the position before confirming. Turn off to save immediately.",
+  reviewGpsHint:
+    "Wait or move around for better accuracy, then confirm. Turn off to save immediately.",
   reviewLocation: "Check your location",
   gpsReviewIntro: "Stay near the spot you want to save. Accuracy may improve.",
   gpsWaiting: "Finding your location…",
@@ -244,7 +246,7 @@ export const en = {
   settings: "Settings",
   autoHideControls: "Auto-hide save bar",
   autoHideControlsHint:
-    "Hide while scrolling down or moving the map. Tap Show save bar to bring back Save position, or scroll up.",
+    "Hide when scrolling down or moving the map. Scroll up or tap ‘Show save bar’ to restore.",
   showControls: "Show save bar",
   preferences: "Preferences",
   appearance: "Appearance",
@@ -340,7 +342,8 @@ export const en = {
   export: "Export backup",
   import: "Import backup",
   importTitle: "Review backup",
-  importDescription: "Nothing changes until you import.",
+  importDescription:
+    "Choose whether to add places or replace this library. Nothing changes until you import.",
   merge: "Merge",
   mergeBody: "Add places and keep your current library. Conflicting copies get new identities.",
   replace: "Replace",
@@ -372,19 +375,19 @@ export const en = {
   actionRequired: "Sync needs attention",
   account: "Account & sync",
   profileName: "Display name",
-  profileNameHint:
-    "Shown to group members. Use up to 60 characters. Save an empty name to use your sign-in label again.",
+  profileNameHint: "Shown to group members.",
   profileInvalid: "Use up to 60 characters without line breaks or control characters.",
-  profileSave: "Save name",
+  profileSave: "Save",
+  profileSaving: "Saving…",
   profileClear: "Clear field",
   profileSaveFailed: "Could not save the name. Your edit is still here. Try again when online.",
   profileRefreshFailed:
     "The name was saved, but your account could not be refreshed. Retry to update this device.",
-  profileSaved: "Display name saved.",
+  profileSaved: "Name saved",
+  syncComplete: "Sync complete",
   signedIn: "Signed in",
   notSignedIn: "Not signed in",
-  accountSyncIntro:
-    "Your places sync automatically when you're online. Use Sync now to retry or check for changes.",
+  accountSyncIntro: "Places sync automatically.",
   linkedMethodsIntro: "You can sign in with any linked method. Adding another method is optional.",
   linkChatGPT: "Link ChatGPT",
   accountIntro:
@@ -439,16 +442,24 @@ export const en = {
   removeDeviceBody:
     "This clears the local account copy and pending edits. Export first. The cloud copy is retained.",
   privacy: "Privacy",
-  activityReporting: "Share anonymous activity",
+  activityReporting: "Share usage activity",
   activityReportingHint:
     "Sends a random browser ID once a minute while Places is visible and online. Stored as a hash. Activity window: 31 days. No account or place data is sent.",
-  privacyText:
-    "GPS is requested only when you save. Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data. Viewing maps, including place previews, loads background tiles from OpenStreetMap, which receives the viewed area, your IP address and the Places origin. Saved names, photos and group identities are not sent to the tile provider. Navigate shares the destination with your chosen map service.",
+  privacyLocation: "Location",
+  privacyLocationText: "GPS is requested only when you save.",
+  privacyPlaces: "Your places",
+  privacyPlacesText:
+    "Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data.",
+  privacyMaps: "Maps & navigation",
+  privacyMapsText:
+    "Viewing maps, including place previews, loads background tiles from OpenStreetMap, which receives the viewed area, your IP address and the Places origin. Saved names, photos and group identities are not sent to the tile provider. Navigate shares the destination with your chosen map service.",
   recoveryText:
     "Your browser may remove locally saved places. Export a backup or use account sync to help prevent data loss.",
+  backupIntro: "Back up your places to protect against browser data loss.",
+  deviceStorage: "Device storage",
   backupEncryption: "Backup files are not encrypted.",
   persistHelp:
-    "Ask your browser to protect locally saved places from automatic removal. Clearing browser data can still remove them.",
+    "Reduce automatic removal by your browser. Clearing browser data still removes places.",
   install: "Install Places",
   installIOS: "In Safari:",
   installIOSChrome: "In Chrome:",
@@ -497,10 +508,9 @@ export const en = {
   working: "Working…",
   cancelCapture: "Cancel locating",
   noMethods: "Sign-in is not configured yet.",
-  persist: "Keep data on this device",
-  persistGranted: "Persistent storage is enabled where supported. Backups are still recommended.",
-  persistNotGranted:
-    "This browser did not grant persistent storage. Keep backups or use account sync.",
+  persist: "Protect local data",
+  persistGranted: "Protection enabled",
+  persistNotGranted: "Your browser did not enable protection. Keep regular backups.",
   rename: "Rename",
   editCategory: "Edit category",
   inaccurate: "Approximate location",
@@ -601,16 +611,17 @@ export const sv: Record<Message, string> = {
   addWithDetails: "Spara med detaljer",
   saveOptions: "Sparalternativ",
   libraryChoice: "Välj grupp",
-  familyIntro:
-    "Dela platser med familjen eller andra grupper. Varje grupp har sina egna medlemmar och platser. Dina privata platser förblir privata.",
+  familyIntro: "Dela platser med familjen eller grupper. Dina privata platser förblir privata.",
   familySignIn: "Logga in för att dela",
-  familySharedNotice: "Medlemmar kan lägga till, ändra och ta bort delade platser och foton.",
+  familySharedNotice:
+    "Varje grupp har sina egna medlemmar och platser. Medlemmar kan lägga till, ändra och ta bort delade platser och foton.",
   familyOwner: "Ägare",
   familyParticipants: "Medlemmar",
   familyYou: "Du",
   familyName: "Gruppens namn",
   familyCreate: "Skapa grupp",
   familyCreateNew: "Skapa ny grupp…",
+  familyJoinWithCode: "Gå med i grupp med kod…",
   familyRename: "Byt namn på grupp",
   familyRenamed: "Gruppens namn har ändrats",
   openFamilyLibrary: "Öppna delade platser",
@@ -686,11 +697,12 @@ export const sv: Record<Message, string> = {
   name: "Namn",
   category: "Kategori",
   coordinates: "Koordinater",
-  reviewGpsSetting: "Granska GPS-noggrannhet före sparande",
+  reviewGpsSetting: "Kontrollera GPS-noggrannheten innan du sparar",
   distanceUnits: "Avståndsenhet",
   metres: "Meter (m)",
   feet: "Fot (ft)",
-  reviewGpsHint: "Förfina positionen före bekräftelse. Stäng av för att spara direkt.",
+  reviewGpsHint:
+    "Vänta eller rör dig för bättre noggrannhet och bekräfta sedan. Stäng av för att spara direkt.",
   reviewLocation: "Kontrollera din position",
   gpsReviewIntro: "Stanna nära platsen du vill spara. Noggrannheten kan förbättras.",
   gpsWaiting: "Söker efter din position…",
@@ -758,7 +770,7 @@ export const sv: Record<Message, string> = {
   settings: "Inställningar",
   autoHideControls: "Dölj sparfältet automatiskt",
   autoHideControlsHint:
-    "Dölj när du rullar nedåt eller flyttar kartan. Tryck på Visa sparfältet för att visa Spara position igen, eller rulla uppåt.",
+    "Dölj när du rullar nedåt eller flyttar kartan. Rulla uppåt eller tryck på ”Visa sparfältet” för att visa det igen.",
   showControls: "Visa sparfältet",
   preferences: "Utseende och språk",
   appearance: "Utseende",
@@ -854,7 +866,8 @@ export const sv: Record<Message, string> = {
   export: "Exportera säkerhetskopia",
   import: "Importera säkerhetskopia",
   importTitle: "Granska säkerhetskopian",
-  importDescription: "Ingenting ändras förrän du importerar.",
+  importDescription:
+    "Välj om du vill lägga till platser eller ersätta biblioteket. Ingenting ändras förrän du importerar.",
   merge: "Slå ihop",
   mergeBody:
     "Lägg till platser och behåll ditt bibliotek. Kopior med olika innehåll får nya identiteter.",
@@ -878,8 +891,8 @@ export const sv: Record<Message, string> = {
   syncNow: "Synkronisera nu",
   offline: "Offline · ändringar sparas på enheten",
   localOnly: "Sparat på enheten",
-  syncing: "Synkroniserar…",
-  synced: "Synkroniserat",
+  syncing: "Synkar…",
+  synced: "Synkad",
   pending: "Väntar på synkronisering",
   savedPending: "Sparat lokalt · väntar på synk",
   retryRefresh: "Uppdatering dröjer · försöker igen",
@@ -889,20 +902,20 @@ export const sv: Record<Message, string> = {
   actionRequired: "Synkroniseringen behöver din hjälp",
   account: "Konto och synkronisering",
   profileName: "Visningsnamn",
-  profileNameHint:
-    "Visas för gruppmedlemmar. Använd högst 60 tecken. Spara ett tomt namn för att använda din inloggningsuppgift igen.",
+  profileNameHint: "Visas för gruppmedlemmar.",
   profileInvalid: "Använd högst 60 tecken utan radbrytningar eller kontrolltecken.",
-  profileSave: "Spara namn",
+  profileSave: "Spara",
+  profileSaving: "Sparar…",
   profileClear: "Töm fältet",
   profileSaveFailed:
     "Namnet kunde inte sparas. Din ändring finns kvar. Försök igen när du är online.",
   profileRefreshFailed:
     "Namnet sparades men kontot kunde inte uppdateras. Försök igen för att uppdatera enheten.",
-  profileSaved: "Visningsnamnet har sparats.",
+  profileSaved: "Namn sparat",
+  syncComplete: "Synkronisering klar",
   signedIn: "Inloggad",
   notSignedIn: "Inte inloggad",
-  accountSyncIntro:
-    "Dina platser synkroniseras automatiskt när du är online. Välj Synkronisera nu för att försöka igen eller hämta ändringar.",
+  accountSyncIntro: "Platser synkroniseras automatiskt.",
   linkedMethodsIntro:
     "Du kan logga in med valfri kopplad metod. Det är valfritt att lägga till fler metoder.",
   linkChatGPT: "Koppla ChatGPT",
@@ -960,16 +973,24 @@ export const sv: Record<Message, string> = {
   removeDeviceBody:
     "Rensar den lokala kontokopian och väntande ändringar. Exportera först. Molnkopian behålls.",
   privacy: "Integritet",
-  activityReporting: "Dela anonym aktivitet",
+  activityReporting: "Dela användningsaktivitet",
   activityReportingHint:
     "Skickar ett slumpat webbläsar-ID varje minut när Places visas och är online. Lagras hashat. Aktivitetsfönster: 31 dagar. Inga konto- eller platsdata skickas.",
-  privacyText:
-    "GPS begärs bara när du sparar. Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata. Kartor, även förhandsvisningar av platser, laddar bakgrundskartor från OpenStreetMap, som får information om området du visar, din IP-adress och Places webbursprung. Sparade namn, foton och gruppidentiteter skickas inte till kartleverantören. Navigera delar målet med din valda karttjänst.",
+  privacyLocation: "Position",
+  privacyLocationText: "GPS begärs bara när du sparar.",
+  privacyPlaces: "Dina platser",
+  privacyPlacesText:
+    "Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata.",
+  privacyMaps: "Kartor och navigering",
+  privacyMapsText:
+    "Kartor, även förhandsvisningar av platser, laddar bakgrundskartor från OpenStreetMap, som får information om området du visar, din IP-adress och Places webbursprung. Sparade namn, foton och gruppidentiteter skickas inte till kartleverantören. Navigera delar målet med din valda karttjänst.",
   recoveryText:
     "Webbläsaren kan ta bort lokalt sparade platser. Exportera en säkerhetskopia eller använd kontosynkronisering för att minska risken att förlora data.",
+  backupIntro: "Säkerhetskopiera dina platser för att skydda mot förlust av webbläsardata.",
+  deviceStorage: "Lagring på enheten",
   backupEncryption: "Säkerhetskopior är inte krypterade.",
   persistHelp:
-    "Be webbläsaren skydda lokalt sparade platser från automatisk rensning. Om du rensar webbläsardata kan de ändå tas bort.",
+    "Minska automatisk rensning i webbläsaren. Om du rensar webbläsardata tas platserna ändå bort.",
   install: "Installera Places",
   installIOS: "I Safari:",
   installIOSChrome: "I Chrome:",
@@ -1020,11 +1041,9 @@ export const sv: Record<Message, string> = {
   working: "Arbetar…",
   cancelCapture: "Avbryt positionering",
   noMethods: "Inloggning är ännu inte konfigurerad.",
-  persist: "Behåll data på den här enheten",
-  persistGranted:
-    "Beständig lagring är aktiverad där den stöds. Säkerhetskopior rekommenderas ändå.",
-  persistNotGranted:
-    "Webbläsaren beviljade inte beständig lagring. Behåll säkerhetskopior eller använd kontosynkronisering.",
+  persist: "Skydda lokala data",
+  persistGranted: "Skydd aktiverat",
+  persistNotGranted: "Webbläsaren aktiverade inte skyddet. Säkerhetskopiera regelbundet.",
   rename: "Byt namn",
   editCategory: "Redigera kategori",
   inaccurate: "Ungefärlig position",

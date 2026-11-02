@@ -298,10 +298,16 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await b.page.goto("/");
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
-    await b.page.getByRole("button", { name: "Settings", exact: true }).click();
-    await b.page
-      .getByRole("combobox", { name: "Settings", exact: true })
-      .selectOption("familySharing");
+    await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
+    await b.page.getByRole("button", { name: "Join group with code…", exact: true }).click();
+    await expect(
+      b.page.getByRole("textbox", { name: "Invitation code", exact: true }),
+    ).toBeFocused();
+    await b.page.getByRole("textbox", { name: "Invitation code", exact: true }).fill("0000");
+    await b.page.getByRole("button", { name: "Request to join", exact: true }).click();
+    await expect(b.page.locator(".family-panel").getByRole("alert")).toContainText(
+      "code is invalid",
+    );
     await b.page.getByRole("textbox", { name: "Invitation code", exact: true }).fill(code);
     await b.page.getByRole("button", { name: "Request to join", exact: true }).click();
     await expect(b.page.locator(".family-panel").getByRole("status")).toContainText("Request sent");
@@ -382,7 +388,7 @@ test("two signed-in family members share photos and offline saves while private 
     ).toBeVisible();
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     const libraryMenu = a.page.getByRole("group", { name: "Choose group", exact: true });
-    await expect(libraryMenu.getByRole("button").last()).toHaveText("Create new group…");
+    await expect(libraryMenu.getByRole("button").last()).toHaveText("Join group with code…");
     await libraryMenu.getByRole("button", { name: "Create new group…", exact: true }).click();
     await expect(libraryMenu).toHaveCount(0);
     await expect(groupName).toBeFocused();

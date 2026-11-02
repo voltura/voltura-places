@@ -18,9 +18,10 @@ import {
   Archive,
   User,
   Users,
+  RefreshCw,
 } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
-import { keepOfflineData } from "../foundation/storage";
+import { keepOfflineData, offlineDataProtected } from "../foundation/storage";
 import { AccountPanel } from "./Account";
 import { InstallPlaces } from "./InstallPlaces";
 import type { AccountState } from "../foundation/account-contract";
@@ -95,6 +96,18 @@ export function Settings({
   useEffect(() => setTab(initial), [initial]);
   const [storageStatus, setStorageStatus] = useState<boolean | null>(null);
   const [requestingStorage, setRequestingStorage] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void offlineDataProtected().then((protectedStorage) => {
+      if (active && protectedStorage) {
+        setStorageStatus(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
   const navigation = useRef<HTMLDivElement>(null);
   const tabs = useRef<HTMLElement>(null);
   const [compactNavigation, setCompactNavigation] = useState(true);
@@ -331,7 +344,20 @@ export function Settings({
                 <span>{t("privacy")}</span>
                 <ChevronRight aria-hidden="true" size={20} />
               </summary>
-              <p className="muted">{t("privacyText")}</p>
+              <div className="privacy-topics">
+                <div>
+                  <h4>{t("privacyLocation")}</h4>
+                  <p className="muted">{t("privacyLocationText")}</p>
+                </div>
+                <div>
+                  <h4>{t("privacyPlaces")}</h4>
+                  <p className="muted">{t("privacyPlacesText")}</p>
+                </div>
+                <div>
+                  <h4>{t("privacyMaps")}</h4>
+                  <p className="muted">{t("privacyMapsText")}</p>
+                </div>
+              </div>
               <label className="gps-setting">
                 <span>{t("activityReporting")}</span>
                 <input
@@ -347,10 +373,10 @@ export function Settings({
                 />
                 <small id="activity-help">{t("activityReportingHint")}</small>
               </label>
-              <p className="muted">{t("recoveryText")}</p>
             </details>
           </div>
           <button className="button outline" onClick={onCheckUpdates}>
+            <RefreshCw size={20} aria-hidden="true" />
             {t("checkUpdates")}
           </button>
           <footer className="preferences-footer">
@@ -419,7 +445,6 @@ export function Settings({
           <h3>{t("backup")}</h3>
           <p className="muted">{t("recoveryText")}</p>
           <div className="backup-files stack">
-            <p className="muted">{t("backupEncryption")}</p>
             <div className="backup-actions">
               <button className="button outline" onClick={onExport}>
                 <Download size={19} />
@@ -430,20 +455,24 @@ export function Settings({
                 {t("import")}
               </button>
             </div>
+            <small className="muted">{t("backupEncryption")}</small>
           </div>
           <div className="offline-storage stack">
-            <button
-              className="button outline"
-              disabled={requestingStorage}
-              aria-describedby="offline-storage-help"
-              onClick={async () => {
-                setRequestingStorage(true);
-                setStorageStatus(await keepOfflineData());
-                setRequestingStorage(false);
-              }}
-            >
-              {t("persist")}
-            </button>
+            <h4>{t("deviceStorage")}</h4>
+            {storageStatus !== true && (
+              <button
+                className="button outline"
+                disabled={requestingStorage}
+                aria-describedby="offline-storage-help"
+                onClick={async () => {
+                  setRequestingStorage(true);
+                  setStorageStatus(await keepOfflineData());
+                  setRequestingStorage(false);
+                }}
+              >
+                {t(requestingStorage ? "working" : "persist")}
+              </button>
+            )}
             <p id="offline-storage-help" className="muted">
               {t("persistHelp")}
             </p>

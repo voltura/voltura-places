@@ -14,6 +14,8 @@ for (const language of ["en", "sv"] as const) {
     const attempted: (string | null)[] = [];
     let failSave = true;
     let failRefresh = false;
+    let holdSave = false;
+    let releaseSave: (() => void) | undefined;
     await page.setViewportSize({ width: language === "en" ? 320 : 390, height: 844 });
     await page.addInitScript((language) => {
       localStorage.setItem("places-account-choice", "done");
@@ -32,11 +34,16 @@ for (const language of ["en", "sv"] as const) {
     await page.route("**/api/v1/sync*", (route) =>
       route.fulfill({ json: { version: 1, accountId: account.id, records: [] } }),
     );
-    await page.route("**/api/account/display-name", (route) => {
+    await page.route("**/api/account/display-name", async (route) => {
       expect(route.request().method()).toBe("POST");
       expect(route.request().headers()["x-places-account"]).toBe(account.id);
       const { displayName } = route.request().postDataJSON();
       attempted.push(displayName);
+      if (holdSave) {
+        await new Promise<void>((resolve) => {
+          releaseSave = resolve;
+        });
+      }
       if (failSave) {
         failSave = false;
 
@@ -56,12 +63,31 @@ for (const language of ["en", "sv"] as const) {
     const form = sheet.getByRole("form", { name: t("profileName"), exact: true });
     const input = form.getByRole("textbox", { name: t("profileName") });
     const save = form.getByRole("button", { name: t("profileSave"), exact: true });
+    const toast = sheet.locator(".toast");
+    await expect(toast).toHaveCount(0);
+    await expect(save).toBeDisabled();
     await expect(input).toHaveValue("");
+    await expect(input).toHaveAttribute("placeholder", account.methods[0].label);
+    await input.fill("A".repeat(60));
+    await input.press("End");
+    await input.press("B");
+    await expect(input).toHaveValue("A".repeat(60));
     const unicode = "\u{1f33f}".repeat(60);
     await input.fill(unicode + "x");
-    await expect(save).toBeDisabled();
-    await expect(input).toHaveAttribute("aria-invalid", "true");
-    await input.fill(unicode);
+    await expect(input).toHaveValue(unicode);
+    await expect(input).toHaveAttribute("aria-invalid", "false");
+    await expect(form.getByText(t("profileNameHint"), { exact: true })).not.toContainText("60");
+    const clear = form.getByRole("button", { name: t("profileClear"), exact: true });
+    await expect(clear.locator("svg")).toHaveCount(1);
+    await expect(clear).toHaveClass(/profile-name-clear/);
+    const inputBounds = await input.boundingBox();
+    const clearBounds = await clear.boundingBox();
+    expect(inputBounds).not.toBeNull();
+    expect(clearBounds).not.toBeNull();
+    expect(clearBounds!.x).toBeGreaterThan(inputBounds!.x);
+    expect(clearBounds!.x + clearBounds!.width).toBeLessThanOrEqual(
+      inputBounds!.x + inputBounds!.width,
+    );
     await expect(save).toBeEnabled();
     await save.click();
     await expect(form.getByRole("alert")).toHaveText(t("profileSaveFailed"));
@@ -72,7 +98,7 @@ for (const language of ["en", "sv"] as const) {
       await form.getByRole("button", { name: t("profileClear"), exact: true }).click();
       await expect(save).toBeEnabled();
       await save.click();
-      await expect(form.getByRole("status")).toHaveText(t("profileSaved"));
+      await expect(toast).toContainText(t("profileSaved"));
       expect(attempted.at(-1)).toBe(null);
       await input.fill(unicode);
       await save.click();
@@ -86,9 +112,23 @@ for (const language of ["en", "sv"] as const) {
       await sheet.evaluate((el) => el.clientWidth),
     );
     const example = language === "en" ? "Alex Woods" : "Alex Skog";
+    await page.clock.install();
     await input.fill("   " + example + "   ");
+    holdSave = true;
     await save.click();
-    await expect(form.getByRole("status")).toHaveText(t("profileSaved"));
+    await expect(
+      form.getByRole("button", { name: t("profileSaving"), exact: true }),
+    ).toBeDisabled();
+    await expect(input).toBeDisabled();
+    await expect(clear).toBeDisabled();
+    await expect.poll(() => !!releaseSave).toBe(true);
+    holdSave = false;
+    releaseSave!();
+    await expect(toast).toContainText(t("profileSaved"));
+    await expect(form.getByRole("status")).toHaveCount(0);
+    await expect(save).toBeDisabled();
+    await page.clock.runFor(3100);
+    await expect(toast).toHaveCount(0);
     await expect(input).toHaveValue(example);
     await expect(sheet.locator(".account-summary")).not.toContainText(account.methods[0].label);
     await sheet.locator(".sheet-content").evaluate((el) => {
@@ -101,9 +141,23 @@ for (const language of ["en", "sv"] as const) {
       .click();
     await expect(sheet.locator(".methods")).toContainText(account.methods[0].label);
     await form.getByRole("button", { name: t("profileClear"), exact: true }).click();
+    await expect(input).toBeFocused();
+    await expect(clear).toHaveCount(0);
+    await expect(input).toHaveAttribute("placeholder", account.methods[0].label);
+    await expect(sheet.locator(".account-summary strong")).toHaveText(example);
+    expect(account.displayName).toBe(example);
+    failSave = true;
     await save.click();
-    await expect(form.getByRole("status")).toHaveText(t("profileSaved"));
-    await expect(sheet.locator(".account-summary")).toContainText(account.methods[0].label);
-    expect(attempted).toEqual([...firstWrites, example, null]);
+    await expect(form.getByRole("alert")).toHaveText(t("profileSaveFailed"));
+    await expect(sheet.locator(".account-summary strong")).toHaveText(example);
+    await page.clock.runFor(4000);
+    await expect(form.getByRole("alert")).toHaveText(t("profileSaveFailed"));
+    await save.click();
+    await expect(toast).toContainText(t("profileSaved"));
+    await expect(form.getByRole("alert")).toHaveCount(0);
+    await expect(sheet.locator(".account-summary strong")).toHaveText(account.methods[0].label);
+    await expect(input).toHaveValue("");
+    await expect(input).toHaveAttribute("placeholder", account.methods[0].label);
+    expect(attempted).toEqual([...firstWrites, example, null, null]);
   });
 }

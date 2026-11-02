@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Camera, ImagePlus, Trash2, Maximize, Minimize } from "lucide-react";
+import { Camera, ImagePlus, Trash2, Maximize, Minimize, MapPin } from "lucide-react";
 import { createPortal } from "react-dom";
 import { loadPhoto, preparePhoto } from "../foundation/photos";
 import { watchPhoto } from "../foundation/photo-store";
@@ -308,6 +308,7 @@ export function PhotoPicker({
             setPosition(null);
           }}
         >
+          <MapPin size={20} aria-hidden="true" />
           {t("usePhotoLocation")}
         </button>
       )}

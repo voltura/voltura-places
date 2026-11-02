@@ -477,7 +477,8 @@ for (const language of ["en", "sv"] as const) {
     await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await context.setOffline(true);
     await page.reload();
-    await expect(page.locator(".mobile-sync-feedback")).toHaveText(t("syncConflict"));
+    await expect(page.locator("#account-sync-status")).toHaveText(t("syncConflict"));
+    await expect(page.locator(".header-sync-icon .lucide-triangle-alert")).toBeVisible();
     await page.getByRole("button", { name: t("account"), exact: true }).click();
     await expect(page.locator("#settings-sync-status")).toHaveText(t("syncConflict"));
   });

@@ -1,41 +1,61 @@
-import { useId, useRef, useState } from "react";
-import { Cloud, ArrowRight, Mail, Trash2, MonitorX } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  Cloud,
+  ArrowRight,
+  Mail,
+  Trash2,
+  MonitorX,
+  RotateCw,
+  Check,
+  X,
+  RefreshCw,
+  LogOut,
+} from "lucide-react";
 import { api, ApiError } from "../foundation/http";
 import { displayNameSchema } from "../../shared/display-name";
 import { type Account, type AccountState } from "../foundation/account-contract";
 import type { Message } from "../foundation/i18n";
+import { Toast } from "../ui/Toast";
+import { SyncStatusIcon, syncStatusWarning } from "./SyncStatus";
 
 function ProfileName({
   account,
+  defaultName,
   t,
   busy,
   setBusy,
   onRefresh,
+  onSaved,
 }: {
   account: Account;
+  defaultName: string;
   t: (k: Message) => string;
   busy: boolean;
   setBusy: (busy: boolean) => void;
   onRefresh: () => Promise<void>;
+  onSaved: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Message | null>(null);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [acknowledged, setAcknowledged] = useState<string | null>();
+  const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const hint = useId();
+  const inputId = useId();
+  const input = useRef<HTMLInputElement>(null);
   const error = useId();
   const saved = acknowledged !== undefined ? acknowledged : (account.displayName ?? null);
   const value = draft ?? saved ?? "";
   const parsed = displayNameSchema.safeParse(value);
   const changed = parsed.success && parsed.data !== saved;
-  const failed = feedback !== null && feedback !== "profileSaved";
 
   async function submit() {
     if (busy || pending.current || !parsed.success || (!needsRefresh && !changed)) {
       return;
     }
     pending.current = true;
+    setSaving(true);
     setBusy(true);
     let persisted = needsRefresh;
     try {
@@ -57,7 +77,8 @@ function ProfileName({
       setAcknowledged(undefined);
       setNeedsRefresh(false);
       setDraft(null);
-      setFeedback("profileSaved");
+      setFeedback(null);
+      onSaved();
     } catch (error) {
       setFeedback(
         persisted
@@ -68,6 +89,7 @@ function ProfileName({
       );
     } finally {
       pending.current = false;
+      setSaving(false);
       setBusy(false);
     }
   }
@@ -81,21 +103,40 @@ function ProfileName({
         void submit();
       }}
     >
-      <label>
-        {t("profileName")}
-        <input
-          autoComplete="nickname"
-          value={value}
-          disabled={busy}
-          aria-invalid={!parsed.success}
-          aria-describedby={parsed.success ? hint : hint + " " + error}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setFeedback(null);
-            setNeedsRefresh(false);
-          }}
-        />
-      </label>
+      <div className="profile-name-field">
+        <label htmlFor={inputId}>{t("profileName")}</label>
+        <div className="profile-name-input">
+          <input
+            id={inputId}
+            ref={input}
+            autoComplete="nickname"
+            placeholder={defaultName}
+            value={value}
+            disabled={busy}
+            aria-invalid={!parsed.success}
+            aria-describedby={parsed.success ? hint : hint + " " + error}
+            onChange={(event) => {
+              setDraft(Array.from(event.target.value).slice(0, 60).join(""));
+              setNeedsRefresh(false);
+            }}
+          />
+          {value && (
+            <button
+              type="button"
+              className="icon-button profile-name-clear"
+              aria-label={t("profileClear")}
+              disabled={busy}
+              onClick={() => {
+                setDraft("");
+                setNeedsRefresh(false);
+                input.current?.focus();
+              }}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </div>
       <p id={hint} className="muted small">
         {t("profileNameHint")}
       </p>
@@ -104,31 +145,22 @@ function ProfileName({
           {t("profileInvalid")}
         </p>
       )}
-      <div className="account-actions">
+      <div className="profile-name-actions">
         <button
           type="submit"
-          className="button outline"
+          className="button primary"
           disabled={busy || (!changed && !needsRefresh) || !parsed.success}
         >
-          {t(needsRefresh ? "retry" : "profileSave")}
+          {needsRefresh ? (
+            <RotateCw size={20} aria-hidden="true" />
+          ) : (
+            <Check size={20} aria-hidden="true" />
+          )}
+          {t(saving ? "profileSaving" : needsRefresh ? "retry" : "profileSave")}
         </button>
-        {value && (
-          <button
-            type="button"
-            className="button outline subdued"
-            disabled={busy}
-            onClick={() => {
-              setDraft("");
-              setNeedsRefresh(false);
-              setFeedback(null);
-            }}
-          >
-            {t("profileClear")}
-          </button>
-        )}
       </div>
       {feedback && (
-        <p role={failed ? "alert" : "status"} className={failed ? "error" : "muted small"}>
+        <p role="alert" className="error">
           {t(feedback)}
         </p>
       )}
@@ -162,6 +194,26 @@ export function AccountPanel({
   const [linking, setLinking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState<{ key: Message } | null>(null);
+  const manualSyncPending = useRef(false);
+  const accountName = state.account?.methods.find((method) => method.label)?.label ?? t("signedIn");
+  useEffect(() => {
+    if (!success) {
+      return;
+    }
+    const timer = setTimeout(() => setSuccess(null), 3000);
+
+    return () => clearTimeout(timer);
+  }, [success]);
+  useEffect(() => {
+    if (!manualSyncPending.current || syncStatus === "syncing" || syncStatus === "pending") {
+      return;
+    }
+    manualSyncPending.current = false;
+    if (syncStatus === "synced") {
+      setSuccess({ key: "syncComplete" });
+    }
+  }, [syncStatus]);
 
   const execute = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -345,7 +397,7 @@ export function AccountPanel({
   );
 
   return (
-    <section className="stack">
+    <section className="stack account-panel">
       <h3>{t("account")}</h3>
       {!state.account && (
         <>
@@ -367,30 +419,44 @@ export function AccountPanel({
           <div className="account-summary">
             <Cloud className="account-cloud" aria-hidden="true" />
             <div>
-              <strong>{state.account.displayName || t("signedIn")}</strong>
-              <span>
-                {state.account.displayName
-                  ? t("signedIn")
-                  : [...new Set(state.account.methods.map((m) => m.label))].join(" · ")}
-              </span>
+              <strong>{state.account.displayName || accountName}</strong>
+              <span>{t("signedIn")}</span>
             </div>
           </div>
           <ProfileName
             key={state.account.id}
             account={state.account}
+            defaultName={accountName}
             t={t}
             busy={busy}
             setBusy={setBusy}
             onRefresh={onRefresh}
+            onSaved={() => setSuccess({ key: "profileSaved" })}
           />
-          <p className="muted">{t("accountSyncIntro")}</p>
+          <div className="account-sync-summary">
+            <p className="muted">{t("accountSyncIntro")}</p>
+            <p
+              id="settings-sync-status"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className={`account-sync-pill ${syncStatusWarning(syncStatus) ? "warning" : ""}`}
+            >
+              <SyncStatusIcon status={syncStatus} />
+              <span>{t(syncStatus)}</span>
+            </p>
+          </div>
           <div className="account-actions">
             <button
               className="button outline"
-              onClick={onSync}
+              onClick={() => {
+                manualSyncPending.current = true;
+                onSync();
+              }}
               disabled={busy || syncStatus === "syncing"}
               aria-describedby="settings-sync-status"
             >
+              <RefreshCw size={20} aria-hidden="true" />
               {t(syncStatus === "syncing" ? "syncing" : "syncNow")}
             </button>
             <button
@@ -398,22 +464,11 @@ export function AccountPanel({
               disabled={busy}
               onClick={() => void execute(onSignOut)}
             >
+              <LogOut size={20} aria-hidden="true" />
               {t("signOut")}
             </button>
           </div>
-          <p
-            id="settings-sync-status"
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className={
-              syncStatus === "actionRequired" || syncStatus === "syncConflict"
-                ? "error"
-                : "muted small"
-            }
-          >
-            {t(syncStatus)}
-          </p>
+
           <p className="muted small">{t("signOutNotice")}</p>
           <details>
             <summary>{t("linkedMethods")}</summary>
@@ -477,6 +532,13 @@ export function AccountPanel({
             </button>
           </details>
         </>
+      )}
+      {success && (
+        <Toast
+          text={t(success.key)}
+          closeLabel={t("dismissMessage")}
+          onClose={() => setSuccess(null)}
+        />
       )}
     </section>
   );

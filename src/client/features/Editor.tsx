@@ -8,6 +8,8 @@ import {
   LoaderCircle,
   MapPin,
   Trash2,
+  RotateCw,
+  CircleArrowUp,
 } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { clearDraft, getDraft, setDraft } from "../foundation/library";
@@ -385,6 +387,7 @@ export function Editor({
                 setDraftAttempt((n) => n + 1);
               }}
             >
+              <RotateCw size={20} aria-hidden="true" />
               {t("retry")}
             </button>
           </div>
@@ -404,6 +407,7 @@ export function Editor({
               disabled={busy || locating || photoBusy || !ready}
               onClick={onUpdate}
             >
+              <CircleArrowUp size={20} aria-hidden="true" />
               {t("update")}
             </button>
           </div>
