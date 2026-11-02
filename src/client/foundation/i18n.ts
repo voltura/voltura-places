@@ -1,4 +1,15 @@
 export const en = {
+  description: "Description",
+  addDescription: "Add description",
+  descriptionHint: "A few words about this place (optional)",
+  myVisitStatus: "My visit status",
+  visitFilter: "Filter by my visit status",
+  visitAll: "All places",
+  visitNone: "No status",
+  visitWant: "Want to visit",
+  visitVisited: "Visited",
+  personalVisitHint: "Your status is personal, including in groups.",
+
   libraryView: "Library view",
   listView: "List",
   mapView: "Map",
@@ -117,8 +128,7 @@ export const en = {
   copyToGroup: "Copy to group",
   shareToGroup: "Share with a group",
   shareLink: "Share link…",
-  copyToGroupBody:
-    "Choose a group. The original stays. Each copy is edited separately.",
+  copyToGroupBody: "Choose a group. The original stays. Each copy is edited separately.",
   copiedToGroup: "Copied to the selected group",
   familyReadonly: "This is a local copy. Shared access has ended; you can view and export it.",
   checkUpdates: "Check for updates",
@@ -478,6 +488,17 @@ export const en = {
 export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
+  description: "Beskrivning",
+  addDescription: "Lägg till beskrivning",
+  descriptionHint: "Några ord om platsen (valfritt)",
+  myVisitStatus: "Min besöksstatus",
+  visitFilter: "Filtrera efter min besöksstatus",
+  visitAll: "Alla platser",
+  visitNone: "Utan status",
+  visitWant: "Vill dit",
+  visitVisited: "Besökt",
+  personalVisitHint: "Din status är personlig, även i grupper.",
+
   libraryView: "Biblioteksvy",
   listView: "Lista",
   mapView: "Karta",
@@ -598,8 +619,7 @@ export const sv: Record<Message, string> = {
   copyToGroup: "Kopiera till grupp",
   shareToGroup: "Dela med en grupp",
   shareLink: "Dela länk…",
-  copyToGroupBody:
-    "Välj grupp. Originalet ligger kvar. Kopiorna ändras var för sig.",
+  copyToGroupBody: "Välj grupp. Originalet ligger kvar. Kopiorna ändras var för sig.",
   copiedToGroup: "Kopierad till den valda gruppen",
   familyReadonly:
     "Detta är en lokal kopia. Delad åtkomst har upphört; du kan visa och exportera den.",

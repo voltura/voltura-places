@@ -1,4 +1,5 @@
-import { exportBackup, type Workspace } from "./library";
+import { visitOwner } from "../../shared/visits";
+import { readWorkspace, exportBackup, type Workspace } from "./library";
 import { loadPhoto } from "./photos";
 export async function exportWithPhotos(workspace: Workspace, isCurrent = () => true) {
   if (!isCurrent()) throw new Error("accountChanged");
@@ -19,5 +20,10 @@ export async function exportWithPhotos(workspace: Workspace, isCurrent = () => t
     photos.push({ id, data: `data:image/jpeg;base64,${btoa(raw)}` });
   }
   if (!isCurrent()) throw new Error("accountChanged");
-  return exportBackup(workspace, photos);
+  const personal =
+    visitOwner(workspace.key) === workspace.key
+      ? workspace
+      : await readWorkspace(visitOwner(workspace.key));
+  if (!isCurrent()) throw new Error("accountChanged");
+  return exportBackup(workspace, photos, personal.records);
 }

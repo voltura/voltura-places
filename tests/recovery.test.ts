@@ -19,7 +19,10 @@ import { fetchSnapshot, synchronize } from "../src/client/foundation/sync";
 import { type Entity } from "../src/shared/model";
 
 beforeEach(() => vi.stubGlobal("window", new EventTarget()));
-const place = (id: string = crypto.randomUUID(), name = "Recovery fixture"): Entity => ({
+const place = (
+  id: string = crypto.randomUUID(),
+  name = "Recovery fixture",
+): Extract<Entity, { kind: "place" }> => ({
   id,
   kind: "place",
   value: {
@@ -32,7 +35,7 @@ const place = (id: string = crypto.randomUUID(), name = "Recovery fixture"): Ent
     updatedAt: "2026-10-30T10:00:00.000Z",
   },
 });
-const category = (id: string): Entity => ({
+const category = (id: string): Extract<Entity, { kind: "category" }> => ({
   id,
   kind: "category",
   value: { name: "Category", color: "green" },
@@ -114,9 +117,12 @@ test("stale snapshots cannot roll a clean record or its conflict backwards", asy
     p = place();
   await reconcileAccount(key, [{ ...p, revision: 3, deleted: false }], false);
   await mergeSnapshot(key, [{ ...place(p.id, "Stale"), revision: 2, deleted: false }]);
-  expect((await readWorkspace(key)).records.find((r) => r.id === p.id)?.value.name).toBe(
-    p.value.name,
-  );
+  expect(
+    (await readWorkspace(key)).records.find(
+      (r): r is Extract<typeof r, { kind: "place" | "category" }> =>
+        r.kind !== "visit" && r.id === p.id,
+    )?.value.name,
+  ).toBe(p.value.name);
   await saveEntity(key, place(p.id, "Device"));
   await mergeSnapshot(key, [{ ...place(p.id, "Newest cloud"), revision: 5, deleted: false }]);
   await mergeSnapshot(key, [{ ...place(p.id, "Old cloud"), revision: 4, deleted: false }]);
@@ -244,7 +250,7 @@ test("late acknowledgements retain a newer cloud conflict and an already chosen 
       expect(local.conflict).toEqual(newer);
       await mergeSnapshot(key, [newer]);
       const retained = (await readWorkspace(key)).records.find((r) => r.id === p.id)!;
-      expect(retained.value.name).toBe(p.value.name);
+      expect("name" in retained.value ? retained.value.name : undefined).toBe(p.value.name);
       expect(retained.conflict).toEqual(newer);
     }
   }
@@ -300,7 +306,7 @@ test.each([false, true])(
     await mergeSnapshot(key, [remote]);
     await saveEntity(key, place(original.id, "My editor changes"), original);
     const record = (await readWorkspace(key)).records.find((r) => r.id === original.id)!;
-    expect(record.value.name).toBe("My editor changes");
+    expect("name" in record.value ? record.value.name : undefined).toBe("My editor changes");
     expect(record.conflict).toEqual(remote);
     expect(await prepareMutation(key)).toBeUndefined();
   },

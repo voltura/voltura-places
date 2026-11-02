@@ -1,7 +1,18 @@
 import { CategoryIcon } from "./CategoryAppearance";
 import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
-import { Plus, Search, X, ArrowDownUp, Map, List, MoreHorizontal } from "lucide-react";
-import type { LocalRecord, Place } from "../../shared/model";
+import {
+  Plus,
+  Search,
+  X,
+  ArrowDownUp,
+  Map,
+  List,
+  MoreHorizontal,
+  ListFilter,
+  Check,
+  Bookmark,
+} from "lucide-react";
+import type { LocalRecord, Place, VisitStatus } from "../../shared/model";
 import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "./PlaceDetails";
 import { Tooltip } from "../ui/Tooltip";
@@ -23,6 +34,9 @@ type Props = {
   places: PlaceRecord[];
   filtered: PlaceRecord[];
   categories: LocalRecord[];
+  visitFilter: string;
+  setVisitFilter: (value: string) => void;
+  visits: Map<string, VisitStatus>;
   filter: string;
   setFilter: (value: string) => void;
   search: string;
@@ -60,6 +74,9 @@ export function LibraryView({
   places,
   filtered,
   categories,
+  visitFilter,
+  setVisitFilter,
+  visits,
   filter,
   setFilter,
   search,
@@ -146,6 +163,26 @@ export function LibraryView({
                   </button>
                 )}
               </div>
+              <label
+                className={`visit-filter sort-button${visitFilter !== "all" ? " active" : ""}`}
+                title={`${t("visitFilter")}: ${t(visitFilter === "want" ? "visitWant" : visitFilter === "visited" ? "visitVisited" : visitFilter === "none" ? "visitNone" : "visitAll")}`}
+              >
+                <ListFilter size={20} aria-hidden="true" />
+                {visitFilter !== "all" && <span className="filter-dot" aria-hidden="true" />}
+                <select
+                  aria-label={t("visitFilter")}
+                  value={visitFilter}
+                  onChange={(e) => {
+                    setVisitFilter(e.target.value);
+                    onClearMapFocus();
+                  }}
+                >
+                  <option value="all">{t("visitAll")}</option>
+                  <option value="want">{t("visitWant")}</option>
+                  <option value="visited">{t("visitVisited")}</option>
+                  <option value="none">{t("visitNone")}</option>
+                </select>
+              </label>
               {view === "list" && (
                 <label className="sort-button">
                   <ArrowDownUp size={20} />
@@ -203,6 +240,7 @@ export function LibraryView({
               onClick={() => {
                 setSearch("");
                 setFilter("all");
+                setVisitFilter("all");
               }}
             >
               {t("clearSearch")}
@@ -218,7 +256,7 @@ export function LibraryView({
               focusRequest={mapFocus?.workspace === workspace ? mapFocus.request : 0}
               key={workspace}
               places={filtered}
-              fitKey={`${search}\u0000${filter}\u0000${fitRequest}`}
+              fitKey={`${search}\u0000${filter}\u0000${visitFilter}\u0000${fitRequest}`}
               selected={selected}
               onSelect={setSelected}
               categoryColor={categoryColor}
@@ -234,7 +272,24 @@ export function LibraryView({
                     <CategoryIcon record={categoryFor(p.value.categoryId)} size={24} />
                   </span>
                   <span className="card-text">
-                    <strong>{p.value.name}</strong>
+                    <strong>
+                      {p.value.name}
+                      {visits.get(p.id) && visits.get(p.id) !== "none" && (
+                        <span
+                          className="card-visit"
+                          role="img"
+                          aria-label={t(
+                            visits.get(p.id) === "visited" ? "visitVisited" : "visitWant",
+                          )}
+                        >
+                          {visits.get(p.id) === "visited" ? (
+                            <Check size={15} />
+                          ) : (
+                            <Bookmark size={15} />
+                          )}
+                        </span>
+                      )}
+                    </strong>
                     <span>
                       {categoryFor(p.value.categoryId)
                         ? categoryLabel(categoryFor(p.value.categoryId)!)
@@ -273,29 +328,58 @@ export function LibraryView({
             <p>{t("conflictBody")}</p>
             {conflicts.map((r) => (
               <div className="conflict" key={r.id}>
-                <strong>{r.kind === "place" ? r.value.name : categoryLabel(r)}</strong>
+                <strong>
+                  {r.kind === "visit"
+                    ? (places.find((p) => p.id === r.value.placeId)?.value.name ??
+                      t("myVisitStatus"))
+                    : r.value.name}
+                </strong>
                 <p>
-                  {t("device")}: {r.deleted ? t("deleted") : r.value.name}
+                  {t("device")}:{" "}
+                  {r.deleted
+                    ? t("deleted")
+                    : r.kind === "visit"
+                      ? t(
+                          r.value.status === "visited"
+                            ? "visitVisited"
+                            : r.value.status === "want"
+                              ? "visitWant"
+                              : "visitNone",
+                        )
+                      : r.value.name}
                   <br />
-                  {t("cloud")}: {r.conflict?.deleted ? t("deleted") : r.conflict?.value.name}
+                  {t("cloud")}:{" "}
+                  {r.conflict?.deleted
+                    ? t("deleted")
+                    : r.conflict?.kind === "visit"
+                      ? t(
+                          r.conflict.value.status === "visited"
+                            ? "visitVisited"
+                            : r.conflict.value.status === "want"
+                              ? "visitWant"
+                              : "visitNone",
+                        )
+                      : r.conflict?.value.name}
                 </p>
                 <div className="stack">
-                  {(["device", "cloud", "both"] as const).map((choice) => (
-                    <button
-                      key={choice}
-                      className="button outline"
-                      disabled={!canWrite}
-                      onClick={() => onResolve(r.id, choice)}
-                    >
-                      {t(
-                        choice === "device"
-                          ? "keepDevice"
-                          : choice === "cloud"
-                            ? "keepCloud"
-                            : "keepBoth",
-                      )}
-                    </button>
-                  ))}
+                  {(["device", "cloud", "both"] as const)
+                    .filter((choice) => r.kind !== "visit" || choice !== "both")
+                    .map((choice) => (
+                      <button
+                        key={choice}
+                        className="button outline"
+                        disabled={!canWrite}
+                        onClick={() => onResolve(r.id, choice)}
+                      >
+                        {t(
+                          choice === "device"
+                            ? "keepDevice"
+                            : choice === "cloud"
+                              ? "keepCloud"
+                              : "keepBoth",
+                        )}
+                      </button>
+                    ))}
                 </div>
               </div>
             ))}

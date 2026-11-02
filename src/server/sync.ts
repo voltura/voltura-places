@@ -1,3 +1,4 @@
+import { visitEntity } from "../shared/visits";
 import { mutationSchema, recordSchema, type RecordState } from "../shared/model";
 import { readJSON, RequestError } from "./accounts.js";
 import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } from "./workspace";
@@ -6,7 +7,7 @@ import type { Environment } from "./types";
 
 type Row = {
   id: string;
-  kind: "place" | "category";
+  kind: "place" | "category" | "visit";
   value: string;
   revision: number;
   deleted: number;
@@ -51,9 +52,15 @@ export async function handleSync(request: Request, env: Environment) {
     const after = new URL(request.url).searchParams.get("after") ?? "";
     if (after.length > 80) return json({ error: "invalidCursor", accountId: identity.key }, 400);
     const rows = await env.DB.prepare(
-      `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT 251`,
+      identity.family
+        ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT 251`
+        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? ORDER BY id LIMIT 251`,
     )
-      .bind(account, after, ...membershipArgs(identity))
+      .bind(
+        ...(identity.family
+          ? [account, after, ...membershipArgs(identity)]
+          : [account, account, after]),
+      )
       .all<Row>();
     const records = rows.results.slice(0, 250);
     return json({
@@ -82,6 +89,15 @@ export async function handleSync(request: Request, env: Environment) {
   const body = parsed.data,
     hash = await digest(JSON.stringify(body)),
     e = body.entity;
+  if (e.kind === "visit") {
+    const source = e.value.libraryId
+      ? `family:${identity.account}:${e.value.libraryId}`
+      : identity.account;
+    if (identity.family || e.id !== (await visitEntity(source, e.value.placeId, e.value.status)).id)
+      return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  } else if (e.id.startsWith("visit-"))
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  const table = e.kind === "visit" ? "places_visits" : "places_records";
   if (e.id === "other" && (e.kind !== "category" || body.deleted))
     return json({ error: "invalidMutation", accountId: identity.key }, 422);
   const receipt = await env.DB.prepare(
@@ -118,12 +134,12 @@ export async function handleSync(request: Request, env: Environment) {
   const value = JSON.stringify(e.value),
     revision = body.baseRevision + 1;
   const resultRecord = { ...e, revision, deleted: body.deleted };
-  const capacity = e.kind === "place" ? 5000 : 200;
+  const capacity = e.kind === "place" ? 5000 : e.kind === "visit" ? 100000 : 200;
   // Both statements run in one D1 transaction. Only the winning CAS can write a receipt.
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO places_records(account_id,id,kind,value,revision,deleted,last_mutation)
+    env.DB.prepare(`INSERT INTO ${table}(account_id,id,kind,value,revision,deleted,last_mutation)
       SELECT ?,?,?,?,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}
+      AND (?=1 OR (SELECT count(*) FROM ${table} WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}
       ON CONFLICT(account_id,id) DO NOTHING`).bind(
       account,
       e.id,
@@ -141,9 +157,9 @@ export async function handleSync(request: Request, env: Environment) {
       capacity,
       ...membershipArgs(identity),
     ),
-    env.DB.prepare(`UPDATE places_records SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
+    env.DB.prepare(`UPDATE ${table} SET value=?,revision=?,deleted=?,last_mutation=? WHERE account_id=? AND id=? AND kind=? AND revision=?
       AND NOT EXISTS(SELECT 1 FROM places_receipts WHERE account_id=? AND mutation_id=?)
-      AND (?=1 OR deleted=0 OR (SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}`).bind(
+      AND (?=1 OR deleted=0 OR (SELECT count(*) FROM ${table} WHERE account_id=? AND kind=? AND deleted=0) < ?) AND ${membershipSQL}`).bind(
       value,
       revision,
       Number(body.deleted),
@@ -161,7 +177,7 @@ export async function handleSync(request: Request, env: Environment) {
       ...membershipArgs(identity),
     ),
     env.DB.prepare(`INSERT OR IGNORE INTO places_receipts(account_id,mutation_id,body_hash,record) SELECT ?,?,?,?
-      WHERE EXISTS(SELECT 1 FROM places_records WHERE account_id=? AND id=? AND last_mutation=?)`).bind(
+      WHERE EXISTS(SELECT 1 FROM ${table} WHERE account_id=? AND id=? AND last_mutation=?)`).bind(
       account,
       body.mutationId,
       hash,
@@ -193,7 +209,7 @@ export async function handleSync(request: Request, env: Environment) {
     });
   }
   const current = await env.DB.prepare(
-    "SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? AND id=?",
+    `SELECT id,kind,value,revision,deleted FROM ${table} WHERE account_id=? AND id=?`,
   )
     .bind(account, e.id)
     .first<Row>();

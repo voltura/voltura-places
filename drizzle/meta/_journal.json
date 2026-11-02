@@ -64,6 +64,13 @@
       "when": 1793544863000,
       "tag": "0008_record_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793628000000,
+      "tag": "0009_personal_visits",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { visitOwner, visitStatuses } from "../../shared/visits";
 import { GroupCopyPicker } from "../features/GroupCopyPicker";
 import {
   categoryName,
@@ -76,6 +77,7 @@ import {
   copyPlaceToWorkspace,
   resolveConflict,
   saveEntity,
+  saveVisit,
   type Workspace,
 } from "../foundation/library";
 import {
@@ -171,6 +173,8 @@ export function App() {
       history.replaceState(history.state, "", url.pathname + url.search + url.hash);
     }
   }, []);
+  const [personalWorkspace, setPersonalWorkspace] = useState<Workspace | null>(null);
+  const [visitFilter, setVisitFilter] = useState("all");
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [scope, setScope] = useState(() => initialWorkspace(cachedAccount().account?.id)),
     [account, setAccount] = useState<AccountState>(cachedAccount);
@@ -292,14 +296,20 @@ export function App() {
     () => workspace?.records.filter(isPlace).filter((p) => !p.deleted) ?? [],
     [workspace],
   );
+  const visits = useMemo(() => {
+    const owner = visitOwner(scope);
+    const personal = owner === scope ? workspace : personalWorkspace;
+    return visitStatuses(personal?.key === owner ? personal.records : [], scope);
+  }, [scope, workspace, personalWorkspace]);
   const filtered = useMemo(() => {
     const query = search.toLocaleLowerCase(prefs.language);
     const matches = places.filter((p) => {
       const category = categoryFor(p.value.categoryId);
       return (
         (filter === "all" || (category?.id ?? "other") === filter) &&
+        (visitFilter === "all" || (visits.get(p.id) ?? "none") === visitFilter) &&
         (!query ||
-          `${p.value.name} ${category ? categoryLabel(category) : ""}`
+          `${p.value.name} ${p.value.description ?? ""} ${category ? categoryLabel(category) : ""}`
             .toLocaleLowerCase(prefs.language)
             .includes(query))
       );
@@ -321,21 +331,41 @@ export function App() {
       }))
       .sort((a, b) => a.distance - b.distance || b.captured - a.captured)
       .map(({ place }) => place);
-  }, [places, filter, search, sort, currentPosition, prefs.language, categoryFor, categoryLabel]);
+  }, [
+    places,
+    filter,
+    visitFilter,
+    visits,
+    search,
+    sort,
+    currentPosition,
+    prefs.language,
+    categoryFor,
+    categoryLabel,
+  ]);
   useEffect(() => {
     if (!filtered.length) setFullscreenScope(null);
   }, [filtered.length]);
   const current = places.find((p) => p.id === selected),
-    conflicts = workspace?.records.filter((r) => r.conflict) ?? [];
+    conflicts = [
+      ...(workspace?.records.filter((r) => r.conflict) ?? []),
+      ...(visitOwner(scope) !== scope && personalWorkspace?.key === visitOwner(scope)
+        ? personalWorkspace.records.filter(
+            (r) => r.kind === "visit" && r.conflict && r.value.libraryId === selectedFamily,
+          )
+        : []),
+    ];
   const notify = (key: Message, error = false) => setNotice({ text: t(key), error });
   const refresh = useCallback(async () => {
     const key = scopeRef.current;
     const accountId = authRef.current;
     try {
       const w = await readWorkspace(key);
+      const personal = visitOwner(key) === key ? w : await readWorkspace(visitOwner(key));
       const plan = await devicePlacePlan(accountId ?? "guest");
       if (scopeRef.current === key && authRef.current === accountId) {
         setWorkspace(w);
+        setPersonalWorkspace(personal);
         setReconciling(
           (previous) =>
             !!accountId && !deferredTransfers.current.has(accountId) && (plan.needed || previous),
@@ -347,14 +377,37 @@ export function App() {
   }, [t]);
   const sync = useCallback(() => {
     const key = scopeRef.current;
-    if (key !== "guest")
+    if (key !== "guest") {
+      let libraryStatus = "pending";
       void synchronize(
         key,
         (s) => {
+          libraryStatus = s;
           if (scopeRef.current === key) setStatus(s);
         },
         () => scopeRef.current === key,
-      ).then(refresh);
+      ).then(async () => {
+        const owner = visitOwner(key);
+        if (owner !== key && scopeRef.current === key)
+          await synchronize(
+            owner,
+            (s) => {
+              if (scopeRef.current === key)
+                setStatus(
+                  s === "syncing"
+                    ? s
+                    : libraryStatus === "actionRequired"
+                      ? libraryStatus
+                      : s === "synced"
+                        ? libraryStatus
+                        : s,
+                );
+            },
+            () => scopeRef.current === key,
+          );
+        await refresh();
+      });
+    }
   }, [refresh]);
   const refreshAccount = useCallback(async () => {
     const request = ++accountRequest.current;
@@ -601,13 +654,18 @@ export function App() {
       updateMonitor.current?.dispose();
     };
   }, []);
-  async function save(entity: Entity, base?: Entity | null, clearDraft = false) {
+  async function save(
+    entity: Entity,
+    base?: Entity | null,
+    clearDraft = false,
+    visitedHere = false,
+  ) {
     const key = scopeRef.current;
     const isCurrent = () => scopeRef.current === key && writeAllowed.current;
     if (!writeAllowed.current) throw new Error("familyAccessEnded");
     if (!(await readWorkspace(key)).reconciled) throw new Error("syncBusy");
     if (scopeRef.current !== key) throw new Error("accountChanged");
-    await saveEntity(key, entity, base, clearDraft, isCurrent);
+    await saveEntity(key, entity, base, clearDraft, isCurrent, visitedHere ? "visited" : undefined);
     if (!isCurrent()) return;
     if (entity.kind === "place") setPrefs((p) => ({ ...p, lastCategory: entity.value.categoryId }));
     await refresh();
@@ -643,7 +701,7 @@ export function App() {
     try {
       const isCurrent = () =>
         operation === capture.current && key === scopeRef.current && writeAllowed.current;
-      await saveEntity(key, entity, undefined, false, isCurrent);
+      await saveEntity(key, entity, undefined, false, isCurrent, "visited");
       if (isCurrent()) {
         await refresh();
         if (!isCurrent()) return;
@@ -933,8 +991,19 @@ export function App() {
   }, [controls.hidden]);
   const renderDetails = (record: PlaceRecord) => (
     <PlaceDetails
+      key={`${scope}:${record.id}`}
       canWrite={canWrite}
       record={record}
+      visitStatus={visits.get(record.id) ?? "none"}
+      onVisitStatus={async (status) => {
+        const key = scope;
+        const isCurrent = () =>
+          scopeRef.current === key && (authRef.current ?? "guest") === visitOwner(key);
+        await saveVisit(key, record.id, status, isCurrent);
+        if (!isCurrent()) return;
+        await refresh();
+        if (isCurrent()) sync();
+      }}
       workspace={scope}
       units={prefs.units}
       categoryColor={categoryColor}
@@ -1120,6 +1189,9 @@ export function App() {
           places,
           filtered,
           categories,
+          visitFilter,
+          setVisitFilter,
+          visits,
           filter,
           setFilter,
           search,
@@ -1145,7 +1217,7 @@ export function App() {
           void (
             canWrite
               ? resolveConflict(
-                  scope,
+                  conflicts.find((r) => r.id === id)?.kind === "visit" ? visitOwner(scope) : scope,
                   id,
                   choice,
                   () => scopeRef.current === scope && writeAllowed.current,
@@ -1347,7 +1419,7 @@ export function App() {
           onClose={() => {
             if (scopeRef.current === scope) setEditor(null);
           }}
-          onSave={(value, base) => save(value, base, true)}
+          onSave={(value, base, visitedHere) => save(value, base, true, visitedHere)}
           onDelete={
             canWrite && editor.entity && !editor.fresh
               ? () => {
@@ -1703,6 +1775,7 @@ export function App() {
               <MapPin />
             </div>
             <h3>{shared.name}</h3>
+            {shared.description && <p className="place-description">{shared.description}</p>}
             <p className="muted">
               {shared.category} · {shared.latitude.toFixed(6)}, {shared.longitude.toFixed(6)}
             </p>
@@ -1724,6 +1797,7 @@ export function App() {
                       kind: "place",
                       value: {
                         name: shared.name,
+                        ...(shared.description ? { description: shared.description } : {}),
                         latitude: shared.latitude,
                         longitude: shared.longitude,
                         accuracy: null,

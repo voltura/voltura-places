@@ -65,7 +65,9 @@ test.each(["icecream", "none"] as const)(
     expect((await readWorkspace(target)).records.some((r) => r.id === id)).toBe(false);
     await importBackup(target, backup);
     expect(
-      (await readWorkspace(target)).records.find((r) => r.value.name === "Camps")?.value,
+      (await readWorkspace(target)).records.find(
+        (r) => r.kind === "category" && r.value.name === "Camps",
+      )?.value,
     ).toEqual({ name: "Camps", icon, color: "cyan" });
     await changeWorkspace(source, (w) => {
       w.reconciled = true;

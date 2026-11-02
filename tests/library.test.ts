@@ -27,7 +27,10 @@ import {
 beforeEach(() => {
   vi.stubGlobal("window", new EventTarget());
 });
-const makePlace = (id: string = crypto.randomUUID(), name = "Trailhead"): Entity => ({
+const makePlace = (
+  id: string = crypto.randomUUID(),
+  name = "Trailhead",
+): Extract<Entity, { kind: "place" }> => ({
   id,
   kind: "place",
   value: {
@@ -132,7 +135,9 @@ describe("durable library boundaries", () => {
       expect(record.conflict).toBeUndefined();
       expect(record.revision).toBe(1);
       expect(record.dirty).toBe(edited);
-      expect(record.value.name).toBe(edited ? "Chanterelles" : "Mushrooms");
+      expect("name" in record.value ? record.value.name : undefined).toBe(
+        edited ? "Chanterelles" : "Mushrooms",
+      );
     }
   });
   test("adds the mushroom preset once without losing a queued edit or restoring a deletion", async () => {
@@ -141,13 +146,21 @@ describe("durable library boundaries", () => {
       delete w.presetRevision;
       w.reconciled = true;
       w.records = w.records.filter((r) => r.id !== "mushrooms");
-      w.records.find((r) => r.id === "outdoors")!.value.name = "My woods";
+      w.records.find(
+        (r): r is Extract<typeof r, { kind: "place" | "category" }> =>
+          r.kind !== "visit" && r.id === "outdoors",
+      )!.value.name = "My woods";
     });
     await saveEntity(key, makePlace());
     const flight = await prepareMutation(key);
     const migrated = await readWorkspace(key);
     expect(migrated.flight).toEqual(flight);
-    expect(migrated.records.find((r) => r.id === "outdoors")!.value.name).toBe("My woods");
+    expect(
+      migrated.records.find(
+        (r): r is Extract<typeof r, { kind: "place" | "category" }> =>
+          r.kind !== "visit" && r.id === "outdoors",
+      )!.value.name,
+    ).toBe("My woods");
     expect(migrated.records.find((r) => r.id === "mushrooms")).toMatchObject({
       dirty: true,
       value: { name: "Mushrooms", builtIn: "mushrooms" },
@@ -258,7 +271,7 @@ describe("durable library boundaries", () => {
     await saveEntity(key, next);
     await acknowledge(key, flight!.mutation.mutationId, { ...e, revision: 1, deleted: false });
     const saved = (await readWorkspace(key)).records.find((r) => r.id === e.id)!;
-    expect(saved.value.name).toBe("New name");
+    expect("name" in saved.value ? saved.value.name : undefined).toBe("New name");
     expect(saved.dirty).toBe(true);
     expect((await prepareMutation(key))?.mutation.baseRevision).toBe(1);
   });
@@ -292,7 +305,7 @@ describe("durable library boundaries", () => {
     expect(
       (await readWorkspace(key)).records
         .filter((r) => r.kind === "place" && !r.deleted)
-        .map((r) => r.value.name)
+        .map((r) => (r.kind !== "visit" ? r.value.name : undefined))
         .sort(),
     ).toEqual(["Imported name", "Trailhead"]);
   });
@@ -303,13 +316,15 @@ describe("durable library boundaries", () => {
     await saveEntity(key, makePlace(e.id, "Device edit"));
     await mergeSnapshot(key, [{ ...makePlace(e.id, "Cloud edit"), revision: 2, deleted: false }]);
     let w = await readWorkspace(key);
-    expect(w.records.find((r) => r.id === e.id)?.conflict?.value.name).toBe("Cloud edit");
+    expect(w.records.find((r) => r.id === e.id)?.conflict?.value).toMatchObject({
+      name: "Cloud edit",
+    });
     await resolveConflict(key, e.id, "both");
     w = await readWorkspace(key);
     expect(
       w.records
         .filter((r) => r.kind === "place" && !r.deleted)
-        .map((r) => r.value.name)
+        .map((r) => (r.kind !== "visit" ? r.value.name : undefined))
         .sort(),
     ).toEqual(["Cloud edit", "Device edit"]);
   });

@@ -151,7 +151,7 @@ test("identical pull values converge without dropping a newer dirty value", asyn
   await mergeSnapshot(key, [{ ...p, revision: 1, deleted: false }]);
   r = (await readWorkspace(key)).records.find((r) => r.id === p.id)!;
   expect(r.dirty).toBe(true);
-  expect(r.value.name).toBe("Newer device");
+  expect(r.value).toMatchObject({ name: "Newer device" });
 });
 test("online group copying fetches an uncached cloud image and reuses an equal category name", async () => {
   const from = crypto.randomUUID(),

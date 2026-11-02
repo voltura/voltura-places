@@ -169,6 +169,10 @@ test.each(["private", "group"])(
     expect((await readWorkspace(key)).records.some((r) => r.kind === "place")).toBe(false);
     expect(await getDraft(key)).toBeUndefined();
     expect(await getPhoto(key, photoId)).toBeUndefined();
-    expect((await readWorkspace(other)).records.some((r) => r.value.name === "Keep me")).toBe(true);
+    expect(
+      (await readWorkspace(other)).records.some(
+        (r) => r.kind !== "visit" && r.value.name === "Keep me",
+      ),
+    ).toBe(true);
   },
 );

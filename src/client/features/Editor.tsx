@@ -28,6 +28,8 @@ const draftSchema = z.object({
   base: entitySchema.nullable().optional(),
   id: z.string(),
   name: z.string(),
+  description: z.string().max(1000).optional(),
+  visitedHere: z.boolean().optional(),
   categoryId: z.string(),
   latitude: z.string(),
   longitude: z.string(),
@@ -58,7 +60,7 @@ export function Editor({
   categoryLabel: (r: LocalRecord) => string;
   t: (k: Message) => string;
   onClose: () => void;
-  onSave: (entity: Entity, base: Entity | null) => Promise<void>;
+  onSave: (entity: Entity, base: Entity | null, visitedHere: boolean) => Promise<void>;
   onDiscardPlace: (id: string) => Promise<void>;
   onDelete?: () => void;
   workspace: string;
@@ -75,6 +77,9 @@ export function Editor({
     [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
   const [latitude, setLat] = useState(initial ? String(initial.latitude) : ""),
     [longitude, setLng] = useState(initial ? String(initial.longitude) : "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [descriptionOpen, setDescriptionOpen] = useState(!!initial?.description);
+  const [visitedHere, setVisitedHere] = useState(false);
   const [manualLocation, setManualLocation] = useState(!initial);
   const [coordinatesExpanded, setCoordinatesExpanded] = useState(false);
   const hasValidCoordinates =
@@ -108,6 +113,7 @@ export function Editor({
     [],
   );
   const selectPosition = (p: GeolocationPosition) => {
+    setVisitedHere(true);
     setManualLocation(false);
     setLat(String(p.coords.latitude));
     setLng(String(p.coords.longitude));
@@ -120,6 +126,8 @@ export function Editor({
   };
   const latest = useRef<Record<string, unknown>>({});
   latest.current = {
+    description,
+    visitedHere,
     name,
     categoryId,
     latitude,
@@ -141,6 +149,9 @@ export function Editor({
           // Legacy drafts have no trustworthy comparison base: preserve both versions.
           comparisonBase.current = v.base ?? null;
           setName(v.name);
+          setDescription(v.description ?? initial?.description ?? "");
+          setDescriptionOpen(!!(v.description ?? initial?.description));
+          setVisitedHere(v.visitedHere ?? false);
           setCategory(v.categoryId);
           setLat(v.latitude);
           setLng(v.longitude);
@@ -176,6 +187,8 @@ export function Editor({
   useEffect(() => {
     if (ready) void setDraft(workspace, latest.current).catch(() => {});
   }, [
+    description,
+    visitedHere,
     name,
     categoryId,
     latitude,
@@ -201,6 +214,7 @@ export function Editor({
     const now = new Date().toISOString();
     const parsed = placeSchema.safeParse({
       name,
+      description,
       categoryId,
       latitude: Number(latitude.replace(",", ".")),
       longitude: Number(longitude.replace(",", ".")),
@@ -220,6 +234,7 @@ export function Editor({
       await onSave(
         { id: id.current, kind: "place", value: parsed.data as Place },
         comparisonBase.current,
+        visitedHere,
       );
       onClose();
     } catch (error) {
@@ -263,6 +278,7 @@ export function Editor({
     if (busy || photoBusy || !ready) return;
     const changed =
       name !== (initial?.name ?? "") ||
+      description !== (initial?.description ?? "") ||
       categoryId !== (initial?.categoryId ?? "other") ||
       latitude !== (initial ? String(initial.latitude) : "") ||
       longitude !== (initial ? String(initial.longitude) : "") ||
@@ -327,6 +343,26 @@ export function Editor({
               autoFocus={!fresh}
             />
           </label>
+          {descriptionOpen ? (
+            <label>
+              {t("description")}
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={description}
+                placeholder={t("descriptionHint")}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </label>
+          ) : (
+            <button
+              type="button"
+              className="description-toggle"
+              onClick={() => setDescriptionOpen(true)}
+            >
+              {t("addDescription")}
+            </button>
+          )}
           <div className="preferences-options editor-category">
             <label className="preference-row">
               <span>{t("category")}</span>
@@ -510,6 +546,7 @@ export function Editor({
               stopRefinement.current();
               setLocating(false);
               setLocationUpdated(false);
+              setVisitedHere(false);
               setManualLocation(false);
               setLat(String(position.latitude));
               setLng(String(position.longitude));

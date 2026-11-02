@@ -61,7 +61,7 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
   const records = [];
   const ids = new Set<string>();
   let cursor = "";
-  for (let page = 0; page < 200; page++) {
+  for (let page = 0; page < 800; page++) {
     if (!isCurrent()) throw new Error("accountChanged");
     const result = snapshotSchema.parse(
       await api(
@@ -123,7 +123,7 @@ export async function synchronize(
       }
       onStatus("syncing");
       // Persist exact request bodies before network access. A lost response retries the same ID/body.
-      for (let i = 0; i < 5200; i++) {
+      for (let i = 0; i < 105200; i++) {
         if (!isCurrent()) return;
         const flight = await prepareMutation(account, isCurrent);
         if (!flight) break;

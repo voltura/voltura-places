@@ -55,9 +55,12 @@ test("a cancelled editor save retains both the original record and its draft", a
   );
   current = false;
   await expect(pending).rejects.toThrow("accountChanged");
-  expect((await readWorkspace(key)).records.find((r) => r.id === original.id)?.value.name).toBe(
-    "Synthetic fixture",
-  );
+  expect(
+    (await readWorkspace(key)).records.find(
+      (r): r is Extract<typeof r, { kind: "place" | "category" }> =>
+        r.kind !== "visit" && r.id === original.id,
+    )?.value.name,
+  ).toBe("Synthetic fixture");
   expect(await getDraft(key)).toMatchObject({ id: original.id, name: "Unsaved draft" });
 });
 

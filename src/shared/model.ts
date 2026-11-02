@@ -86,6 +86,7 @@ export const categorySchema = z
 export const placeSchema = z
   .object({
     name: z.string().trim().min(1).max(160),
+    description: z.string().trim().max(1000).optional(),
     categoryId: idSchema,
     latitude: z.number().finite().min(-90).max(90),
     longitude: z.number().finite().min(-180).max(180),
@@ -97,9 +98,20 @@ export const placeSchema = z
   .strict();
 export type Place = z.infer<typeof placeSchema>;
 export type Category = z.infer<typeof categorySchema>;
+export const visitStatusSchema = z.enum(["none", "want", "visited"]);
+export type VisitStatus = z.infer<typeof visitStatusSchema>;
+export const visitSchema = z
+  .object({
+    placeId: idSchema,
+    libraryId: z.string().uuid().nullable(),
+    status: visitStatusSchema,
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
 export const entitySchema = z.discriminatedUnion("kind", [
   z.object({ id: idSchema, kind: z.literal("place"), value: placeSchema }),
   z.object({ id: idSchema, kind: z.literal("category"), value: categorySchema }),
+  z.object({ id: idSchema, kind: z.literal("visit"), value: visitSchema }),
 ]);
 export type Entity = z.infer<typeof entitySchema>;
 export type RecordState = Entity & { revision: number; deleted: boolean };
@@ -139,6 +151,10 @@ export const backupSchema = z
     exportedAt: z.string().datetime(),
     places: z.array(z.object({ id: idSchema, value: placeSchema }).strict()).max(5000),
     categories: z.array(z.object({ id: idSchema, value: categorySchema }).strict()).max(200),
+    visits: z
+      .array(z.object({ placeId: idSchema, status: visitStatusSchema }).strict())
+      .max(5000)
+      .optional(),
   })
   .strict()
   .superRefine((b, ctx) => {
@@ -148,6 +164,12 @@ export const backupSchema = z
     const cats = new Set(b.categories.map((x) => x.id));
     if (!cats.has("other") || b.places.some((p) => !cats.has(p.value.categoryId)))
       ctx.addIssue({ code: "custom", message: "Missing category" });
+    const placeIds = new Set(b.places.map((p) => p.id));
+    if (
+      new Set(b.visits?.map((v) => v.placeId)).size !== (b.visits?.length ?? 0) ||
+      b.visits?.some((v) => !placeIds.has(v.placeId))
+    )
+      ctx.addIssue({ code: "custom", message: "Invalid personal statuses" });
   });
 export type Backup = z.infer<typeof backupSchema>;
 export const starters: Entity[] = [
@@ -199,6 +221,7 @@ export const shareSchema = z
   .object({
     version: z.literal(1),
     name: placeSchema.shape.name,
+    description: placeSchema.shape.description,
     category: categorySchema.shape.name,
     latitude: placeSchema.shape.latitude,
     longitude: placeSchema.shape.longitude,
@@ -209,6 +232,7 @@ export function shareURL(p: Place, category: string, origin: string) {
     JSON.stringify({
       version: 1,
       name: p.name,
+      ...(p.description ? { description: p.description } : {}),
       category,
       latitude: p.latitude,
       longitude: p.longitude,
@@ -220,7 +244,7 @@ export function shareURL(p: Place, category: string, origin: string) {
     .replaceAll("=", "")}`;
 }
 export function parseShare(hash: string) {
-  if (!hash.startsWith("#place=") || hash.length > 4096) return null;
+  if (!hash.startsWith("#place=") || hash.length > 12288) return null;
   try {
     return shareSchema.parse(
       JSON.parse(

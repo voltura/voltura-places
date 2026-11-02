@@ -33,7 +33,9 @@ const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place
   },
 });
 const live = async (key: string) =>
-  (await readWorkspace(key)).records.filter((r) => r.kind === "place" && !r.deleted);
+  (await readWorkspace(key)).records.filter(
+    (r): r is Extract<typeof r, { kind: "place" }> => r.kind === "place" && !r.deleted,
+  );
 async function confirmWrites(key: string) {
   for (let i = 0; i < 6000; i++) {
     const flight = await prepareMutation(key);

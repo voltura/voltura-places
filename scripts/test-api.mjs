@@ -1,6 +1,7 @@
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 const origin = "http://127.0.0.1:5174";
 const mf = new Miniflare(
   convertV4MiniflareOptions({
@@ -50,6 +51,7 @@ try {
     "0006_code_invitations_only.sql",
     "0007_usage_statistics.sql",
     "0008_record_counts.sql",
+    "0009_personal_visits.sql",
   ]) {
     if (file === "0005_multiple_groups.sql") {
       await db.batch([
@@ -419,6 +421,112 @@ try {
   const sharedMutation = { ...mutation, mutationId: crypto.randomUUID(), entity: sharedEntity };
   response = await request("/api/v1/sync", { ...familyAuth(a), body: sharedMutation });
   check(response.status === 200, "Family place commits with its photo");
+  // Personal metadata uses each member's own account, never the group storage identity.
+  const makeVisit = (status) => {
+    const id =
+      "visit-" +
+      createHash("sha256")
+        .update(JSON.stringify([family.id, sharedEntity.id]))
+        .digest("hex");
+    return {
+      version: 1,
+      mutationId: crypto.randomUUID(),
+      baseRevision: 0,
+      deleted: false,
+      entity: {
+        id,
+        kind: "visit",
+        value: {
+          placeId: sharedEntity.id,
+          libraryId: family.id,
+          status,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    };
+  };
+  const aVisit = makeVisit("visited"),
+    bVisit = makeVisit("want");
+  check(
+    (await request("/api/v1/sync", { ...a, body: aVisit })).status === 200,
+    "A group member saves a private visit status",
+  );
+  check(
+    (await request("/api/v1/sync", { ...b, body: bVisit })).status === 200,
+    "Another member independently saves a different status for the same place",
+  );
+  check(
+    (await request("/api/v1/sync", { ...a, body: aVisit })).status === 200,
+    "Personal status retries retain their exact receipt",
+  );
+  const privateA = await (await request("/api/v1/sync", a)).json();
+  const privateB = await (await request("/api/v1/sync", b)).json();
+  check(
+    privateA.records.find((r) => r.id === aVisit.entity.id).value.status === "visited",
+    "The first member reads only their own status",
+  );
+  check(
+    privateB.records.find((r) => r.id === bVisit.entity.id).value.status === "want",
+    "The second member reads only their own status",
+  );
+  const groupVisits = await (await request("/api/v1/sync", familyAuth(b))).json();
+  check(
+    groupVisits.records.every((r) => r.kind !== "visit"),
+    "Group snapshots contain no personal statuses",
+  );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...familyAuth(a),
+        body: { ...aVisit, mutationId: crypto.randomUUID() },
+      })
+    ).status === 422,
+    "Even group owners cannot write personal status into shared storage",
+  );
+  check(
+    (await request("/api/v1/sync", { ...a, account: b.account, body: aVisit })).status === 409,
+    "A personal status cannot target a different account",
+  );
+  const changedRetry = {
+    ...aVisit,
+    entity: { ...aVisit.entity, value: { ...aVisit.entity.value, status: "want" } },
+  };
+  check(
+    (await request("/api/v1/sync", { ...a, body: changedRetry })).status === 422,
+    "Changed personal retry bodies are rejected",
+  );
+  const staleVisit = { ...changedRetry, mutationId: crypto.randomUUID() };
+  check(
+    (await request("/api/v1/sync", { ...a, body: staleVisit })).status === 409,
+    "Concurrent personal edits retain CAS conflicts",
+  );
+  for (const value of [
+    { ...aVisit.entity.value, status: "other" },
+    { ...aVisit.entity.value, libraryId: "invalid" },
+  ])
+    check(
+      (
+        await request("/api/v1/sync", {
+          ...a,
+          body: { ...aVisit, mutationId: crypto.randomUUID(), entity: { ...aVisit.entity, value } },
+        })
+      ).status === 422,
+      "Invalid personal references or statuses are rejected",
+    );
+  check(
+    (
+      await request("/api/v1/sync", {
+        ...a,
+        body: {
+          ...aVisit,
+          mutationId: crypto.randomUUID(),
+          entity: { ...aVisit.entity, id: crypto.randomUUID() },
+        },
+      })
+    ).status === 422,
+    "Personal IDs are canonical and cannot duplicate the same reference",
+  );
+
   const sharedSnapshot = await (await request("/api/v1/sync", familyAuth(b))).json();
   check(
     sharedSnapshot.accountId === `family:${b.account}:${family.id}` &&
@@ -652,6 +760,15 @@ try {
     ).n === 0,
     "Account deletion cascades data",
   );
+  check(
+    (
+      await db
+        .prepare("SELECT count(*) AS n FROM places_visits WHERE account_id=?")
+        .bind(a.account)
+        .first()
+    ).n === 0,
+    "Account deletion cascades personal visit statuses",
+  );
   check((await request("/api/v1/sync", a)).status === 401, "Deleted sessions cannot read data");
   for (let start = 0; start < 251; start += 25) {
     const batch = [];
@@ -680,8 +797,10 @@ try {
     await request(`/api/v1/sync?after=${encodeURIComponent(firstPage.nextCursor)}`, b)
   ).json();
   check(
-    finalPage.records.length === 1 && finalPage.nextCursor === null,
-    "Paged reads preserve the final record",
+    finalPage.records.length === 2 &&
+      finalPage.nextCursor === null &&
+      finalPage.records.some((r) => r.kind === "visit" && r.value.status === "want"),
+    "Paged reads preserve ordinary records and personal statuses across the boundary",
   );
   const codeOwner = await login("code-owner"),
     codeGuest = await login("code-guest"),

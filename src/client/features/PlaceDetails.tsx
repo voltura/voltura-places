@@ -3,7 +3,7 @@ import { mapProviders } from "../foundation/map-providers";
 import { placeDetailsName } from "../foundation/place-labels";
 import { Map, Route, ChevronDown, Share2, Pencil, Copy, Info } from "lucide-react";
 import { lazy, Suspense, useId, useState } from "react";
-import type { LocalRecord, Place, Entity } from "../../shared/model";
+import type { LocalRecord, Place, Entity, VisitStatus } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
@@ -12,6 +12,8 @@ export type PlaceRecord = LocalRecord & { kind: "place"; value: Place };
 const PlacesMap = lazy(() => import("./PlacesMap"));
 export function PlaceDetails({
   canWrite,
+  visitStatus,
+  onVisitStatus,
   record,
   workspace,
   units,
@@ -29,6 +31,8 @@ export function PlaceDetails({
   copy,
 }: {
   canWrite: boolean;
+  visitStatus: VisitStatus;
+  onVisitStatus: (status: VisitStatus) => Promise<void>;
   record: PlaceRecord;
   workspace: string;
   units: DistanceUnits;
@@ -45,8 +49,11 @@ export function PlaceDetails({
   setEditor: (value: { entity: Entity }) => void;
   copy: (text: string) => Promise<void>;
 }) {
+  const [visitBusy, setVisitBusy] = useState(false);
+  const [visitError, setVisitError] = useState(false);
   const [accuracyHelp, setAccuracyHelp] = useState(false);
   const accuracyHelpId = useId();
+  const visitHintId = useId();
   const coordinates = [record.value.latitude, record.value.longitude].map((value) =>
     Number(value.toFixed(6)),
   );
@@ -65,6 +72,42 @@ export function PlaceDetails({
             ? categoryLabel(categoryFor(record.value.categoryId)!)
             : t("other")}
         </span>
+      </div>
+      {record.value.description && <p className="place-description">{record.value.description}</p>}
+      <div className="personal-visit">
+        <label className="visit-status-row" title={t("personalVisitHint")}>
+          <span>{t("myVisitStatus")}</span>
+          <select
+            aria-label={t("myVisitStatus")}
+            aria-describedby={visitHintId}
+            value={visitStatus}
+            disabled={visitBusy}
+            onChange={async (e) => {
+              const value = e.target.value as VisitStatus;
+              setVisitBusy(true);
+              setVisitError(false);
+              try {
+                await onVisitStatus(value);
+              } catch {
+                setVisitError(true);
+              } finally {
+                setVisitBusy(false);
+              }
+            }}
+          >
+            <option value="none">{t("visitNone")}</option>
+            <option value="want">{t("visitWant")}</option>
+            <option value="visited">{t("visitVisited")}</option>
+          </select>
+        </label>
+        <span className="sr-only" id={visitHintId}>
+          {t("personalVisitHint")}
+        </span>
+        {visitError && (
+          <p className="error" role="alert">
+            {t("storageFailure")}
+          </p>
+        )}
       </div>
       <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
       <div className="details-map-actions split-actions">
