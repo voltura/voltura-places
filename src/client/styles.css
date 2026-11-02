@@ -1091,15 +1091,16 @@ hr {
   position: absolute;
   top: max(10px, env(safe-area-inset-top));
   right: max(10px, env(safe-area-inset-right));
-  background: #152132;
-  color: #f5f8ff;
-  box-shadow: 0 2px 6px #0006;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 6px var(--elevation);
 }
 .icon-button.photo-fullscreen-toggle:is(:hover, :active) {
-  background: #253750;
+  background: var(--accent-soft);
 }
 .icon-button.photo-fullscreen-toggle:focus-visible {
-  outline-color: #f5f8ff;
+  outline-color: var(--focus);
 }
 .photo-fullscreen {
   position: fixed;

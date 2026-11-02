@@ -1,3 +1,7 @@
+# 0.1.16 — Theme-colored photo fullscreen controls, 2 November 2026
+
+Photo fullscreen enter/exit controls now use the selected theme's surface, text, border, elevation, hover and focus tokens instead of fixed navy/white colors. Type/documentation checks, a production build and both existing fullscreen browser flows (390px and 1440px) pass. The shared 5173 preview confirms surface/text/border colors match all six skins in light and dark modes; light metallic and dark forest phone-sized screenshots with a synthetic photo fixture were captured and visually reviewed. Browser emulation does not verify a physical phone. Exact clean-main release validation/publication uses the standard publisher.
+
 # 0.1.15 — Descriptions and personal visit status, 2 November 2026
 
 Optional descriptions follow places through shared links, group copies, drafts, account sync and backups. Personal status uses private visit records even for group places; current-position saves atomically mark only the saving person as visited. Status filtering shares the existing search row and applies to both List and Map. Following owner screenshot feedback, the detail label and selector sit on one row at 16px without a visible helper line; the personal-status explanation remains accessible to screen readers and on hover.

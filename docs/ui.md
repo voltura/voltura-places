@@ -189,6 +189,8 @@ Authorities:
 
 Category Name/Namn has a flag and native language dropdown on the right of its heading. It starts in the current app language, independently selects the English/Swedish name being edited, preserves unfinished text in both fields and never changes the app language. A missing translation has an empty editable field with the other name as a placeholder; supplying only one name uses it in either app language. Saving trims names and omits blank translations, requiring at least one name. Untouched built-in presets keep their existing language labels and appearance-only edits do not create overrides. The compact heading wraps for enlarged text, and the existing adaptive picker measures the whole name editor when deciding whether to scroll icons or the form.
 
+The photo fullscreen enter/exit control uses the selected theme's surface, text, border, elevation, hover and focus colors, matching the other themed overlay controls in light and dark modes.
+
 ## Descriptions and personal visit status
 
 The editor offers Add description below Name. It expands an optional multiline text field (maximum 1,000 characters); existing descriptions open expanded. Description changes participate in draft recovery, dismissal confirmation and shared-place editing. Details show plain text with preserved newlines. Description text participates in search and follows shared links and group copies.
