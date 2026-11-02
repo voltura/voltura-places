@@ -149,6 +149,23 @@ export function App() {
     workspaceController,
     reconciling,
   );
+  const syncStatus =
+    scope === "guest"
+      ? online
+        ? "localOnly"
+        : "offline"
+      : !online
+        ? workspace?.records.some((r) => r.conflict) ||
+          personalWorkspace?.records.some((r) => r.conflict)
+          ? "syncConflict"
+          : workspace?.records.some((r) => r.dirty) ||
+              personalWorkspace?.records.some((r) => r.dirty)
+            ? "savedPending"
+            : "offline"
+        : status;
+  const syncWarning = syncStatus === "actionRequired" || syncStatus === "syncConflict";
+  const mobileFeedback =
+    syncWarning || ["savedPending", "retryUpload", "syncPhotoUnavailable"].includes(syncStatus);
   const renderedOperation = operations.capture();
   const [libraryOpen, setLibraryOpen] = useState<false | "selector" | "dock">(false);
   const changeLibraryOpen = useCallback(
@@ -431,7 +448,7 @@ export function App() {
           <Brand />
           <div className="header-actions">
             <button
-              className={`sync-pill ${status === "actionRequired" ? "warning" : ""}`}
+              className={`sync-pill ${syncWarning ? "warning" : ""}`}
               onClick={() => setSettings("account")}
               aria-describedby={account.account ? "account-sync-status" : undefined}
               aria-label={
@@ -453,13 +470,7 @@ export function App() {
               >
                 {!account.account
                   ? `${!navigator.onLine ? `${t("offline")} · ` : ""}${t("signIn")}`
-                  : t(
-                      (!navigator.onLine
-                        ? "offline"
-                        : scope === "guest"
-                          ? "localOnly"
-                          : status) as Message,
-                    )}
+                  : t(syncStatus)}
               </span>
             </button>
             <button
@@ -471,6 +482,11 @@ export function App() {
             </button>
           </div>
         </div>
+        {account.account && mobileFeedback && (
+          <span className="mobile-sync-feedback" aria-hidden="true">
+            {t(syncStatus)}
+          </span>
+        )}
       </header>
       {account.account && (familyCache.families.length > 0 || familyCache.inactive.length > 0) && (
         <div className="library-switcher">
@@ -658,7 +674,9 @@ export function App() {
           </div>
         </div>
       </div>
-      {notice && <Toast {...notice} closeLabel={t("close")} onClose={() => setNotice(null)} />}
+      {notice && (
+        <Toast {...notice} closeLabel={t("dismissMessage")} onClose={() => setNotice(null)} />
+      )}
       {accountChoice && !account.account && !settings && !shared && (
         <Sheet
           title={t("accountChoiceTitle")}
@@ -831,7 +849,7 @@ export function App() {
             await refreshAccount();
           }}
           onSignOut={signOut}
-          syncStatus={!navigator.onLine ? "offline" : scope === "guest" ? "localOnly" : status}
+          syncStatus={syncStatus}
           onSync={manualSync}
           onDeleteAccount={session.deleteAccount}
           onRemoveDevice={session.removeDevice}

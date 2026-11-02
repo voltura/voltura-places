@@ -1381,9 +1381,19 @@ details p {
   border-top: 1px solid var(--border);
   margin-top: 18px;
 }
-.conflict > strong {
+.conflict-version {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.conflict-version span,
+.conflict-version strong {
   display: block;
-  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.conflict-version span {
+  color: var(--muted);
 }
 .toast {
   position: fixed;
@@ -2972,7 +2982,16 @@ button.save-destination > svg {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.mobile-sync-feedback {
+  display: none;
+}
 @media (max-width: 640px) {
+  .mobile-sync-feedback {
+    display: block;
+    text-align: center;
+    font-size: 0.875rem;
+    padding: 0 12px 4px;
+  }
   .sync-pill {
     min-width: 48px;
     min-height: 48px;

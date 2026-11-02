@@ -90,6 +90,15 @@ test("private sync success or progress cannot hide a group failure", () => {
   for (const status of ["synced", "syncing", "pending", "offline"] as const) {
     expect(combineSyncStatus("actionRequired", status)).toBe("actionRequired");
   }
+  for (const problem of [
+    "syncConflict",
+    "retryUpload",
+    "retryRefresh",
+    "syncPhotoUnavailable",
+  ] as const) {
+    expect(combineSyncStatus(problem, "synced")).toBe(problem);
+    expect(combineSyncStatus("synced", problem)).toBe(problem);
+  }
   expect(combineSyncStatus("offline", "synced")).toBe("offline");
   expect(combineSyncStatus("pending", "synced")).toBe("pending");
   expect(combineSyncStatus("synced", "synced")).toBe("synced");

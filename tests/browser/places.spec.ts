@@ -799,6 +799,9 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Offline clearing");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your places 2" })).toBeVisible();
+  await page.reload();
   await expect(page.getByRole("heading", { name: "Your places 2" })).toBeVisible();
   await context.setOffline(false);
   await expect(page.locator(".save-dock .dock-hint")).toHaveCount(0);
@@ -913,7 +916,7 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
       return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
     }),
   ).toBe(true);
-  await toast.getByRole("button", { name: "Close", exact: true }).click();
+  await toast.getByRole("button", { name: "Dismiss message", exact: true }).click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Copy coordinates", exact: true }).click();
   await dialog.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();

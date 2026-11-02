@@ -345,7 +345,7 @@ test("an unavailable photo does not block downloading other referenced photos", 
   await synchronize(key, (s) => statuses.push(s));
   expect(await getPhoto(key, a)).toBeUndefined();
   expect((await getPhoto(key, b))?.uploaded).toBe(true);
-  expect(statuses.at(-1)).toBe("actionRequired");
+  expect(statuses.at(-1)).toBe("syncPhotoUnavailable");
 });
 
 test("a pull checks cached photo identities without reading every image blob", async () => {
@@ -403,7 +403,7 @@ test("sync status includes a local edit arriving while photo downloads finish", 
   });
   const statuses: string[] = [];
   await synchronize(key, (status) => statuses.push(status));
-  expect(statuses.at(-1)).toBe("pending");
+  expect(statuses.at(-1)).toBe("savedPending");
 });
 
 test("explicit device account history avoids reading all cached libraries", async () => {

@@ -251,7 +251,11 @@ test("sync failure is exposed by the phone account status description", async ({
   const accountButton = page.getByRole("button", { name: "Account & sync", exact: true });
   await expect(accountButton).toHaveAttribute("aria-describedby", "account-sync-status");
   await expect(page.locator("#account-sync-status")).toHaveAttribute("role", "status");
-  await expect(page.locator("#account-sync-status")).toHaveText("Sync needs attention");
+  await expect(page.locator("#account-sync-status")).toHaveText("Refresh delayed · will retry");
+  await expect(page.locator(".mobile-sync-feedback")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+  await accountButton.click();
+  await expect(page.locator("#settings-sync-status")).toHaveText("Refresh delayed · will retry");
 });
 for (const engine of [chromium, webkit]) {
   test(`${engine.name()} phone: manual update offers a tappable dialog above Settings and reopens after Later`, async () => {

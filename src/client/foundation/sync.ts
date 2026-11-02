@@ -3,10 +3,15 @@ export type SyncStatus =
   | "pending"
   | "syncing"
   | "offline"
+  | "savedPending"
+  | "retryRefresh"
+  | "retryUpload"
+  | "syncPhotoUnavailable"
+  | "syncConflict"
   | "actionRequired"
   | "synced"
   | "reconcilePending";
-import { api } from "./http";
+import { api, ApiError } from "./http";
 import { syncLimits } from "../../shared/limits";
 import { workspaceHeaders } from "../../shared/families";
 import { recordSchema, snapshotSchema } from "../../shared/model";
@@ -65,6 +70,14 @@ export const fetchSnapshot = async (account: string, isCurrent = () => true) => 
   }
   throw new Error("libraryLimit");
 };
+
+export function temporarySyncFailure(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof DOMException && ["TimeoutError", "NetworkError"].includes(error.name)) ||
+    (error instanceof ApiError && (error.status >= 500 || [408, 429].includes(error.status)))
+  );
+}
 
 const running = new Map<string, Promise<void>>();
 const requestedAgain = new Map<
@@ -162,6 +175,9 @@ export async function synchronize(
           },
           body: JSON.stringify(flight.mutation),
         });
+        if (!response.ok && response.status !== 409 && response.status !== 413) {
+          throw new ApiError(response.status, "mutationFailed");
+        }
         const data = mutationResultSchema.parse(await response.json());
         if (!isCurrent()) {
           return;
@@ -240,15 +256,33 @@ export async function synchronize(
         return;
       }
       onStatus(
-        missingPhoto || latest.records.some((r) => r.conflict)
-          ? "actionRequired"
-          : latest.records.some((r) => r.dirty)
-            ? "pending"
-            : "synced",
+        latest.records.some((r) => r.conflict)
+          ? "syncConflict"
+          : missingPhoto
+            ? "syncPhotoUnavailable"
+            : latest.records.some((r) => r.dirty)
+              ? "savedPending"
+              : "synced",
       );
-    } catch {
+    } catch (error) {
+      if (!isCurrent()) {
+        return;
+      }
+      let status: SyncStatus = "actionRequired";
+      if (!navigator.onLine) {
+        status = "offline";
+      } else if (temporarySyncFailure(error)) {
+        const local = await readWorkspace(account);
+        status = local.records.some((r) => r.conflict)
+          ? "syncConflict"
+          : local.flight || local.records.some((r) => r.dirty)
+            ? "retryUpload"
+            : "retryRefresh";
+      } else if (error instanceof Error && error.message === "photoUnavailable") {
+        status = "syncPhotoUnavailable";
+      }
       if (isCurrent()) {
-        onStatus(navigator.onLine ? "actionRequired" : "offline");
+        onStatus(status);
       }
     }
   };

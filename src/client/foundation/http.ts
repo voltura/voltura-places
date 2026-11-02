@@ -30,13 +30,13 @@ export async function api<T>(
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await response.json();
   if (!response.ok) {
+    const data = await response.json().catch(() => null);
     throw new ApiError(
       response.status,
       errorSchema.safeParse(data).data?.error ?? "serviceUnavailable",
     );
   }
 
-  return data as T;
+  return (await response.json()) as T;
 }

@@ -1,3 +1,4 @@
+import { ApiError } from "./http";
 import { workspaceHeaders } from "../../shared/families";
 import { PHOTO_BYTES, jpegDimensions } from "../../shared/photos";
 import { getPhoto, makeStoredPhoto, markPhotoUploaded, putPhotos } from "./photo-store";
@@ -129,7 +130,10 @@ export async function uploadPhoto(workspace: string, id: string, isCurrent = () 
     throw new Error("accountChanged");
   }
   if (!response.ok) {
-    throw new Error(response.status === 413 ? "photoQuota" : "photoUnavailable");
+    throw new ApiError(
+      response.status,
+      response.status === 413 ? "photoQuota" : "photoUploadFailed",
+    );
   }
   await markPhotoUploaded(workspace, id, photo.hash, isCurrent);
 }

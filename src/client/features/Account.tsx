@@ -229,7 +229,11 @@ export function AccountPanel({
             role="status"
             aria-live="polite"
             aria-atomic="true"
-            className={syncStatus === "actionRequired" ? "error" : "muted small"}
+            className={
+              syncStatus === "actionRequired" || syncStatus === "syncConflict"
+                ? "error"
+                : "muted small"
+            }
           >
             {t(syncStatus)}
           </p>

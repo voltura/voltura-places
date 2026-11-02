@@ -1,3 +1,4 @@
+import { messages } from "../../src/client/foundation/i18n";
 import { expect, test, type Page, type Route } from "./fixtures";
 import { readFile } from "node:fs/promises";
 
@@ -359,103 +360,122 @@ test("an open backup review stops accepting writes when group access ends", asyn
   expect(imported).toBe(false);
 });
 
-test("a visible missing photo recovers when reconnection downloads its bytes", async ({ page }) => {
-  const account = "photo-recovery-fixture";
-  const photoId = "00000000-0000-4000-8000-000000000002";
-  const record = {
-    id: "photo-recovery-place",
-    kind: "place",
-    value: { ...value("Photo recovery"), photoId },
-    revision: 1,
-    deleted: false,
-  };
-  const jpeg = await readFile("tests/fixtures/photo.jpg");
-  let available = false;
-  await page.route("**/api/account", (route) =>
-    route.fulfill({
-      json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
-    }),
-  );
-  await page.route("**/api/family", (route) => route.fulfill({ json: { families: [] } }));
-  await page.route("**/api/v1/sync", (route) =>
-    route.fulfill({ json: { version: 1, accountId: account, records: [record] } }),
-  );
-  await page.route(`**/api/v1/photos/${photoId}`, (route) =>
-    route.fulfill(
-      available
-        ? { contentType: "image/jpeg", body: jpeg }
-        : { status: 503, json: { error: "photoUnavailable" } },
-    ),
-  );
-  await page.goto("/");
-  await page.locator(".card-main").click();
-  await expect(
-    page
-      .getByRole("dialog")
-      .getByText("This photo is not available on this device yet. Connect and retry sync.", {
+for (const language of ["en", "sv"] as const) {
+  const t = messages(language);
+  test(`a visible missing photo recovers on reconnect in ${language}`, async ({ page }) => {
+    const account = "photo-recovery-fixture";
+    const photoId = "00000000-0000-4000-8000-000000000002";
+    const record = {
+      id: "photo-recovery-place",
+      kind: "place",
+      value: { ...value("Photo recovery"), photoId },
+      revision: 1,
+      deleted: false,
+    };
+    const jpeg = await readFile("tests/fixtures/photo.jpg");
+    let available = false;
+    await page.route("**/api/account", (route) =>
+      route.fulfill({
+        json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
+      }),
+    );
+    await page.route("**/api/family", (route) => route.fulfill({ json: { families: [] } }));
+    await page.route("**/api/v1/sync", (route) =>
+      route.fulfill({ json: { version: 1, accountId: account, records: [record] } }),
+    );
+    await page.route(`**/api/v1/photos/${photoId}`, (route) =>
+      route.fulfill(
+        available
+          ? { contentType: "image/jpeg", body: jpeg }
+          : { status: 503, json: { error: "photoUnavailable" } },
+      ),
+    );
+    await page.goto(`/?lang=${language}`);
+    await page.locator(".card-main").click();
+    await expect(
+      page.getByRole("dialog").getByText(t("photoUnavailable"), {
         exact: true,
       }),
-  ).toBeVisible();
-  available = true;
-  await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await expect(page.getByRole("dialog").locator(".place-photo")).toBeVisible();
-});
+    ).toBeVisible();
+    await expect(page.locator("#account-sync-status")).toHaveText(
+      language === "sv" ? "Foto saknas · försöker igen" : "Photo unavailable · will retry",
+    );
+    available = true;
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByRole("dialog").locator(".place-photo")).toBeVisible();
+  });
 
-test("an open editor preserves a cloud edit that arrives before Save", async ({
-  page,
-}, testInfo) => {
-  const account = "editor-conflict-fixture";
-  let cloud = {
-    id: "editor-conflict-place",
-    kind: "place",
-    value: value("Original cloud name"),
-    revision: 1,
-    deleted: false,
-  };
-  await page.route("**/api/account", (route) =>
-    route.fulfill({
-      json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
-    }),
-  );
-  await page.route("**/api/family", (route) => route.fulfill({ json: { families: [] } }));
-  await page.route("**/api/v1/sync", (route) =>
-    route.fulfill({ json: { version: 1, accountId: account, records: [cloud] } }),
-  );
-  await page.goto("/");
-  await page.locator(".card-main").click();
-  await page.getByRole("dialog").getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill("My editor name");
-  cloud = { ...cloud, value: value("Other device's name"), revision: 2 };
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect
-    .poll(() =>
-      page.evaluate(async (account) => {
-        const db = await new Promise<IDBDatabase>((resolve) => {
-          const r = indexedDB.open("voltura-places", 1);
-          r.onsuccess = () => resolve(r.result);
-        });
-        const result = await new Promise<{ records: { id: string; revision: number }[] }>(
-          (resolve) => {
-            const r = db.transaction("workspaces").objectStore("workspaces").get(account);
+  test(`an open editor preserves a concurrent cloud edit in ${language}`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    const account = "editor-conflict-fixture";
+    let cloud = {
+      id: "editor-conflict-place",
+      kind: "place",
+      value: value("Original cloud name"),
+      revision: 1,
+      deleted: false,
+    };
+    await page.route("**/api/account", (route) =>
+      route.fulfill({
+        json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
+      }),
+    );
+    await page.route("**/api/family", (route) => route.fulfill({ json: { families: [] } }));
+    await page.route("**/api/v1/sync", (route) =>
+      route.fulfill({ json: { version: 1, accountId: account, records: [cloud] } }),
+    );
+    await page.goto(`/?lang=${language}`);
+    await page.locator(".card-main").click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: t("editAction"), exact: true })
+      .click();
+    await page.getByRole("textbox", { name: t("name"), exact: true }).fill("My editor name");
+    cloud = { ...cloud, value: value("Other device's name"), revision: 2 };
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect
+      .poll(() =>
+        page.evaluate(async (account) => {
+          const db = await new Promise<IDBDatabase>((resolve) => {
+            const r = indexedDB.open("voltura-places", 1);
             r.onsuccess = () => resolve(r.result);
-          },
-        );
-        db.close();
+          });
+          const result = await new Promise<{ records: { id: string; revision: number }[] }>(
+            (resolve) => {
+              const r = db.transaction("workspaces").objectStore("workspaces").get(account);
+              r.onsuccess = () => resolve(r.result);
+            },
+          );
+          db.close();
 
-        return result.records.find((r) => r.id === "editor-conflict-place")?.revision;
-      }, account),
-    )
-    .toBe(2);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator(".conflict-notice")).toContainText("My editor name");
-  await expect(page.locator(".conflict-notice")).toContainText("Other device's name");
-  await page
-    .getByRole("dialog", { name: "Place details", exact: true })
-    .getByRole("button", { name: "Close", exact: true })
-    .click();
-  await page.locator(".conflict-notice").scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath("preserved-conflict.png") });
-});
+          return result.records.find((r) => r.id === "editor-conflict-place")?.revision;
+        }, account),
+      )
+      .toBe(2);
+    await page.getByRole("button", { name: t("save"), exact: true }).click();
+    await expect(page.locator("#account-sync-status")).toHaveText(
+      language === "sv" ? "Ändringskonflikt · välj version" : "Changes conflict · choose a version",
+    );
+    await expect(page.locator(".conflict-notice")).toContainText("My editor name");
+    await expect(page.locator(".conflict-notice")).toContainText("Other device's name");
+    await page
+      .getByRole("dialog", { name: t("placeDetails"), exact: true })
+      .getByRole("button", { name: t("close"), exact: true })
+      .click();
+    await page.locator(".conflict-notice").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("preserved-conflict.png") });
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await page.reload();
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator(".mobile-sync-feedback")).toHaveText(t("syncConflict"));
+    await page.getByRole("button", { name: t("account"), exact: true }).click();
+    await expect(page.locator("#settings-sync-status")).toHaveText(t("syncConflict"));
+  });
+}
 
 test("shared links arriving in an already open app are shown and scrubbed", async ({ page }) => {
   await page.goto("/");
@@ -783,8 +803,14 @@ test("keyboard focus keeps each conflict choice above the fixed save bar", async
       },
     },
   ]);
-  await page.getByRole("button", { name: "Keep device", exact: true }).focus();
-  for (const name of ["Keep device", "Keep cloud", "Keep both"]) {
+  await page
+    .getByRole("button", { name: "Keep · On this device · Keyboard fixture", exact: true })
+    .focus();
+  for (const name of [
+    "Keep · On this device · Keyboard fixture",
+    "Keep · From another device · Other version",
+    "Keep both places",
+  ]) {
     const button = page.getByRole("button", { name, exact: true });
     await expect(button).toBeFocused();
     const bounds = (await button.boundingBox())!;

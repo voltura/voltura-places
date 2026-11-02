@@ -328,62 +328,63 @@ export function LibraryView({
         {conflicts.length > 0 && (
           <section className="conflict-notice">
             <h2>{t("conflicts")}</h2>
-            <p>{t("conflictBody")}</p>
             {conflicts.map((r) => (
-              <div className="conflict" key={r.id}>
-                <strong>
-                  {r.kind === "visit"
-                    ? (places.find((p) => p.id === r.value.placeId)?.value.name ??
-                      t("myVisitStatus"))
-                    : r.value.name}
-                </strong>
-                <p>
-                  {t("device")}:{" "}
-                  {r.deleted
-                    ? t("deleted")
-                    : r.kind === "visit"
-                      ? t(
-                          r.value.status === "visited"
-                            ? "visitVisited"
-                            : r.value.status === "want"
-                              ? "visitWant"
-                              : "visitNone",
-                        )
+              <div className="conflict stack" key={r.id}>
+                {(r.kind === "visit" || r.deleted || r.conflict?.deleted) && (
+                  <strong>
+                    {r.kind === "visit"
+                      ? (places.find((p) => p.id === r.value.placeId)?.value.name ??
+                        t("myVisitStatus"))
                       : r.value.name}
-                  <br />
-                  {t("cloud")}:{" "}
-                  {r.conflict?.deleted
+                  </strong>
+                )}
+                {(["device", "cloud"] as const).map((choice) => {
+                  const version = choice === "device" ? r : r.conflict;
+                  if (!version) {
+                    return null;
+                  }
+                  const label = version.deleted
                     ? t("deleted")
-                    : r.conflict?.kind === "visit"
+                    : version.kind === "visit"
                       ? t(
-                          r.conflict.value.status === "visited"
+                          version.value.status === "visited"
                             ? "visitVisited"
-                            : r.conflict.value.status === "want"
+                            : version.value.status === "want"
                               ? "visitWant"
                               : "visitNone",
                         )
-                      : r.conflict?.value.name}
-                </p>
-                <div className="stack">
-                  {(["device", "cloud", "both"] as const)
-                    .filter((choice) => r.kind !== "visit" || choice !== "both")
-                    .map((choice) => (
+                      : version.value.name;
+
+                  return (
+                    <div className="conflict-version" key={choice}>
+                      <div>
+                        <span>{t(choice)}</span>
+                        <strong>{label}</strong>
+                      </div>
                       <button
-                        key={choice}
                         className="button outline"
+                        aria-label={`${t("keepVersion")} · ${t(choice)} · ${label}`}
                         disabled={!canWrite}
                         onClick={() => onResolve(r.id, choice)}
                       >
-                        {t(
-                          choice === "device"
-                            ? "keepDevice"
-                            : choice === "cloud"
-                              ? "keepCloud"
-                              : "keepBoth",
-                        )}
+                        {t("keepVersion")}
                       </button>
-                    ))}
-                </div>
+                    </div>
+                  );
+                })}
+                {r.kind !== "visit" && (
+                  <button
+                    className="button outline"
+                    disabled={!canWrite}
+                    onClick={() => onResolve(r.id, "both")}
+                  >
+                    {t(
+                      r.kind === "place" && !r.deleted && !r.conflict?.deleted
+                        ? "keepBothPlaces"
+                        : "keepBoth",
+                    )}
+                  </button>
+                )}
               </div>
             ))}
           </section>

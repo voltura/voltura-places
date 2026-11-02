@@ -1,3 +1,7 @@
+# 0.1.19 — Sync status and offline conflict recovery, 2 November 2026
+
+Node 24.22.2 validation passed the repository checks, production build, 222 unit tests, 173 isolated workerd/D1 authorization and data-integrity checks, and the authentication and statistics fixtures. All 90 browser scenarios in the changed manual-sync, recovery, places and audit-regression suites passed, including offline conflicts after reload and keyboard access to conflict choices. Physical devices and installed-PWA upgrades were not tested.
+
 # 0.1.18 — Application orchestration and source style, 2 November 2026
 
 Release scope includes the application orchestration refactor and source-formatting policy recorded below. Node 24.22.2 release validation passes formatting, TypeScript, architecture/documentation checks, all 222 unit/data/style tests, the production build, 173 isolated workerd/D1 authorization/CAS/recovery checks, authentication/statistics fixtures and both focused browser account/workspace A → B → A regressions. The previous complete 279-flow browser run is recorded below; it was not repeated for this release. The Places-only promo dry run contains thirteen files and regenerates both localized code-statistics pages from the release source. Both publishers use the exact validated clean-main commit. The existing bundle-size advisory remains; physical-device and installed-PWA upgrade checks remain unperformed.

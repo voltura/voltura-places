@@ -148,7 +148,8 @@ export function usePlaceEditing({
     if (!isCurrent()) {
       return;
     }
-    setStatus(operation.workspace === "guest" ? "localOnly" : "pending");
+    notify("saved");
+    setStatus(operation.workspace === "guest" ? "localOnly" : "savedPending");
     sync();
   }
 
