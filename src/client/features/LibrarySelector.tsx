@@ -31,7 +31,9 @@ export function LibrarySelector({
   const options = useRef<HTMLDivElement>(null);
   const menuId = useId();
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
     const button =
       placement === "dock"
         ? document.querySelector<HTMLButtonElement>("button.save-destination")!
@@ -39,9 +41,11 @@ export function LibrarySelector({
     if (placement === "selector") {
       button.scrollIntoView({ block: "nearest" });
       const dockHeight = document.querySelector(".save-dock")?.getBoundingClientRect().height ?? 0;
-      if (button.getBoundingClientRect().bottom > innerHeight - dockHeight - 160)
+      if (button.getBoundingClientRect().bottom > innerHeight - dockHeight - 160) {
         button.scrollIntoView({ block: "start" });
+      }
     }
+
     const sizeMenu = () => {
       const rect = button.getBoundingClientRect();
       if (placement === "dock") {
@@ -55,18 +59,22 @@ export function LibrarySelector({
         `${button.getBoundingClientRect().bottom}px`,
       );
     };
+
     sizeMenu();
     options.current
       ?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
       ?.focus({ preventScroll: true });
+
     const outside = (event: PointerEvent) => {
       if (
         event.target instanceof Element &&
         !root.current?.contains(event.target) &&
         !event.target.closest("button.save-destination")
-      )
+      ) {
         onOpenChange(false);
+      }
     };
+
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -74,10 +82,12 @@ export function LibrarySelector({
         button.focus({ preventScroll: true });
       }
     };
+
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
     window.addEventListener("resize", sizeMenu);
     window.addEventListener("scroll", sizeMenu, { passive: true });
+
     return () => {
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("keydown", escape);
@@ -87,6 +97,7 @@ export function LibrarySelector({
   }, [open, placement, onOpenChange]);
   const selected = groups.find((group) => group.value === value)?.label ?? privateLabel;
   const Icon = value !== privateValue ? Users : LockKeyhole;
+
   return (
     <div
       ref={root}
@@ -101,8 +112,9 @@ export function LibrarySelector({
             event.relatedTarget instanceof Element &&
             event.relatedTarget.closest("button.save-destination")
           )
-        )
+        ) {
           onOpenChange(false);
+        }
       }}
     >
       <button
@@ -135,17 +147,24 @@ export function LibrarySelector({
             const buttons = [...event.currentTarget.querySelectorAll("button")];
             const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
             let next: number;
-            if (event.key === "ArrowDown") next = (index + 1) % buttons.length;
-            else if (event.key === "ArrowUp") next = (index - 1 + buttons.length) % buttons.length;
-            else if (event.key === "Home") next = 0;
-            else if (event.key === "End") next = buttons.length - 1;
-            else return;
+            if (event.key === "ArrowDown") {
+              next = (index + 1) % buttons.length;
+            } else if (event.key === "ArrowUp") {
+              next = (index - 1 + buttons.length) % buttons.length;
+            } else if (event.key === "Home") {
+              next = 0;
+            } else if (event.key === "End") {
+              next = buttons.length - 1;
+            } else {
+              return;
+            }
             event.preventDefault();
             buttons[next]?.focus();
           }}
         >
           {[{ value: privateValue, label: privateLabel }, ...groups].map((group) => {
             const OptionIcon = group.value === privateValue ? LockKeyhole : Users;
+
             return (
               <button
                 key={group.value}

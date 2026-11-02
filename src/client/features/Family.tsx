@@ -14,11 +14,13 @@ import {
   Pencil,
 } from "lucide-react";
 import { z } from "zod";
-import { api, type Account } from "../foundation/sync";
+import { api } from "../foundation/http";
+import { type Account } from "../foundation/account-contract";
 import { type FamilyCache } from "../foundation/family";
 import { familyStateSchema, type Family } from "../../shared/families";
 import { Sheet } from "../ui/Sheet";
 import { type Message } from "../foundation/i18n";
+
 const knownError = (error: unknown): Message =>
   error instanceof Error &&
   [
@@ -35,6 +37,7 @@ const knownError = (error: unknown): Message =>
   ].includes(error.message)
     ? (error.message as Message)
     : "serviceUnavailable";
+
 type Props = {
   account: Account | null;
   cache: FamilyCache;
@@ -47,6 +50,7 @@ type Props = {
   focusParticipants?: boolean;
   focusCreate?: boolean;
 };
+
 export function FamilyPanel({
   account,
   cache,
@@ -59,35 +63,41 @@ export function FamilyPanel({
   focusParticipants = false,
   focusCreate = false,
 }: Props) {
-  const actionPending = useRef(false),
-    pollVersion = useRef(0);
+  const actionPending = useRef(false);
+  const pollVersion = useRef(0);
   const createName = useRef<HTMLInputElement>(null);
   const [newGroupOpen, setNewGroupOpen] = useState(focusCreate);
   useEffect(() => {
-    if (!focusCreate) return;
+    if (!focusCreate) {
+      return;
+    }
     const frame = requestAnimationFrame(() => createName.current?.focus());
+
     return () => cancelAnimationFrame(frame);
   }, [focusCreate]);
-  const participantsHeading = useRef<HTMLHeadingElement>(null),
-    requestDisplay = useRef<HTMLDivElement>(null);
-  const [name, setName] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState<Message | null>(null),
-    [copied, setCopied] = useState(false),
-    [inviteOpen, setInviteOpen] = useState(false);
-  const [renameName, setRenameName] = useState<string | null>(null),
-    [renamed, setRenamed] = useState(false);
+  const participantsHeading = useRef<HTMLHeadingElement>(null);
+  const requestDisplay = useRef<HTMLDivElement>(null);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<Message | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [renameName, setRenameName] = useState<string | null>(null);
+  const [renamed, setRenamed] = useState(false);
   const [inviteCode, setInviteCode] = useState<{
-      code: string;
-      expiresAt: number;
-      version?: string;
-    } | null>(null),
-    [joinCode, setJoinCode] = useState(""),
-    [pending, setPending] = useState<{ expiresAt: number } | null>(null),
-    [now, setNow] = useState(Date.now);
+    code: string;
+    expiresAt: number;
+    version?: string;
+  } | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [pending, setPending] = useState<{ expiresAt: number } | null>(null);
+  const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    if (!copied) return;
+    if (!copied) {
+      return;
+    }
     const timer = setTimeout(() => setCopied(false), 2000);
+
     return () => clearTimeout(timer);
   }, [copied]);
   const invitationMessage = inviteCode
@@ -97,8 +107,11 @@ export function FamilyPanel({
   const canShareInvitation = supportsNativeShare(invitationData);
   // Device detection affects only the icon; sharing always uses capabilities.
   const ShareIcon = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? Share : Share2;
+
   const copyInvitationCode = async () => {
-    if (!inviteCode) return;
+    if (!inviteCode) {
+      return;
+    }
     setError(null);
     try {
       await navigator.clipboard.writeText(inviteCode.code);
@@ -107,26 +120,33 @@ export function FamilyPanel({
       setError("familyCopyFailed");
     }
   };
+
   const shareInvitation = async () => {
     setError(null);
     try {
-      if ((await shareOrCopy(invitationData, invitationMessage)) === "copied") setCopied(true);
+      if ((await shareOrCopy(invitationData, invitationMessage)) === "copied") {
+        setCopied(true);
+      }
     } catch {
       setError("familyShareFailed");
     }
   };
+
   const [selectedGroup, setSelectedGroup] = useState(preferredGroup ?? cache.families[0]?.id ?? "");
   const family = cache.families.find((f) => f.id === selectedGroup) ?? cache.families[0] ?? null;
   const selectedGroupRef = useRef(family?.id);
   selectedGroupRef.current = family?.id;
-  const waiting = useRef(false),
-    knownGroups = useRef(new Set(cache.families.map((f) => f.id)));
+  const waiting = useRef(false);
+  const knownGroups = useRef(new Set(cache.families.map((f) => f.id)));
+
   const scoped = (body: unknown) => {
     const value = body as { action: string };
+
     return family && !["create", "code-request"].includes(value.action)
       ? { ...value, familyId: family.id }
       : value;
   };
+
   useEffect(() => {
     setInviteCode(null);
     setInviteOpen(false);
@@ -135,20 +155,30 @@ export function FamilyPanel({
     setRenamed(false);
   }, [family?.id]);
   useEffect(() => {
-    if (!focusParticipants) return;
+    if (!focusParticipants) {
+      return;
+    }
     const frame = requestAnimationFrame(() => participantsHeading.current?.focus());
+
     return () => cancelAnimationFrame(frame);
   }, [focusParticipants, family?.id]);
   const requestIds = family?.requests.map((r) => r.id).join(",") ?? "";
   useEffect(() => {
-    if (requestIds) requestDisplay.current?.scrollIntoView({ block: "start" });
+    if (requestIds) {
+      requestDisplay.current?.scrollIntoView({ block: "start" });
+    }
   }, [requestIds]);
   useEffect(() => {
-    if (!account) return;
-    let active = true,
-      inFlight = false;
+    if (!account) {
+      return;
+    }
+    let active = true;
+    let inFlight = false;
+
     const refresh = async () => {
-      if (inFlight || actionPending.current || !navigator.onLine) return;
+      if (inFlight || actionPending.current || !navigator.onLine) {
+        return;
+      }
       inFlight = true;
       const version = pollVersion.current;
       try {
@@ -157,13 +187,18 @@ export function FamilyPanel({
           const groups = response.families;
           if (waiting.current) {
             const joined = groups.find((f) => !knownGroups.current.has(f.id));
-            if (joined) setSelectedGroup(joined.id);
+            if (joined) {
+              setSelectedGroup(joined.id);
+            }
           }
           knownGroups.current = new Set(groups.map((f) => f.id));
           waiting.current = !!response.pendingRequest;
           setInviteCode((current) => {
-            if (!current?.version) return current;
+            if (!current?.version) {
+              return current;
+            }
             const group = groups.find((g) => g.id === selectedGroupRef.current);
+
             return group &&
               group.invitationVersion !== undefined &&
               group.invitationVersion !== current.version
@@ -179,18 +214,25 @@ export function FamilyPanel({
         inFlight = false;
       }
     };
+
     void refresh();
     const timer = setInterval(() => {
       setNow(Date.now());
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
     }, 5000);
+
     return () => {
       active = false;
       clearInterval(timer);
     };
   }, [account?.id]);
+
   const codeAction = async (body: unknown) => {
-    if (!account) return;
+    if (!account) {
+      return;
+    }
     actionPending.current = true;
     pollVersion.current++;
     setBusy(true);
@@ -202,7 +244,9 @@ export function FamilyPanel({
       waiting.current = !!result.pendingRequest;
       setPending(result.pendingRequest ?? null);
       setJoinCode("");
-      if ((body as { action: string }).action === "code-approve") setInviteCode(null);
+      if ((body as { action: string }).action === "code-approve") {
+        setInviteCode(null);
+      }
     } catch (e) {
       setError(knownError(e));
     } finally {
@@ -210,8 +254,11 @@ export function FamilyPanel({
       setBusy(false);
     }
   };
+
   const createCode = async () => {
-    if (!account) return;
+    if (!account) {
+      return;
+    }
     actionPending.current = true;
     pollVersion.current++;
     setBusy(true);
@@ -234,8 +281,11 @@ export function FamilyPanel({
       setBusy(false);
     }
   };
+
   const action = async (body: unknown) => {
-    if (!account) return;
+    if (!account) {
+      return;
+    }
     actionPending.current = true;
     pollVersion.current++;
     setBusy(true);
@@ -248,15 +298,18 @@ export function FamilyPanel({
         setName("");
         setNewGroupOpen(false);
       }
+
       return true;
     } catch (e) {
       setError(knownError(e));
+
       return false;
     } finally {
       actionPending.current = false;
       setBusy(false);
     }
   };
+
   const joinForms = (
     <div className="stack">
       {pending && (pending.expiresAt === 0 || pending.expiresAt > now) && (
@@ -313,6 +366,7 @@ export function FamilyPanel({
       </form>
     </div>
   );
+
   return (
     <section className="stack family-panel">
       <div className="family-heading">
@@ -364,7 +418,9 @@ export function FamilyPanel({
                 className="stack"
                 onSubmit={async (event) => {
                   event.preventDefault();
-                  if (busy || !renameName.trim()) return;
+                  if (busy || !renameName.trim()) {
+                    return;
+                  }
                   if (await action({ action: "rename", name: renameName.trim() })) {
                     setRenameName(null);
                     setRenamed(true);
@@ -439,8 +495,9 @@ export function FamilyPanel({
                       className="button outline"
                       disabled={busy}
                       onClick={() => {
-                        if (confirm(t("familyTransferConfirm")))
+                        if (confirm(t("familyTransferConfirm"))) {
                           void action({ action: "transfer", member: member.id });
+                        }
                       }}
                     >
                       {t("familyMakeOwner")}
@@ -449,8 +506,9 @@ export function FamilyPanel({
                       className="button danger"
                       disabled={busy}
                       onClick={() => {
-                        if (confirm(`${member.label}\n\n${t("familyRemoveConfirm")}`))
+                        if (confirm(`${member.label}\n\n${t("familyRemoveConfirm")}`)) {
                           void action({ action: "remove", member: member.id });
+                        }
                       }}
                     >
                       <UserMinus size={20} aria-hidden="true" />
@@ -502,8 +560,9 @@ export function FamilyPanel({
                   if (
                     !inviteCode ||
                     (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())
-                  )
+                  ) {
                     void createCode();
+                  }
                 }}
               >
                 <UserPlus size={20} />
@@ -601,7 +660,9 @@ export function FamilyPanel({
                   className="button danger"
                   disabled={busy}
                   onClick={() => {
-                    if (confirm(t("familyDeleteConfirm"))) void action({ action: "delete" });
+                    if (confirm(t("familyDeleteConfirm"))) {
+                      void action({ action: "delete" });
+                    }
                   }}
                 >
                   <Trash2 size={20} aria-hidden="true" />
@@ -614,7 +675,9 @@ export function FamilyPanel({
               className="button danger"
               disabled={busy}
               onClick={() => {
-                if (confirm(t("familyLeaveConfirm"))) void action({ action: "leave" });
+                if (confirm(t("familyLeaveConfirm"))) {
+                  void action({ action: "leave" });
+                }
               }}
             >
               <LogOut size={20} aria-hidden="true" />

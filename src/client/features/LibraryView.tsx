@@ -17,6 +17,7 @@ import type { Language, Message } from "../foundation/i18n";
 import type { PlaceRecord } from "../../shared/model";
 import { Tooltip } from "../ui/Tooltip";
 import { dateAppearsInPlaceName } from "../foundation/place-labels";
+
 const PlacesMap = lazy(() => import("./PlacesMap"));
 type Props = {
   view: "list" | "map";
@@ -58,6 +59,7 @@ type Props = {
   renderDetails: (p: PlaceRecord) => ReactNode;
   prefs: { language: Language };
 };
+
 export function LibraryView({
   view,
   setView,
@@ -107,6 +109,7 @@ export function LibraryView({
     () => new Set(places.map((p) => categoryFor(p.value.categoryId)?.id ?? "other")),
     [places, categoryFor],
   );
+
   return (
     <main
       className={`app-main${current ? "" : " library-only"}${view === "map" ? " map-view" : ""}`}

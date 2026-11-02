@@ -166,17 +166,20 @@ export const backupSchema = z
   .strict()
   .superRefine((b, ctx) => {
     const ids = [...b.places, ...b.categories].map((x) => x.id);
-    if (new Set(ids).size !== ids.length)
+    if (new Set(ids).size !== ids.length) {
       ctx.addIssue({ code: "custom", message: "Duplicate identifiers" });
+    }
     const cats = new Set(b.categories.map((x) => x.id));
-    if (!cats.has("other") || b.places.some((p) => !cats.has(p.value.categoryId)))
+    if (!cats.has("other") || b.places.some((p) => !cats.has(p.value.categoryId))) {
       ctx.addIssue({ code: "custom", message: "Missing category" });
+    }
     const placeIds = new Set(b.places.map((p) => p.id));
     if (
       new Set(b.visits?.map((v) => v.placeId)).size !== (b.visits?.length ?? 0) ||
       b.visits?.some((v) => !placeIds.has(v.placeId))
-    )
+    ) {
       ctx.addIssue({ code: "custom", message: "Invalid personal statuses" });
+    }
   });
 export type Backup = z.infer<typeof backupSchema>;
 export const starters: Entity[] = [
@@ -207,23 +210,32 @@ export const starters: Entity[] = [
   },
   { id: "other", kind: "category", value: { name: "Other", color: "slate", builtIn: "other" } },
 ];
+
 export function mapURL(provider: string, p: Pick<Place, "latitude" | "longitude" | "name">) {
   const coordinates = `${p.latitude},${p.longitude}`;
-  if (provider === "apple")
+  if (provider === "apple") {
     return `https://maps.apple.com/?ll=${encodeURIComponent(coordinates)}&q=${encodeURIComponent(p.name)}`;
-  if (provider === "geo") return `geo:0,0?q=${encodeURIComponent(`${coordinates}(${p.name})`)}`;
+  }
+  if (provider === "geo") {
+    return `geo:0,0?q=${encodeURIComponent(`${coordinates}(${p.name})`)}`;
+  }
+
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
 }
+
 export type MapAction = "show" | "navigate";
+
 export function directionsURL(
   provider: "google" | "apple",
   p: Pick<Place, "latitude" | "longitude">,
 ) {
   const destination = encodeURIComponent(`${p.latitude},${p.longitude}`);
+
   return provider === "apple"
     ? `https://maps.apple.com/directions?destination=${destination}`
     : `https://www.google.com/maps/dir/?api=1&destination=${destination}&dir_action=navigate`;
 }
+
 export const shareSchema = z
   .object({
     version: z.literal(1),
@@ -234,6 +246,7 @@ export const shareSchema = z
     longitude: placeSchema.shape.longitude,
   })
   .strict();
+
 export function shareURL(p: Place, category: string, origin: string) {
   const bytes = new TextEncoder().encode(
     JSON.stringify({
@@ -245,13 +258,17 @@ export function shareURL(p: Place, category: string, origin: string) {
       longitude: p.longitude,
     }),
   );
+
   return `${origin}/#place=${btoa(String.fromCharCode(...bytes))
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replaceAll("=", "")}`;
 }
+
 export function parseShare(hash: string) {
-  if (!hash.startsWith("#place=") || hash.length > 12288) return null;
+  if (!hash.startsWith("#place=") || hash.length > 12288) {
+    return null;
+  }
   try {
     return shareSchema.parse(
       JSON.parse(
@@ -266,19 +283,26 @@ export function parseShare(hash: string) {
     return null;
   }
 }
+
 export function validateBackup(input: unknown) {
-  const backup = backupSchema.parse(input),
-    photos = backup.photos ?? [];
+  const backup = backupSchema.parse(input);
+  const photos = backup.photos ?? [];
   const needed = new Set(backup.places.flatMap((p) => (p.value.photoId ? [p.value.photoId] : [])));
   if (
     (photos.length && backup.version !== 2) ||
     new Set(photos.map((p) => p.id)).size !== photos.length ||
     photos.length !== needed.size ||
     photos.some((p) => !needed.has(p.id))
-  )
+  ) {
     throw new Error("invalidImport");
+  }
   let bytes = 0;
-  for (const p of photos) bytes += decodePhoto(p.data).length;
-  if (bytes > PHOTO_QUOTA) throw new Error("photoQuota");
+  for (const p of photos) {
+    bytes += decodePhoto(p.data).length;
+  }
+  if (bytes > PHOTO_QUOTA) {
+    throw new Error("photoQuota");
+  }
+
   return backup;
 }

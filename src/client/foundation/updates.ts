@@ -4,6 +4,7 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
   let announced: ServiceWorker | null = null;
   let disposed = false;
   let installing: ServiceWorker | null = null;
+
   const announce = () => {
     // First installation briefly passes through waiting before activating itself.
     // A replacement needs an existing active worker as well as a waiting one.
@@ -12,8 +13,10 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
       announced = registration.waiting;
       onReady();
     }
+
     return replacement;
   };
+
   const stateChanged = () => {
     announce();
     if (installing?.state === "activated" || installing?.state === "redundant") {
@@ -21,8 +24,11 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
       installing = null;
     }
   };
+
   const trackInstallation = () => {
-    if (disposed) return;
+    if (disposed) {
+      return;
+    }
     if (installing !== registration.installing) {
       installing?.removeEventListener("statechange", stateChanged);
       installing = registration.installing;
@@ -30,34 +36,53 @@ export function watchForUpdates(registration: ServiceWorkerRegistration, onReady
     }
     announce();
   };
+
   registration.addEventListener("updatefound", trackInstallation);
   trackInstallation();
+
   const check = (force = false) => {
-    if (announce()) return Promise.resolve("ready" as const);
-    if (!navigator.onLine) return Promise.resolve("offline" as const);
-    if (pending) return pending;
-    if (!force && Date.now() - lastCheck < 10000) return Promise.resolve("checking" as const);
+    if (announce()) {
+      return Promise.resolve("ready" as const);
+    }
+    if (!navigator.onLine) {
+      return Promise.resolve("offline" as const);
+    }
+    if (pending) {
+      return pending;
+    }
+    if (!force && Date.now() - lastCheck < 10000) {
+      return Promise.resolve("checking" as const);
+    }
     lastCheck = Date.now();
     pending = (async () => {
       await registration.update();
       trackInstallation();
-      if (announce()) return "ready" as const;
+      if (announce()) {
+        return "ready" as const;
+      }
+
       return registration.installing || registration.waiting
         ? ("checking" as const)
         : ("current" as const);
     })().finally(() => {
       pending = undefined;
     });
+
     return pending;
   };
+
   const foreground = () => {
-    if (document.visibilityState === "visible") void check().catch(() => {});
+    if (document.visibilityState === "visible") {
+      void check().catch(() => {});
+    }
   };
+
   const timer = setInterval(foreground, 60000);
   window.addEventListener("focus", foreground);
   window.addEventListener("online", foreground);
   document.addEventListener("visibilitychange", foreground);
   foreground();
+
   return {
     check,
     dispose() {

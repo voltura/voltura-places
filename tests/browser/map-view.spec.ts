@@ -20,6 +20,7 @@ const record = (id: string, latitude = 59.33, longitude = 18.07, deleted = false
   generation: 1,
   dirty: true,
 });
+
 async function seed(page: Page, records: unknown[], key = "guest") {
   await page.evaluate(
     async ({ records, key }) => {
@@ -40,15 +41,18 @@ async function seed(page: Page, records: unknown[], key = "guest") {
     { records, key },
   );
 }
+
 async function start(page: Page, records: unknown[]) {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
   await seed(page, records);
 }
+
 async function openMap(page: Page) {
   await page.getByRole("button", { name: "Map", exact: true }).click();
   await expect(page.locator(".leaflet-container")).toBeVisible();
 }
+
 test.beforeEach(async ({ context }) => {
   // Synthetic local tiles: automated browsing never requests real OSM tiles.
   await context.route("https://tile.openstreetmap.org/**", (route) =>
@@ -86,8 +90,9 @@ for (const engine of [chromium, webkit]) {
       await start(page, [record("First"), record("Second"), record("Third")]);
       await openMap(page);
       const geometry = await page.locator(".places-map-cluster").evaluate((el) => {
-        const circle = el.getBoundingClientRect(),
-          number = el.querySelector("span")!.getBoundingClientRect();
+        const circle = el.getBoundingClientRect();
+        const number = el.querySelector("span")!.getBoundingClientRect();
+
         return {
           dx: Math.abs((circle.left + circle.right - number.left - number.right) / 2),
           dy: Math.abs((circle.top + circle.bottom - number.top - number.bottom) / 2),
@@ -124,7 +129,9 @@ test("map is optional, opens saved details under production CSP, and filters sha
   });
   let tileRequests = 0;
   page.on("request", (request) => {
-    if (request.url().startsWith("https://tile.openstreetmap.org/")) tileRequests++;
+    if (request.url().startsWith("https://tile.openstreetmap.org/")) {
+      tileRequests++;
+    }
   });
   await start(page, [
     record("Forest picnic"),
@@ -251,8 +258,9 @@ for (const width of [375, 390, 1280]) {
     await expect(details.getByRole("link", { name: "OpenStreetMap", exact: true })).toBeVisible();
     await details.screenshot({ path: `.artifacts/details-map-preview-${width}.png` });
     await details.getByRole("button", { name: "Expand map", exact: true }).click();
-    if (width < 1000)
+    if (width < 1000) {
       await expect(page.getByRole("dialog", { name: "Place details", exact: true })).toHaveCount(0);
+    }
     await expect(page.locator(".library-pane .places-map")).toBeVisible();
     await expect(page.getByRole("button", { name: "Map", exact: true })).toHaveAttribute(
       "aria-pressed",
@@ -268,6 +276,7 @@ for (const width of [375, 390, 1280]) {
           const pin = document
             .querySelector('.library-pane .places-map-pin[title="Forest picnic"]')!
             .getBoundingClientRect();
+
           return Math.abs((map.left + map.right - pin.left - pin.right) / 2);
         }),
       )
@@ -278,16 +287,19 @@ for (const width of [375, 390, 1280]) {
     await expect(showAll).toBeVisible();
     await allPlaces.click();
     await expect(showAll).toHaveCount(0);
+
     const expectBothPinsInMap = async () => {
       await expect
         .poll(() =>
           page.locator(".library-pane .places-map").evaluate((element) => {
             const map = element.getBoundingClientRect();
             const pins = [...element.querySelectorAll(".places-map-pin")];
+
             return (
               pins.length === 2 &&
               pins.every((pin) => {
                 const bounds = pin.getBoundingClientRect();
+
                 return (
                   bounds.left >= map.left &&
                   bounds.right <= map.right &&
@@ -300,6 +312,7 @@ for (const width of [375, 390, 1280]) {
         )
         .toBe(true);
     };
+
     await expectBothPinsInMap();
     // Repeated activation and remounting must not restore the preview target.
     await allPlaces.click();
@@ -341,11 +354,14 @@ test("phone map puts Show all inside the canvas and keeps its bottom clear of th
   await page.locator(".leaflet-control-zoom-in").click();
   await expect(showAll).toHaveCount(0);
   const map = page.locator(".library-pane .places-map");
-  for (let i = 0; i < 3; i++) await map.press("ArrowRight", { delay: 300 });
+  for (let i = 0; i < 3; i++) {
+    await map.press("ArrowRight", { delay: 300 });
+  }
   await expect(showAll).toBeVisible();
   const geometry = await page.evaluate(() => {
     const map = document.querySelector(".places-map")!.getBoundingClientRect();
     const showAll = document.querySelector(".map-show-all")!.getBoundingClientRect();
+
     return {
       top: map.top,
       height: map.height,
@@ -393,6 +409,7 @@ test("desktop map uses available width and details shrink to content with amber 
       page.evaluate(() => {
         const map = document.querySelector(".places-map")!.getBoundingClientRect();
         const pin = document.querySelector(".places-map-pin")!.getBoundingClientRect();
+
         return Math.abs((map.left + map.right - pin.left - pin.right) / 2);
       }),
     )
@@ -402,6 +419,7 @@ test("desktop map uses available width and details shrink to content with amber 
     const content = document
       .querySelector(".detail-pane .details-content")!
       .getBoundingClientRect();
+
     return panel.height - content.height;
   });
   expect(gap).toBeLessThan(8);
@@ -468,10 +486,12 @@ test("map switches between private, active and retained read-only groups without
   await seed(page, [record("Old walk", 65, 20)], `family:${identity.id}:${archived.id}`);
   await openMap(page);
   await expect(page.locator('.places-map-pin[title="Private secret"]')).toBeVisible();
+
   const choose = async (name: string) => {
     await page.getByRole("button", { name: "Choose group", exact: true }).click();
     await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   };
+
   await choose(active.name);
   await expect(page.getByRole("button", { name: "Map", exact: true })).toHaveAttribute(
     "aria-pressed",
@@ -540,15 +560,18 @@ for (const width of [375, 1280]) {
     const scrollY = await page.evaluate(() => window.scrollY);
     // Move away from the initial fit; resizing must not silently fit the pins again.
     await map.press("ArrowRight", { delay: 300 });
+
     const offset = () =>
       map.evaluate((el) => {
         const bounds = el.getBoundingClientRect();
         const pin = el.querySelector(".places-map-cluster")!.getBoundingClientRect();
+
         return {
           x: pin.x + pin.width / 2 - bounds.x - bounds.width / 2,
           y: pin.y + pin.height / 2 - bounds.y - bounds.height / 2,
         };
       });
+
     const before = await offset();
     await enter.click();
     const surface = page.getByRole("dialog", { name: "Map", exact: true });
@@ -581,7 +604,9 @@ for (const width of [375, 1280]) {
     await expect(details).toHaveCount(0);
     await expect(surface).toBeVisible();
     await surface.screenshot({ path: `.artifacts/fullscreen-map-${width}.png` });
-    for (let i = 0; i < 4; i++) await map.press("Shift+ArrowRight", { delay: 350 });
+    for (let i = 0; i < 4; i++) {
+      await map.press("Shift+ArrowRight", { delay: 350 });
+    }
     const showAll = surface.getByRole("button", { name: "Show all", exact: true });
     await expect(showAll).toBeVisible();
     const showBox = (await showAll.boundingBox())!;
@@ -651,6 +676,7 @@ for (const theme of ["light", "dark"]) {
         localStorage.setItem("places-preferences", JSON.stringify({ theme, language: "en" })),
       theme,
     );
+
     const recordsFor = (color: string) => [
       {
         id: "custom-category",
@@ -666,6 +692,7 @@ for (const theme of ["light", "dark"]) {
         value: { ...record("Color sample").value, categoryId: "custom-category" },
       },
     ];
+
     await start(page, recordsFor("red"));
     await openMap(page);
     for (const color of ["red", "orange", "yellow", "lime", "teal", "cyan"]) {

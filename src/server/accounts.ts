@@ -2,20 +2,26 @@ import { digest } from "../shared/digest";
 import type { Environment } from "./types";
 import { privateJSON as json, readJSON, RequestError } from "./http";
 import { createAuth, sendSignInCode } from "./auth";
+
 type Database = D1Database | D1DatabaseSession;
 type Provider = "chatgpt" | "google" | "email";
 type SessionRow = { account_id: string; created_at: number };
 type LinkTicket = SessionRow & { provider: string };
 
 const lifetime = 30 * 86400000;
+
 function fail(status: number, message: string): never {
   throw new RequestError(status, message);
 }
+
 const token = () => crypto.randomUUID() + crypto.randomUUID();
+
 const cookieName = (env: Environment, name: string) =>
   `${env.AUTH_ORIGIN?.startsWith("https:") ? "__Host-" : ""}places-${name}`;
+
 const cookie = (env: Environment, name: string, value: string, maxAge: number) =>
   `${cookieName(env, name)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${env.AUTH_ORIGIN?.startsWith("https:") ? "; Secure" : ""}`;
+
 const readCookie = (request: Request, env: Environment, name: string) =>
   (request.headers.get("Cookie") || "")
     .split(";")
@@ -24,6 +30,7 @@ const readCookie = (request: Request, env: Environment, name: string) =>
     ?.split("=")
     .slice(1)
     .join("=") || "";
+
 export function accountConfiguration(env: Environment, request?: Request) {
   const testers = (env.ACCOUNTS_TEST_EMAILS || "")
     .split(",")
@@ -40,6 +47,7 @@ export function accountConfiguration(env: Environment, request?: Request) {
     !!env.DB &&
     env.AUTH_SECRET?.length >= 32 &&
     !!env.AUTH_ORIGIN;
+
   return {
     enabled,
     providers: enabled
@@ -51,9 +59,13 @@ export function accountConfiguration(env: Environment, request?: Request) {
       : {},
   };
 }
+
 export async function sessionFor(request: Request, env: Environment, db: Database) {
   const raw = readCookie(request, env, "session");
-  if (!raw || raw.length > 100) return null;
+  if (!raw || raw.length > 100) {
+    return null;
+  }
+
   return db
     .prepare(
       "SELECT account_id, created_at FROM places_sessions WHERE token_hash = ? AND expires_at > ?",
@@ -61,6 +73,7 @@ export async function sessionFor(request: Request, env: Environment, db: Databas
     .bind(await digest(raw), Date.now())
     .first<SessionRow>();
 }
+
 async function proofFor(
   request: Request,
   env: Environment,
@@ -70,20 +83,29 @@ async function proofFor(
   if (provider === "chatgpt") {
     const subject =
       env.SITES_NATIVE_AUTH === "true" && request.headers.get("oai-authenticated-user-id");
-    if (!subject || subject.length > 512) fail(401, "Sign in again.");
+    if (!subject || subject.length > 512) {
+      fail(401, "Sign in again.");
+    }
     const label = request.headers.get("oai-authenticated-user-email") || "ChatGPT";
+
     return { provider, subject, label: label.slice(0, 320), authUser: null, createdAt: Date.now() };
   }
-  if (!auth) fail(401, "Sign in again.");
+  if (!auth) {
+    fail(401, "Sign in again.");
+  }
   const session = await auth.api.getSession({ headers: request.headers });
-  if (!session || !["google", "email"].includes(provider)) fail(401, "Sign in again.");
+  if (!session || !["google", "email"].includes(provider)) {
+    fail(401, "Sign in again.");
+  }
   const google = await env.DB.prepare(
     "SELECT accountId FROM auth_account WHERE userId = ? AND providerId = 'google'",
   )
     .bind(session.user.id)
     .first<{ accountId: string }>();
-  if ((provider === "google") !== !!google || (!google && !session.user.emailVerified))
+  if ((provider === "google") !== !!google || (!google && !session.user.emailVerified)) {
     fail(401, "Sign in again.");
+  }
+
   return {
     provider,
     subject: google ? google.accountId : session.user.email.toLowerCase(),
@@ -92,36 +114,49 @@ async function proofFor(
     createdAt: new Date(session.session.createdAt).getTime(),
   };
 }
+
 async function accountDetails(db: Database, id: string) {
   const methods = await db
     .prepare("SELECT provider, label FROM places_identities WHERE account_id = ? ORDER BY provider")
     .bind(id)
     .all<{ provider: string; label: string }>();
+
   return { id, methods: methods.results };
 }
+
 export async function handleAccounts(request: Request, env: Environment) {
-  const url = new URL(request.url),
-    path = url.pathname,
-    config = accountConfiguration(env, request);
-  if (path === "/api/account/config" && request.method === "GET") return json(config);
-  if (!config.enabled) return json({ error: "Account sync is not available yet." }, 503);
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const config = accountConfiguration(env, request);
+  if (path === "/api/account/config" && request.method === "GET") {
+    return json(config);
+  }
+  if (!config.enabled) {
+    return json({ error: "Account sync is not available yet." }, 503);
+  }
   try {
-    if (url.origin !== env.AUTH_ORIGIN)
+    if (url.origin !== env.AUTH_ORIGIN) {
       fail(403, "Open the main Voltura Places address to sign in.");
-    if (!["GET", "POST", "DELETE"].includes(request.method)) fail(405, "Method not allowed.");
+    }
+    if (!["GET", "POST", "DELETE"].includes(request.method)) {
+      fail(405, "Method not allowed.");
+    }
     if (
       request.method !== "GET" &&
       (request.headers.get("Origin") !== env.AUTH_ORIGIN ||
         request.headers.get("Sec-Fetch-Site") === "cross-site")
-    )
+    ) {
       fail(403, "Invalid request origin.");
+    }
     const db = env.DB.withSession?.("first-primary") || env.DB;
     let deliveryError: unknown;
+
     const getAuth = async () => {
       const auth = createAuth(env, async (data) => {
         try {
-          if (!config.providers.email || data.type !== "sign-in")
+          if (!config.providers.email || data.type !== "sign-in") {
             fail(400, "Email sign-in unavailable.");
+          }
           await sendSignInCode(env, data);
         } catch (error) {
           deliveryError = error;
@@ -129,8 +164,10 @@ export async function handleAccounts(request: Request, env: Environment) {
         }
       });
       await auth.$context;
+
       return auth;
     };
+
     if (path.startsWith("/api/auth/")) {
       const route = path.slice("/api/auth".length);
       const methods: Record<string, string> = {
@@ -140,7 +177,9 @@ export async function handleAccounts(request: Request, env: Environment) {
         "/sign-out": "POST",
         "/callback/google": "GET",
       };
-      if (methods[route] !== request.method) fail(404, "Not found.");
+      if (methods[route] !== request.method) {
+        fail(404, "Not found.");
+      }
       const now = Date.now();
       await db.batch([
         db.prepare("DELETE FROM auth_session WHERE expiresAt <= ?").bind(now),
@@ -156,8 +195,9 @@ export async function handleAccounts(request: Request, env: Environment) {
       if (request.method === "POST") {
         let body = await readJSON(request, 8192);
         if (route === "/sign-in/social") {
-          if (!config.providers.google || body.provider !== "google" || body.idToken || body.link)
+          if (!config.providers.google || body.provider !== "google" || body.idToken || body.link) {
             fail(400, "Google sign-in unavailable.");
+          }
           body = {
             provider: "google",
             disableRedirect: true,
@@ -165,26 +205,32 @@ export async function handleAccounts(request: Request, env: Environment) {
             errorCallbackURL: `${env.AUTH_ORIGIN}/?account=error`,
           };
         } else if (route.includes("email-otp")) {
-          if (typeof body.email === "string") body.email = body.email.trim().toLowerCase();
+          if (typeof body.email === "string") {
+            body.email = body.email.trim().toLowerCase();
+          }
           if (
             !config.providers.email ||
             typeof body.email !== "string" ||
             body.email.length > 254 ||
             body.email.endsWith("@identity.voltura.invalid")
-          )
+          ) {
             fail(400, "Invalid email address.");
-          if (route === "/email-otp/send-verification-otp" && body.type !== "sign-in")
+          }
+          if (route === "/email-otp/send-verification-otp" && body.type !== "sign-in") {
             fail(400, "Invalid code request.");
+          }
           if (route === "/email-otp/send-verification-otp") {
-            const recipient = await digest(body.email.toLowerCase()),
-              now = Date.now();
+            const recipient = await digest(body.email.toLowerCase());
+            const now = Date.now();
             const result = await db
               .prepare(
                 "INSERT INTO places_send_limits(recipient_hash,next_send) VALUES(?,?) ON CONFLICT(recipient_hash) DO UPDATE SET next_send = excluded.next_send WHERE next_send <= ?",
               )
               .bind(recipient, now + 60000, now)
               .run();
-            if (!result.meta.changes) fail(429, "Wait one minute before requesting another code.");
+            if (!result.meta.changes) {
+              fail(429, "Wait one minute before requesting another code.");
+            }
           }
           // Never accept identity labels or other Better Auth user fields from the browser.
           body =
@@ -198,25 +244,31 @@ export async function handleAccounts(request: Request, env: Environment) {
           body: JSON.stringify(body),
         });
       }
-      const response = await (await getAuth()).handler(request),
-        headers = new Headers(response.headers);
+      const response = await (await getAuth()).handler(request);
+      const headers = new Headers(response.headers);
       // Better Auth catches delivery errors internally; never report a code as sent when the relay failed.
-      if (deliveryError) throw deliveryError;
+      if (deliveryError) {
+        throw deliveryError;
+      }
       headers.set("Cache-Control", "private, no-store");
-      if (route === "/sign-in/email-otp" && response.ok)
+      if (route === "/sign-in/email-otp" && response.ok) {
         return new Response('{"ok":true}', { status: response.status, headers });
+      }
+
       return new Response(response.body, { status: response.status, headers });
     }
     const current = await sessionFor(request, env, db);
-    if (path === "/api/account" && request.method === "GET")
+    if (path === "/api/account" && request.method === "GET") {
       return json({
         ...config,
         account: current ? await accountDetails(db, current.account_id) : null,
       });
+    }
     if (path === "/api/account/sign-out" && request.method === "POST") {
       const expected = request.headers.get("X-Places-Account");
-      if (current && expected && expected !== current.account_id)
+      if (current && expected && expected !== current.account_id) {
         fail(409, "The signed-in account changed.");
+      }
       const providerLogout = await (
         await getAuth()
       ).api.signOut({ headers: request.headers, asResponse: true });
@@ -227,15 +279,20 @@ export async function handleAccounts(request: Request, env: Environment) {
       const response = json({ ok: true });
       response.headers.append("Set-Cookie", cookie(env, "session", "", 0));
       response.headers.append("Set-Cookie", cookie(env, "link", "", 0));
-      for (const value of providerLogout.headers.getSetCookie())
+      for (const value of providerLogout.headers.getSetCookie()) {
         response.headers.append("Set-Cookie", value);
+      }
+
       return response;
     }
     if (path === "/api/account/connect" && request.method === "POST") {
       const body = await readJSON(request, 2048);
-      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email")
+      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email") {
         fail(400, "Sign-in method unavailable.");
-      if (!config.providers[body.provider]) fail(400, "Sign-in method unavailable.");
+      }
+      if (!config.providers[body.provider]) {
+        fail(400, "Sign-in method unavailable.");
+      }
       const proof = await proofFor(
         request,
         env,
@@ -244,8 +301,8 @@ export async function handleAccounts(request: Request, env: Environment) {
       );
       let accountId;
       if (body.linking === true) {
-        const raw = readCookie(request, env, "link"),
-          hash = await digest(raw);
+        const raw = readCookie(request, env, "link");
+        const hash = await digest(raw);
         const ticket =
           raw &&
           (await db
@@ -256,17 +313,19 @@ export async function handleAccounts(request: Request, env: Environment) {
           !ticket ||
           ticket.provider !== proof.provider ||
           proof.createdAt < ticket.created_at - 1000
-        )
+        ) {
           fail(401, "Linking expired. Sign in again and retry.");
+        }
         const existing = await db
           .prepare("SELECT account_id FROM places_identities WHERE provider = ? AND subject = ?")
           .bind(proof.provider, proof.subject)
           .first<{ account_id: string }>();
-        if (existing && existing.account_id !== ticket.account_id)
+        if (existing && existing.account_id !== ticket.account_id) {
           fail(
             409,
             "This login already belongs to another Voltura account. No accounts were combined.",
           );
+        }
         const results = await db.batch([
           db
             .prepare(
@@ -283,16 +342,19 @@ export async function handleAccounts(request: Request, env: Environment) {
             ),
           db.prepare("DELETE FROM places_link_tickets WHERE token_hash = ?").bind(hash),
         ]);
-        if (!results[1].meta.changes) fail(401, "Linking expired. Sign in again and retry.");
+        if (!results[1].meta.changes) {
+          fail(401, "Linking expired. Sign in again and retry.");
+        }
         const linked = await db
           .prepare("SELECT account_id FROM places_identities WHERE provider = ? AND subject = ?")
           .bind(proof.provider, proof.subject)
           .first<{ account_id: string }>();
-        if (linked?.account_id !== ticket.account_id)
+        if (linked?.account_id !== ticket.account_id) {
           fail(
             409,
             "This login already belongs to another Voltura account. No accounts were combined.",
           );
+        }
         accountId = ticket.account_id;
       } else {
         const id = crypto.randomUUID();
@@ -314,10 +376,12 @@ export async function handleAccounts(request: Request, env: Environment) {
             .bind(proof.provider, proof.subject)
             .first<{ account_id: string }>()
         )?.account_id;
-        if (!accountId) fail(503, "Account service unavailable.");
+        if (!accountId) {
+          fail(503, "Account service unavailable.");
+        }
       }
-      const raw = token(),
-        now = Date.now();
+      const raw = token();
+      const now = Date.now();
       await db.batch([
         db
           .prepare(
@@ -335,39 +399,50 @@ export async function handleAccounts(request: Request, env: Environment) {
       const response = json({ account: await accountDetails(db, accountId) });
       response.headers.append("Set-Cookie", cookie(env, "session", raw, lifetime / 1000));
       response.headers.append("Set-Cookie", cookie(env, "link", "", 0));
+
       return response;
     }
-    if (!current) fail(401, "Sign in again.");
+    if (!current) {
+      fail(401, "Sign in again.");
+    }
     if (
       (path === "/api/account/link" || (path === "/api/account" && request.method === "DELETE")) &&
       request.headers.get("X-Places-Account") !== current.account_id
-    )
+    ) {
       fail(409, "The signed-in account changed. Reconcile its library before synchronizing.");
+    }
     if (path === "/api/account/link" && request.method === "POST") {
       const body = await readJSON(request, 2048);
-      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email")
+      if (body.provider !== "chatgpt" && body.provider !== "google" && body.provider !== "email") {
         fail(400, "Sign-in method unavailable.");
-      if (!config.providers[body.provider]) fail(400, "Sign-in method unavailable.");
-      const raw = token(),
-        now = Date.now();
+      }
+      if (!config.providers[body.provider]) {
+        fail(400, "Sign-in method unavailable.");
+      }
+      const raw = token();
+      const now = Date.now();
       await db
         .prepare(
           "INSERT INTO places_link_tickets(token_hash,account_id,provider,created_at,expires_at) VALUES(?,?,?,?,?)",
         )
         .bind(await digest(raw), current.account_id, body.provider, now, now + 300000)
         .run();
+
       return json({ ok: true }, 200, { "Set-Cookie": cookie(env, "link", raw, 300) });
     }
     if (path === "/api/account" && request.method === "DELETE") {
       const body = await readJSON(request, 1024);
-      if (body.confirm !== "delete-places-account") fail(400, "Confirm account deletion.");
+      if (body.confirm !== "delete-places-account") {
+        fail(400, "Confirm account deletion.");
+      }
       if (
         await db
           .prepare("SELECT 1 FROM places_families WHERE owner_id=?")
           .bind(current.account_id)
           .first()
-      )
+      ) {
         fail(409, "familyTransferFirst");
+      }
       await db.batch([
         db
           .prepare(
@@ -376,6 +451,7 @@ export async function handleAccounts(request: Request, env: Environment) {
           .bind(current.account_id),
         db.prepare("DELETE FROM places_accounts WHERE id = ?").bind(current.account_id),
       ]);
+
       return json({ ok: true }, 200, { "Set-Cookie": cookie(env, "session", "", 0) });
     }
     fail(404, "Not found.");

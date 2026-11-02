@@ -7,9 +7,11 @@ export const skins = [
   "matrix",
 ] as const;
 export type Skin = (typeof skins)[number];
+
 export function validSkin(value: unknown): Skin {
   return skins.includes(value as Skin) ? (value as Skin) : "forest";
 }
+
 export function applyAppearance(
   mode: "light" | "dark" | "system",
   skin: Skin,

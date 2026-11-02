@@ -1,10 +1,11 @@
 import { test, expect } from "./fixtures";
-for (const theme of ["dark", "light"])
+
+for (const theme of ["dark", "light"]) {
   for (const [width, height] of [
     [320, 740],
     [1280, 740],
     [320, 480],
-  ])
+  ]) {
     test(`category appearance persists in ${theme} at ${width}x${height}px`, async ({
       page,
     }, testInfo) => {
@@ -78,6 +79,7 @@ for (const theme of ["dark", "light"])
       const swatches = await page.locator(".color-swatch").evaluateAll((buttons) =>
         buttons.map((button) => {
           const rect = button.getBoundingClientRect();
+
           return {
             width: rect.width,
             height: rect.height,
@@ -147,6 +149,8 @@ for (const theme of ["dark", "light"])
       await expect(page.locator(".category-appearance-picker")).toHaveClass(/scroll-icons/);
       await expect(save).toBeInViewport({ ratio: 1 });
     });
+  }
+}
 
 test("explicit no icon survives editing and leaves no icon gap on category surfaces", async ({
   page,

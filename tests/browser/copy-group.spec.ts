@@ -26,6 +26,7 @@ test("copy destination is explicit and only the chosen group receives a copy", a
   const account = (await response.json()).account.id;
   const headers = { Origin: origin, "X-Places-Account": account };
   const groups: string[] = [];
+
   const create = async (name: string) => {
     const result = await context.request.post("/api/family", {
       headers,
@@ -34,17 +35,21 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     expect(result.ok()).toBe(true);
     const id = (await result.json()).familyId;
     groups.push(id);
+
     return id;
   };
+
   const records = async (id: string) => {
     const result = await context.request.get("/api/v1/sync", {
       headers: { ...headers, "X-Places-Family": id },
     });
     expect(result.ok()).toBe(true);
+
     return (await result.json()).records.filter(
       (r: { kind: string; deleted: boolean }) => r.kind === "place" && !r.deleted,
     );
   };
+
   try {
     const first = await create("Familjen");
     const longName = "Averylonggroupnamewhichwrapswithoutspacesandstillneedstobefullyreadable";
@@ -146,8 +151,9 @@ test("copy destination is explicit and only the chosen group receives a copy", a
         .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
     ).toBe(true);
   } finally {
-    for (const familyId of groups)
+    for (const familyId of groups) {
       await context.request.post("/api/family", { headers, data: { action: "delete", familyId } });
+    }
     await context.request.delete("/api/account", {
       headers,
       data: { confirm: "delete-places-account" },

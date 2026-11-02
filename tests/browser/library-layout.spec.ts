@@ -28,12 +28,15 @@ for (const [width, scale] of [
       page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".save-destination")).toHaveCount(0);
+
     const emptyGeometry = await page.evaluate(() => {
       const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+
       const library = rect(".library-pane");
       const primary = rect(".save-split");
       const picker = rect(".save-picker");
       const inner = rect(".dock-inner");
+
       return {
         centred: Math.abs(primary.x + primary.width / 2 - library.x - library.width / 2),
         leftAligned: Math.abs(primary.x - library.x),
@@ -44,12 +47,15 @@ for (const [width, scale] of [
         pickerHeight: picker.height,
       };
     });
+
     expect(emptyGeometry.pickerWidth).toBeGreaterThanOrEqual(48);
     expect(emptyGeometry.pickerHeight).toBeGreaterThanOrEqual(48);
     await expect(page.locator(".save-details, .save-secondary-row")).toHaveCount(0);
     expect(width > 700 ? emptyGeometry.leftAligned : emptyGeometry.centred).toBeLessThanOrEqual(1);
     expect(emptyGeometry.aligned).toBeLessThanOrEqual(1);
-    if (width < 640) expect(emptyGeometry.primaryWidth).toBe(emptyGeometry.libraryWidth);
+    if (width < 640) {
+      expect(emptyGeometry.primaryWidth).toBe(emptyGeometry.libraryWidth);
+    }
     await expect(page.locator(".account-indicator > svg")).toBeVisible();
     await expect(page.locator(".account-indicator .status-dot")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("library-empty.png") });
@@ -95,20 +101,25 @@ for (const [width, scale] of [
             : `Example place ${index}`,
         );
       const option = page.getByRole("combobox", { name: "Category", exact: true });
-      if (await option.locator(`option[value="${category}"]`).count())
+      if (await option.locator(`option[value="${category}"]`).count()) {
         await option.selectOption(category);
+      }
       await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
       await expect(
         page.getByRole("dialog", { name: /^(Edit place|Place saved)$/, exact: true }),
       ).toBeHidden();
-      if (width < 640)
+      if (width < 640) {
         await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
-      else await expect(page.getByRole("dialog")).toBeHidden();
+      } else {
+        await expect(page.getByRole("dialog")).toBeHidden();
+      }
     }
     await expect(page.getByRole("heading", { name: "Your places 6", exact: true })).toBeVisible();
     await expect(page.locator(".search-row")).toBeVisible();
+
     const geometry = await page.evaluate(() => {
       const rect = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+
       return {
         saveAligned: Math.abs(rect(".save-split").left - rect(".library-pane").left),
         search: rect(".search-field").top,
@@ -124,12 +135,15 @@ for (const [width, scale] of [
         ),
       };
     });
+
     expect(geometry.saveAligned).toBeLessThanOrEqual(1);
     expect(geometry.search).toBe(geometry.sort);
     expect(geometry.maps).toBe(geometry.content);
     expect(geometry.overflow).toBe(false);
     expect(geometry.chipWrap).toBe(false);
-    if (width < 640) expect(geometry.filtersOverflow).toBe(true);
+    if (width < 640) {
+      expect(geometry.filtersOverflow).toBe(true);
+    }
     await page
       .getByRole("textbox", { name: "Search your places", exact: true })
       .fill("nothing matches");
@@ -325,8 +339,9 @@ test("library selector keeps long group destinations explicit and private places
     await page.locator(".header-inner").click({ position: { x: 4, y: 4 } });
     await expect(menu).toBeHidden();
   } finally {
-    for (const familyId of ids)
+    for (const familyId of ids) {
       await context.request.post("/api/family", { headers, data: { action: "delete", familyId } });
+    }
     await context.request.delete("/api/account", {
       headers,
       data: { confirm: "delete-places-account" },

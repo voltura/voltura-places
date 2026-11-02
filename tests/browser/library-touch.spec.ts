@@ -52,11 +52,12 @@ for (const engine of [chromium, webkit]) {
       await expect(selector).toHaveText("Private places");
       await expect(page.locator(".save-destination")).toHaveText("Private places");
     } finally {
-      if (familyId)
+      if (familyId) {
         await context.request.post("/api/family", {
           headers,
           data: { action: "delete", familyId },
         });
+      }
       await context.request.delete("/api/account", {
         headers,
         data: { confirm: "delete-places-account" },

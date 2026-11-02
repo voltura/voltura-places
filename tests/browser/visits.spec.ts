@@ -46,11 +46,12 @@ for (const width of [390, 1280]) {
     ).toBeLessThan(2);
     expect(statusBlock!.height).toBeLessThanOrEqual(statusChoice!.height + 1);
     await page.screenshot({ path: testInfo.outputPath("personal-status-details.png") });
-    if (width < 700)
+    if (width < 700) {
       await page
         .getByRole("dialog", { name: "Place details", exact: true })
         .getByRole("button", { name: "Close", exact: true })
         .click();
+    }
     const statusFilter = page.getByRole("combobox", {
       name: "Filter by my visit status",
       exact: true,
@@ -180,24 +181,28 @@ test("two group members retain independent visit statuses across real account sy
           data: { provider: "chatgpt" },
         });
         expect(response.ok()).toBe(true);
+
         return (await response.json()).account;
       }),
     );
+
     const familyAction = async (index: number, data: unknown) => {
       const response = await contexts[index].request.post("/api/family", {
         headers: { Origin: origin, "X-Places-Account": accounts[index].id },
         data,
       });
       expect(response.ok()).toBe(true);
+
       return response.json();
     };
+
     const created = await familyAction(0, { action: "create", name: "Visit test group" });
     const familyId = created.familyId;
     const invitation = await familyAction(0, { action: "code-create", familyId });
     await familyAction(1, { action: "code-request", code: invitation.code });
     await familyAction(0, { action: "code-approve", familyId, member: accounts[1].id });
-    const placeId = crypto.randomUUID(),
-      stamp = new Date().toISOString();
+    const placeId = crypto.randomUUID();
+    const stamp = new Date().toISOString();
     const saved = await contexts[0].request.post("/api/v1/sync", {
       headers: { Origin: origin, "X-Places-Account": accounts[0].id, "X-Places-Family": familyId },
       data: {
@@ -261,6 +266,7 @@ test("two group members retain independent visit statuses across real account sy
             headers: { "X-Places-Account": accounts[index].id },
           });
           const records = (await response.json()).records;
+
           return records.find(
             (r: { kind: string; value: { placeId?: string } }) =>
               r.kind === "visit" && r.value.placeId === placeId,

@@ -1,5 +1,6 @@
 import { mockMapTiles } from "./fixtures";
 import { test, expect } from "./fixtures";
+
 test("two signed-in family members share photos and offline saves while private places stay private", async ({
   browser,
 }, testInfo) => {
@@ -39,10 +40,14 @@ test("two signed-in family members share photos and offline saves while private 
   const [a, b] = actors;
   await b.page.clock.install();
   let mainGroupId: string | undefined;
+
   const familyAction = (actor: typeof a, data: unknown) => {
     const headers = { Origin: origin, "X-Places-Account": actor.account };
-    if (data === undefined) return actor.context.request.get("/api/family", { headers });
+    if (data === undefined) {
+      return actor.context.request.get("/api/family", { headers });
+    }
     const body = data as { action: string; familyId?: string };
+
     return actor.context.request.post("/api/family", {
       headers,
       data: ["create", "code-request"].includes(body.action)
@@ -50,6 +55,7 @@ test("two signed-in family members share photos and offline saves while private 
         : { ...body, familyId: body.familyId ?? mainGroupId },
     });
   };
+
   try {
     await a.page.goto("/");
     await expect(a.page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
@@ -96,9 +102,14 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page.getByRole("button", { name: "Rename group", exact: true }).click();
     await groupName.fill("  Woodland group  ");
     await a.page.route("**/api/family", async (route) => {
-      if (route.request().method() === "POST" && route.request().postDataJSON().action === "rename")
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "rename"
+      ) {
         await route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
-      else await route.fallback();
+      } else {
+        await route.fallback();
+      }
     });
     await a.page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(a.page.getByRole("alert")).toBeVisible();
@@ -115,9 +126,11 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(a.page.locator(".family-group-name")).toHaveText("Forest family");
     // A failed creation offers retry without pretending an invitation exists.
     await a.page.route("**/api/family", async (route) => {
-      if (route.request().postDataJSON()?.action === "code-create")
+      if (route.request().postDataJSON()?.action === "code-create") {
         await route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
-      else await route.continue();
+      } else {
+        await route.continue();
+      }
     });
     await a.page.getByRole("button", { name: "Invite member", exact: true }).click();
     const failedInvitation = a.page.getByRole("dialog", { name: "Invite member", exact: true });
@@ -171,7 +184,9 @@ test("two signed-in family members share photos and offline saves while private 
       Object.defineProperty(navigator, "share", {
         configurable: true,
         value: async (data: ShareData) => {
-          if (state.sharing === "cancel") throw new DOMException("Dismissed", "AbortError");
+          if (state.sharing === "cancel") {
+            throw new DOMException("Dismissed", "AbortError");
+          }
           state.shared.push(data);
         },
       });
@@ -270,8 +285,9 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(a.page.locator(".toast[role=status]")).toContainText(
       "Copied to the selected group",
     );
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -319,8 +335,9 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
     ).toBeVisible();
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -329,8 +346,9 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("button", { name: "Edit place: Private chanterelles", exact: true }),
     ).toBeVisible();
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -390,8 +408,9 @@ test("two signed-in family members share photos and offline saves while private 
       ).ok(),
     ).toBe(true);
     await b.page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -414,8 +433,9 @@ test("two signed-in family members share photos and offline saves while private 
       "Synced",
     );
     await a.page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -424,15 +444,17 @@ test("two signed-in family members share photos and offline saves while private 
     await expect(
       a.page.getByRole("button", { name: "Edit place: Family picnic", exact: true }),
     ).toBeVisible();
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
       .getByRole("button", { name: "Forest family", exact: true })
       .click();
-    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -464,6 +486,7 @@ test("two signed-in family members share photos and offline saves while private 
       expect(
         await content.evaluate((el) => {
           el.scrollLeft = 100;
+
           return el.scrollLeft;
         }),
       ).toBe(0);
@@ -490,8 +513,9 @@ test("two signed-in family members share photos and offline saves while private 
       a.page.getByRole("list", { name: "Members · 1/10" }).getByRole("listitem"),
     ).toHaveCount(1);
     await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
-    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await a.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await a.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await a.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await a.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -522,8 +546,9 @@ test("two signed-in family members share photos and offline saves while private 
       true,
     );
     await b.page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible())
+    if (await b.page.getByRole("button", { name: "Later", exact: true }).isVisible()) {
       await b.page.getByRole("button", { name: "Later", exact: true }).click();
+    }
     await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
     await b.page
       .getByRole("group", { name: "Choose group", exact: true })
@@ -537,12 +562,16 @@ test("two signed-in family members share photos and offline saves while private 
       b.page.getByRole("button", { name: "Edit place: Shared chanterelles", exact: true }),
     ).toHaveCount(0);
   } finally {
-    for (const actor of actors) await actor.context.setOffline(false);
+    for (const actor of actors) {
+      await actor.context.setOffline(false);
+    }
     for (const actor of actors) {
       const groups = (await (await familyAction(actor, undefined)).json()).families ?? [];
-      for (const group of groups)
-        if (group.ownerId === actor.account)
+      for (const group of groups) {
+        if (group.ownerId === actor.account) {
           await familyAction(actor, { action: "delete", familyId: group.id });
+        }
+      }
     }
     for (const actor of actors) {
       await actor.context.request.delete("/api/account", {

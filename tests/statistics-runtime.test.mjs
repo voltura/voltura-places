@@ -22,18 +22,23 @@ test("usage API: origins, validation, private data, cache, deduplication and exp
   try {
     const db = await mf.getD1Database("DB");
     const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
-    for (const { tag } of journal.entries)
+    for (const { tag } of journal.entries) {
       for (const sql of (await readFile(`drizzle/${tag}.sql`, "utf8"))
         .split("--> statement-breakpoint")
-        .filter((s) => s.trim()))
+        .filter((s) => s.trim())) {
         await db.prepare(sql).run();
+      }
+    }
+
     const get = (headers = {}) => mf.dispatchFetch(`${origin}/api/v1/statistics`, { headers });
+
     const post = (body, headers = {}) =>
       mf.dispatchFetch(`${origin}/api/v1/activity`, {
         method: "POST",
         headers: { Origin: origin, "Content-Type": "application/json", ...headers },
         body,
       });
+
     const initial = await (await get()).json();
     for (const key of [
       "activeNow",
@@ -42,15 +47,17 @@ test("usage API: origins, validation, private data, cache, deduplication and exp
       "registeredAccounts",
       "cloudPlaces",
       "averagePersonalPlaces",
-    ])
+    ]) {
       assert.equal(initial[key], 0, key);
+    }
     assert.equal(initial.version, 1);
     assert.ok(initial.activityStartedAt > 0);
-    for (const promo of ["https://voltura.se", "http://127.0.0.1:5175"])
+    for (const promo of ["https://voltura.se", "http://127.0.0.1:5175"]) {
       assert.equal(
         (await get({ Origin: promo })).headers.get("Access-Control-Allow-Origin"),
         promo,
       );
+    }
     assert.equal((await get({ Origin: "https://example.invalid" })).status, 403);
     assert.equal((await post("{}", { Origin: "https://voltura.se" })).status, 403);
     assert.equal((await post("{}", { Origin: "" })).status, 403);
@@ -88,18 +95,19 @@ test("usage API: origins, validation, private data, cache, deduplication and exp
         ('person','category','category','private name',1,0,'m'),
         ('group','shared','place','private location',1,0,'m')`),
     ]);
-    const now = Date.now(),
-      day = 86_400_000;
+    const now = Date.now();
+    const day = 86_400_000;
     for (const [id, seen] of [
       ["expired", now - 32 * day],
       ["month", now - 29 * day],
       ["yesterday", now - day],
       ["old", now - 31 * day],
-    ])
+    ]) {
       await db
         .prepare("INSERT INTO places_activity(browser_hash,last_seen) VALUES(?,?)")
         .bind(id, seen)
         .run();
+    }
     // Warm cache is unchanged until its 60-second validity expires.
     assert.deepEqual(await (await get()).json(), initial);
     await db.prepare("UPDATE places_statistics SET generated_at=0").run();
@@ -111,7 +119,9 @@ test("usage API: origins, validation, private data, cache, deduplication and exp
     assert.equal(result.registeredAccounts, 2);
     assert.equal(result.cloudPlaces, 2);
     assert.equal(result.averagePersonalPlaces, 0.5);
-    for (const response of responses.slice(1)) assert.deepEqual(await response.json(), result);
+    for (const response of responses.slice(1)) {
+      assert.deepEqual(await response.json(), result);
+    }
     assert.deepEqual(
       Object.keys(result).sort(),
       [

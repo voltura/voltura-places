@@ -1,4 +1,5 @@
 import { test as base, type BrowserContext } from "@playwright/test";
+
 export * from "@playwright/test";
 
 export async function mockMapTiles(context: BrowserContext) {

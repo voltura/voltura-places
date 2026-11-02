@@ -7,8 +7,10 @@ import { Sheet } from "../ui/Sheet";
 type Provider = MapProvider;
 
 function MapAppIcon({ provider }: { provider: Provider }) {
-  if (provider === "geo") return <Map size={28} aria-hidden="true" />;
-  if (provider === "google")
+  if (provider === "geo") {
+    return <Map size={28} aria-hidden="true" />;
+  }
+  if (provider === "google") {
     return (
       <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true">
         <path
@@ -21,6 +23,8 @@ function MapAppIcon({ provider }: { provider: Provider }) {
         <circle cx="24" cy="19" r="6" fill="white" />
       </svg>
     );
+  }
+
   return (
     <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true">
       <defs>

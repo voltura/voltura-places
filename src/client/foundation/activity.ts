@@ -6,11 +6,16 @@ let memoryId: string | undefined;
 let ignoreSavedId = false;
 
 export function activityEnabled() {
-  if (memoryEnabled !== undefined) return memoryEnabled;
+  if (memoryEnabled !== undefined) {
+    return memoryEnabled;
+  }
   try {
     const value = localStorage.getItem(settingKey);
-    if (value !== null) return value !== "false";
+    if (value !== null) {
+      return value !== "false";
+    }
   } catch {}
+
   return true;
 }
 
@@ -19,7 +24,9 @@ export function setActivityEnabled(enabled: boolean) {
   try {
     localStorage.setItem(settingKey, String(enabled));
   } catch {}
-  if (!enabled) clearIdentifier();
+  if (!enabled) {
+    clearIdentifier();
+  }
   window.dispatchEvent(new Event(changedEvent));
 }
 
@@ -37,20 +44,23 @@ function identifier() {
     if (
       saved &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved)
-    )
+    ) {
       return saved;
+    }
     memoryId ??= crypto.randomUUID();
     localStorage.setItem(idKey, memoryId);
     ignoreSavedId = false;
   } catch {
     memoryId ??= crypto.randomUUID();
   }
+
   return memoryId;
 }
 
 export function startActivityReporting(request: typeof fetch = fetch) {
   let stopped = false;
   let pending: AbortController | undefined;
+
   const report = async () => {
     if (
       stopped ||
@@ -58,8 +68,9 @@ export function startActivityReporting(request: typeof fetch = fetch) {
       !activityEnabled() ||
       document.visibilityState !== "visible" ||
       !navigator.onLine
-    )
+    ) {
       return;
+    }
     const controller = new AbortController();
     pending = controller;
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -75,21 +86,30 @@ export function startActivityReporting(request: typeof fetch = fetch) {
     } catch {
     } finally {
       clearTimeout(timeout);
-      if (pending === controller) pending = undefined;
+      if (pending === controller) {
+        pending = undefined;
+      }
     }
   };
+
   const changed = () => {
-    if (!activityEnabled()) clearIdentifier();
-    if (!activityEnabled() || document.visibilityState !== "visible" || !navigator.onLine)
+    if (!activityEnabled()) {
+      clearIdentifier();
+    }
+    if (!activityEnabled() || document.visibilityState !== "visible" || !navigator.onLine) {
       pending?.abort();
-    else void report();
+    } else {
+      void report();
+    }
   };
+
   const storage = (event: StorageEvent) => {
     if (event.key === settingKey || event.key === null) {
       memoryEnabled = undefined;
       changed();
     }
   };
+
   const timer = setInterval(() => void report(), 60_000);
   document.addEventListener("visibilitychange", changed);
   window.addEventListener("online", changed);
@@ -97,6 +117,7 @@ export function startActivityReporting(request: typeof fetch = fetch) {
   window.addEventListener(changedEvent, changed);
   window.addEventListener("storage", storage);
   changed();
+
   return () => {
     stopped = true;
     pending?.abort();

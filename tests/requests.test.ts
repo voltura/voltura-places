@@ -7,6 +7,7 @@ const request = (body: BodyInit, type = "application/json") =>
     headers: { "Content-Type": type },
     body,
   });
+
 test("JSON media types are case insensitive but suffix lookalikes are rejected", async () => {
   await expect(readJSON(request("{}", "Application/JSON; charset=utf-8"), 100)).resolves.toEqual(
     {},
@@ -38,11 +39,15 @@ function streamed(chunks: Uint8Array[], cancel = () => {}) {
   let index = 0;
   const stream = new ReadableStream<Uint8Array>({
     pull(controller) {
-      if (index < chunks.length) controller.enqueue(chunks[index++]);
-      else controller.close();
+      if (index < chunks.length) {
+        controller.enqueue(chunks[index++]);
+      } else {
+        controller.close();
+      }
     },
     cancel,
   });
+
   return { body: stream } as Request;
 }
 

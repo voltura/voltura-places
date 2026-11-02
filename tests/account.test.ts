@@ -21,9 +21,13 @@ test("unavailable browser settings storage does not prevent online account disco
   let failLogout = false;
   const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
     if (String(url).endsWith("sign-out")) {
-      if (failLogout) throw new Error("offline");
+      if (failLogout) {
+        throw new Error("offline");
+      }
+
       return Response.json({ ok: true });
     }
+
     return Response.json(state);
   });
   try {

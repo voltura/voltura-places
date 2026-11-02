@@ -8,6 +8,7 @@ import {
 } from "../foundation/location-review";
 import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
+
 export function LocationReview({
   t,
   onConfirm,
@@ -24,13 +25,14 @@ export function LocationReview({
     running: true,
     error: null,
   });
-  const [attempt, setAttempt] = useState(0),
-    [now, setNow] = useState(Date.now);
+  const [attempt, setAttempt] = useState(0);
+  const [now, setNow] = useState(Date.now);
   useEffect(() => {
     setNow(Date.now());
     setState({ position: null, running: true, error: null });
     const stop = watchLocation(setState);
     const timer = setInterval(() => setNow(Date.now()), 1000);
+
     return () => {
       stop();
       clearInterval(timer);
@@ -42,6 +44,7 @@ export function LocationReview({
   const quality = t(
     level === 4 ? "gpsExcellent" : level === 3 ? "gpsGood" : level === 2 ? "gpsFair" : "gpsWeak",
   );
+
   return (
     <Sheet title={t("reviewLocation")} onClose={onClose} closeLabel={t("close")}>
       <div className="stack gps-review">
@@ -90,7 +93,9 @@ export function LocationReview({
               className="button primary"
               disabled={!fresh}
               onClick={() => {
-                if (freshPosition(state.position)) onConfirm(state.position!);
+                if (freshPosition(state.position)) {
+                  onConfirm(state.position!);
+                }
               }}
             >
               {t("confirmLocation")}

@@ -16,8 +16,10 @@ export function stockholmMidnight(now: number) {
     second: "2-digit",
     hourCycle: "h23",
   });
+
   const parts = (time: number) =>
     Object.fromEntries(format.formatToParts(time).map((p) => [p.type, p.value]));
+
   const current = parts(now);
   const target = Date.UTC(+current.year, +current.month - 1, +current.day);
   let result = target;
@@ -25,6 +27,7 @@ export function stockholmMidnight(now: number) {
     const p = parts(result);
     result += target - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
   }
+
   return result;
 }
 
@@ -37,21 +40,34 @@ export async function handleStatistics(request: Request, env: Environment) {
     origin === "https://voltura.se" ||
     (local && origin === "http://127.0.0.1:5175");
   const headers: Record<string, string> = { "Cache-Control": "no-store", Vary: "Origin" };
-  if (!activity && origin && allowed) headers["Access-Control-Allow-Origin"] = origin;
+  if (!activity && origin && allowed) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
   const json = (body: unknown, status = 200) => Response.json(body, { status, headers });
-  if (activity ? request.method !== "POST" : request.method !== "GET")
+
+  if (activity ? request.method !== "POST" : request.method !== "GET") {
     return json({ error: "methodNotAllowed" }, 405);
-  if (activity && !hasCanonicalOrigin(request, env.AUTH_ORIGIN))
+  }
+  if (activity && !hasCanonicalOrigin(request, env.AUTH_ORIGIN)) {
     return json({ error: "invalidOrigin" }, 403);
-  if (!activity && origin && !allowed) return json({ error: "invalidOrigin" }, 403);
-  if (!env.DB || !env.AUTH_SECRET) return json({ error: "serviceUnavailable" }, 503);
+  }
+  if (!activity && origin && !allowed) {
+    return json({ error: "invalidOrigin" }, 403);
+  }
+  if (!env.DB || !env.AUTH_SECRET) {
+    return json({ error: "serviceUnavailable" }, 503);
+  }
   const now = Date.now();
   if (activity) {
     let input;
     try {
       input = await readJSON(request, 128);
     } catch (error) {
-      if (!(error instanceof RequestError)) throw error;
+      if (!(error instanceof RequestError)) {
+        throw error;
+      }
+
       return json({ error: "invalidActivity" }, error.status);
     }
     if (
@@ -60,8 +76,9 @@ export async function handleStatistics(request: Request, env: Environment) {
       !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         input.browserId,
       )
-    )
+    ) {
       return json({ error: "invalidActivity" }, 422);
+    }
     const hash = await digest(
       `places-activity:${env.AUTH_SECRET}:${input.browserId.toLowerCase()}`,
     );
@@ -74,6 +91,7 @@ export async function handleStatistics(request: Request, env: Environment) {
         now - 31 * day,
       ),
     ]);
+
     return json({ ok: true });
   }
   // The conditional update serializes refreshes in D1, including concurrent cache misses.
@@ -95,7 +113,10 @@ export async function handleStatistics(request: Request, env: Environment) {
   const row = await env.DB.prepare(
     "SELECT started_at,generated_at,payload FROM places_statistics WHERE id=1",
   ).first<{ started_at: number; generated_at: number; payload: string }>();
-  if (!row?.payload) return json({ error: "serviceUnavailable" }, 503);
+  if (!row?.payload) {
+    return json({ error: "serviceUnavailable" }, 503);
+  }
+
   return json({
     version: 1,
     generatedAt: row.generated_at,

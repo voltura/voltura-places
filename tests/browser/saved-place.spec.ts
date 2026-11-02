@@ -40,8 +40,10 @@ test("just-saved place stays editable and discard deletes only after confirmatio
     const originalPut = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (...args) {
       const value = args[0] as { records?: { deleted: boolean }[] };
-      if (this.name === "workspaces" && value.records?.some((r) => r.deleted))
+      if (this.name === "workspaces" && value.records?.some((r) => r.deleted)) {
         throw new DOMException("Storage fixture", "QuotaExceededError");
+      }
+
       return originalPut.apply(this, args);
     };
     Object.assign(window, {
@@ -66,6 +68,7 @@ test("just-saved place stays editable and discard deletes only after confirmatio
   await page.reload();
   await expect(page.locator(".place-card")).toHaveCount(1);
   await expect(page.locator(".place-card")).toContainText("Saved fixture");
+
   const state = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("voltura-places", 1);
@@ -79,11 +82,13 @@ test("just-saved place stays editable and discard deletes only after confirmatio
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error);
         });
+
       return { workspace: await read("workspaces"), draft: await read("drafts") };
     } finally {
       db.close();
     }
   });
+
   const workspace = state.workspace as {
     records: { kind: string; deleted: boolean; dirty: boolean }[];
   };

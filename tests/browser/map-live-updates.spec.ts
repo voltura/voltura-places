@@ -15,6 +15,7 @@ test("background map updates preserve pin focus and update its label and colour"
     dirty: false,
     deleted: false,
   }));
+
   const place = (id: string, name: string, latitude: number, longitude: number) => ({
     id,
     kind: "place",
@@ -32,6 +33,7 @@ test("background map updates preserve pin focus and update its label and colour"
     dirty: true,
     deleted: false,
   });
+
   const write = async (records: unknown[]) =>
     page.evaluate(async (records) => {
       const db = await new Promise<IDBDatabase>((resolve) => {
@@ -49,8 +51,9 @@ test("background map updates preserve pin focus and update its label and colour"
       db.close();
       window.dispatchEvent(new Event("places-library"));
     }, records);
-  const first = place("first", "First fixture", -35, -60),
-    second = place("second", "Second fixture", 35, 60);
+
+  const first = place("first", "First fixture", -35, -60);
+  const second = place("second", "Second fixture", 35, 60);
   await write([...records, first, second]);
   await page.getByRole("button", { name: "Map", exact: true }).click();
   const pin = page.locator('.places-map-pin[title="First fixture"]');

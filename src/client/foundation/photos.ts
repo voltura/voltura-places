@@ -1,23 +1,34 @@
 import { workspaceHeaders } from "../../shared/families";
 import { PHOTO_BYTES, jpegDimensions } from "../../shared/photos";
 import { getPhoto, makeStoredPhoto, markPhotoUploaded, putPhotos } from "./photo-store";
+
 export async function preparePhoto(file: File, workspace: string, isCurrent = () => true) {
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (!file.type.startsWith("image/") || file.size > 32 * 1024 * 1024)
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (!file.type.startsWith("image/") || file.size > 32 * 1024 * 1024) {
     throw new Error("invalidPhoto");
-  const url = URL.createObjectURL(file),
-    image = new Image();
+  }
+  const url = URL.createObjectURL(file);
+  const image = new Image();
   try {
     image.src = url;
     await image.decode();
-    if (!isCurrent()) throw new Error("accountChanged");
-    if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 80000000)
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
+    if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 80000000) {
       throw new Error("invalidPhoto");
-    const canvas = document.createElement("canvas"),
-      context = canvas.getContext("2d", { alpha: false });
-    if (!context) throw new Error("invalidPhoto");
+    }
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) {
+      throw new Error("invalidPhoto");
+    }
     for (const maximum of [1280, 960, 640]) {
-      if (!isCurrent()) throw new Error("accountChanged");
+      if (!isCurrent()) {
+        throw new Error("accountChanged");
+      }
       const scale = Math.min(1, maximum / Math.max(image.naturalWidth, image.naturalHeight));
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -25,15 +36,22 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.82, 0.65, 0.45]) {
-        if (!isCurrent()) throw new Error("accountChanged");
+        if (!isCurrent()) {
+          throw new Error("accountChanged");
+        }
         const blob = await new Promise<Blob | null>((resolve) =>
           canvas.toBlob(resolve, "image/jpeg", quality),
         );
-        if (!isCurrent()) throw new Error("accountChanged");
+        if (!isCurrent()) {
+          throw new Error("accountChanged");
+        }
         if (blob && blob.size <= PHOTO_BYTES) {
           const photo = await makeStoredPhoto(workspace, crypto.randomUUID(), blob);
-          if (!isCurrent()) throw new Error("accountChanged");
+          if (!isCurrent()) {
+            throw new Error("accountChanged");
+          }
           await putPhotos([photo], isCurrent);
+
           return photo.id;
         }
       }
@@ -43,37 +61,62 @@ export async function preparePhoto(file: File, workspace: string, isCurrent = ()
     URL.revokeObjectURL(url);
   }
 }
+
 export async function loadPhoto(workspace: string, id: string, isCurrent = () => true) {
-  if (!isCurrent()) throw new Error("accountChanged");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
   const cached = await getPhoto(workspace, id);
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (cached) return cached.blob;
-  if (workspace === "guest" || !navigator.onLine) throw new Error("photoUnavailable");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (cached) {
+    return cached.blob;
+  }
+  if (workspace === "guest" || !navigator.onLine) {
+    throw new Error("photoUnavailable");
+  }
   const response = await fetch(`/api/v1/photos/${id}`, {
     credentials: "same-origin",
     cache: "no-store",
     headers: workspaceHeaders(workspace),
     signal: AbortSignal.timeout(20000),
   });
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (!response.ok) throw new Error("photoUnavailable");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (!response.ok) {
+    throw new Error("photoUnavailable");
+  }
   const buffer = await response.arrayBuffer();
   jpegDimensions(new Uint8Array(buffer));
   const photo = await makeStoredPhoto(workspace, id, new Blob([buffer], { type: "image/jpeg" }));
-  if (!isCurrent()) throw new Error("accountChanged");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
   await putPhotos([{ ...photo, uploaded: true }], isCurrent);
+
   return photo.blob;
 }
+
 export async function uploadPhoto(workspace: string, id: string, isCurrent = () => true) {
-  if (!isCurrent()) throw new Error("accountChanged");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
   let photo = await getPhoto(workspace, id);
   if (!photo) {
     await loadPhoto(workspace, id, isCurrent);
     photo = await getPhoto(workspace, id);
   }
-  if (!photo) throw new Error("photoUnavailable");
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (photo.uploaded) return;
+  if (!photo) {
+    throw new Error("photoUnavailable");
+  }
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (photo.uploaded) {
+    return;
+  }
   const response = await fetch(`/api/v1/photos/${id}`, {
     method: "PUT",
     credentials: "same-origin",
@@ -82,7 +125,11 @@ export async function uploadPhoto(workspace: string, id: string, isCurrent = () 
     body: photo.blob,
     signal: AbortSignal.timeout(20000),
   });
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (!response.ok) throw new Error(response.status === 413 ? "photoQuota" : "photoUnavailable");
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (!response.ok) {
+    throw new Error(response.status === 413 ? "photoQuota" : "photoUnavailable");
+  }
   await markPhotoUploaded(workspace, id, photo.hash, isCurrent);
 }

@@ -9,6 +9,7 @@ export function useCurrentPosition() {
     clearTimeout(expiry.current);
     if (!next || !validPosition(next)) {
       setPosition(null);
+
       return;
     }
     setPosition(next);
@@ -20,26 +21,35 @@ export function useCurrentPosition() {
     let generation = 0;
     let permission: PermissionStatus | undefined;
     let poll: ReturnType<typeof setInterval> | undefined;
+
     const stop = () => {
       generation++;
       clearInterval(poll);
       poll = undefined;
     };
+
     const update = () => {
       stop();
       if (document.hidden || permission?.state !== "granted") {
         rememberPosition(null);
+
         return;
       }
       const request = generation;
+
       const locate = () => {
         const failed = () => {
-          if (active && request === generation) rememberPosition(null);
+          if (active && request === generation) {
+            rememberPosition(null);
+          }
         };
+
         try {
           navigator.geolocation.getCurrentPosition(
             (next) => {
-              if (active && request === generation) rememberPosition(next);
+              if (active && request === generation) {
+                rememberPosition(next);
+              }
             },
             failed,
             { maximumAge: 0, timeout: 15000, enableHighAccuracy: false },
@@ -48,9 +58,11 @@ export function useCurrentPosition() {
           failed();
         }
       };
+
       locate();
       poll = setInterval(locate, 30000);
     };
+
     // Save position can supply a fix even without a usable Permissions API.
     document.addEventListener("visibilitychange", update);
     // Querying permission never opens the browser's location prompt.
@@ -61,13 +73,16 @@ export function useCurrentPosition() {
       void Promise.resolve()
         .then(() => navigator.permissions.query({ name: "geolocation" }))
         .then((result) => {
-          if (!active) return;
+          if (!active) {
+            return;
+          }
           permission = result;
           permission.addEventListener("change", update);
           update();
         })
         .catch(() => {});
     }
+
     return () => {
       active = false;
       stop();
@@ -76,5 +91,6 @@ export function useCurrentPosition() {
       document.removeEventListener("visibilitychange", update);
     };
   }, [rememberPosition]);
+
   return { position, rememberPosition };
 }

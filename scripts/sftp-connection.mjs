@@ -4,10 +4,13 @@ import { spawnSync } from "node:child_process";
 import SftpClient from "ssh2-sftp-client";
 
 export const host = "ssh.voltura.se";
+
 export function credentialPaths(environment = process.env) {
-  if (process.platform !== "win32" || !environment.LOCALAPPDATA)
+  if (process.platform !== "win32" || !environment.LOCALAPPDATA) {
     throw new Error("Publishing requires Windows and PowerShell 7.");
+  }
   const directory = path.join(environment.LOCALAPPDATA, "Voltura Air");
+
   return {
     password: path.join(directory, "site-publish-sftp-password.dpapi"),
     fingerprint: path.join(directory, "site-publish-sftp-host.sha256"),
@@ -22,10 +25,12 @@ export function loadPassword(paths = credentialPaths(), execute = spawnSync) {
     encoding: "utf8",
     windowsHide: true,
   });
-  if (result.error || result.status !== 0 || !result.stdout)
+  if (result.error || result.status !== 0 || !result.stdout) {
     throw new Error(
       "Cannot unlock the shared SFTP password. Run npm run publish:site:password from your Windows account.",
     );
+  }
+
   return result.stdout;
 }
 
@@ -42,14 +47,18 @@ export async function connectSftp({
   try {
     known = (await read(paths.fingerprint, "utf8")).trim();
   } catch (error) {
-    if (error.code !== "ENOENT") throw error;
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
   }
-  if (known && !/^[a-f0-9]{64}$/i.test(known))
+  if (known && !/^[a-f0-9]{64}$/i.test(known)) {
     throw new Error("Stored SSH fingerprint is invalid.");
-  if (!known && !allowFirstUse)
+  }
+  if (!known && !allowFirstUse) {
     throw new Error(
       "No stored SSH fingerprint. First connect using an authorized publish command; listing never creates a trust record.",
     );
+  }
   let observed;
   let mismatch = false;
   const client = create();
@@ -63,15 +72,18 @@ export async function connectSftp({
       hostVerifier: (fingerprint) => {
         observed = fingerprint;
         mismatch = Boolean(known && known !== fingerprint);
+
         return !mismatch;
       },
     });
     if (!known) {
-      if (!/^[a-f0-9]{64}$/i.test(observed || ""))
+      if (!/^[a-f0-9]{64}$/i.test(observed || "")) {
         throw new Error("Server did not supply a valid SSH fingerprint.");
+      }
       await makeDirectory(path.dirname(paths.fingerprint), { recursive: true });
       await write(paths.fingerprint, `${observed}\n`, { flag: "wx" });
     }
+
     return client;
   } catch {
     await client.end().catch(() => {});

@@ -22,6 +22,7 @@ for (const width of [390, 1440]) {
       const context = canvas.getContext("2d")!;
       context.fillStyle = "teal";
       context.fillRect(0, 0, 800, 600);
+
       return canvas.toDataURL("image/png").split(",")[1];
     });
     await page.locator('input[type="file"][accept="image/*"]:not([capture])').setInputFiles({
@@ -68,7 +69,9 @@ for (const width of [390, 1440]) {
     await expect(detailsToggle).toBeFocused();
     await expect(details.getByRole("heading", { name: "Fullscreen photo fixture" })).toBeVisible();
     await context.setOffline(false);
-    if (width < 700) await page.getByRole("button", { name: "Close", exact: true }).click();
+    if (width < 700) {
+      await page.getByRole("button", { name: "Close", exact: true }).click();
+    }
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await page.getByRole("button", { name: "Fullscreen map", exact: true }).click();
     await page.locator('.map-surface .places-map-pin[title="Fullscreen photo fixture"]').click();

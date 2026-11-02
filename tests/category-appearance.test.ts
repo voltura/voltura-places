@@ -16,6 +16,7 @@ import {
   importBackup,
   prepareMutation,
 } from "../src/client/foundation/library";
+
 test("legacy defaults do not rewrite saved categories", () => {
   const records = starters.map((r) => ({
     ...r,
@@ -46,9 +47,9 @@ test.each(["icecream", "none"] as const)(
   "appearance %s survives atomic saving, mutation preparation and backup import with isolated workspaces",
   async (icon) => {
     vi.stubGlobal("window", new EventTarget());
-    const source = crypto.randomUUID(),
-      target = crypto.randomUUID(),
-      id = crypto.randomUUID();
+    const source = crypto.randomUUID();
+    const target = crypto.randomUUID();
+    const id = crypto.randomUUID();
     await readWorkspace(source);
     await readWorkspace(target);
     await saveEntity(source, {
@@ -86,8 +87,9 @@ test("untrusted appearance values are bounded and rejected", () => {
     { icon: "<svg onload=alert(1)>" },
     { color: "url(https://example.com)" },
     { icon: "tent", extra: true },
-  ])
+  ]) {
     expect(categorySchema.safeParse({ name: "Camp", color: "blue", ...bad }).success).toBe(false);
+  }
 });
 
 test("every catalog appearance validates and renders", async () => {
@@ -96,11 +98,15 @@ test("every catalog appearance validates and renders", async () => {
   const { CategoryIcon } = await import("../src/client/features/CategoryAppearance");
   expect(categoryColors).toHaveLength(12);
   expect(categoryIcons).toHaveLength(49);
-  for (const color of categoryColors)
+  for (const color of categoryColors) {
     for (const icon of categoryIcons) {
       expect(categorySchema.safeParse({ name: "Example", color, icon }).success).toBe(true);
       const markup = renderToStaticMarkup(createElement(CategoryIcon, { color, icon }));
-      if (icon === "none") expect(markup).toBe("");
-      else expect(markup).toContain("<svg");
+      if (icon === "none") {
+        expect(markup).toBe("");
+      } else {
+        expect(markup).toContain("<svg");
+      }
     }
+  }
 });

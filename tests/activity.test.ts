@@ -7,10 +7,11 @@ for (const [instant, midnight] of [
   ["2026-03-29T12:00:00Z", "2026-03-28T23:00:00Z"],
   ["2026-10-25T12:00:00Z", "2026-10-24T22:00:00Z"],
   ["2026-11-01T23:00:00Z", "2026-11-01T23:00:00Z"],
-])
+]) {
   test(`Swedish midnight at ${instant}`, () => {
     expect(stockholmMidnight(Date.parse(instant))).toBe(Date.parse(midnight));
   });
+}
 
 let data: Map<string, string>;
 let doc: EventTarget & { visibilityState: string };

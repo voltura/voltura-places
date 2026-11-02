@@ -13,6 +13,7 @@ type Row = {
   revision: number;
   deleted: number;
 };
+
 const decode = (r: Row): RecordState =>
   recordSchema.parse({
     id: r.id,
@@ -21,6 +22,7 @@ const decode = (r: Row): RecordState =>
     revision: r.revision,
     deleted: !!r.deleted,
   });
+
 export async function handleSync(request: Request, env: Environment) {
   let identity;
   try {
@@ -32,17 +34,23 @@ export async function handleSync(request: Request, env: Environment) {
     );
   }
   const account = identity.storage;
+
   const present = (record: RecordState) => {
     if (request.headers.get("X-Places-Photos") !== "1" && record.kind === "place") {
       const value = { ...record.value };
       delete value.photoId;
+
       return { ...record, value };
     }
+
     return record;
   };
+
   if (request.method === "GET") {
     const after = new URL(request.url).searchParams.get("after") ?? "";
-    if (after.length > 80) return json({ error: "invalidCursor", accountId: identity.key }, 400);
+    if (after.length > 80) {
+      return json({ error: "invalidCursor", accountId: identity.key }, 400);
+    }
     const rows = await env.DB.prepare(
       identity.family
         ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`
@@ -55,6 +63,7 @@ export async function handleSync(request: Request, env: Environment) {
       )
       .all<Row>();
     const records = rows.results.slice(0, syncLimits.pageSize);
+
     return json({
       version: 1,
       accountId: identity.key,
@@ -62,39 +71,56 @@ export async function handleSync(request: Request, env: Environment) {
       nextCursor: rows.results.length > syncLimits.pageSize ? records.at(-1)!.id : null,
     });
   }
-  if (request.method !== "POST") return json({ error: "methodNotAllowed" }, 405);
-  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) return json({ error: "invalidOrigin" }, 403);
+  if (request.method !== "POST") {
+    return json({ error: "methodNotAllowed" }, 405);
+  }
+  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) {
+    return json({ error: "invalidOrigin" }, 403);
+  }
   let input;
   try {
     input = await readJSON(request, 8192);
   } catch (error) {
-    if (!(error instanceof RequestError)) throw error;
+    if (!(error instanceof RequestError)) {
+      throw error;
+    }
+
     return json({ error: "invalidMutation", accountId: identity.key }, error.status);
   }
   const parsed = mutationSchema.safeParse(input);
-  if (!parsed.success) return json({ error: "invalidMutation", accountId: identity.key }, 422);
-  const body = parsed.data,
-    hash = await digest(JSON.stringify(body)),
-    e = body.entity;
+  if (!parsed.success) {
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
+  const body = parsed.data;
+  const hash = await digest(JSON.stringify(body));
+  const e = body.entity;
   if (e.kind === "visit") {
     const source = e.value.libraryId
       ? `family:${identity.account}:${e.value.libraryId}`
       : identity.account;
-    if (identity.family || e.id !== (await visitEntity(source, e.value.placeId, e.value.status)).id)
+    if (
+      identity.family ||
+      e.id !== (await visitEntity(source, e.value.placeId, e.value.status)).id
+    ) {
       return json({ error: "invalidMutation", accountId: identity.key }, 422);
-  } else if (e.id.startsWith("visit-"))
+    }
+  } else if (e.id.startsWith("visit-")) {
     return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
   const table = e.kind === "visit" ? "places_visits" : "places_records";
-  if (e.id === "other" && (e.kind !== "category" || body.deleted))
+  if (e.id === "other" && (e.kind !== "category" || body.deleted)) {
     return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
   const receipt = await env.DB.prepare(
     "SELECT body_hash,record FROM places_receipts WHERE account_id = ? AND mutation_id = ?",
   )
     .bind(account, body.mutationId)
     .first<{ body_hash: string; record: string }>();
   if (receipt) {
-    if (receipt.body_hash !== hash)
+    if (receipt.body_hash !== hash) {
       return json({ error: "invalidRetry", accountId: identity.key }, 422);
+    }
+
     return json({
       accountId: identity.key,
       record: present(recordSchema.parse(JSON.parse(receipt.record))),
@@ -107,7 +133,9 @@ export async function handleSync(request: Request, env: Environment) {
       .bind(account, e.id)
       .first<{ value: string }>();
     const photoId = old ? JSON.parse(old.value).photoId : undefined;
-    if (photoId !== undefined) e.value.photoId = photoId;
+    if (photoId !== undefined) {
+      e.value.photoId = photoId;
+    }
   }
   if (
     e.kind === "place" &&
@@ -116,10 +144,11 @@ export async function handleSync(request: Request, env: Environment) {
     !(await env.DB.prepare("SELECT id FROM places_photos WHERE account_id=? AND id=?")
       .bind(account, e.value.photoId)
       .first())
-  )
+  ) {
     return json({ error: "photoUnavailable", accountId: identity.key }, 422);
-  const value = JSON.stringify(e.value),
-    revision = body.baseRevision + 1;
+  }
+  const value = JSON.stringify(e.value);
+  const revision = body.baseRevision + 1;
   const resultRecord = { ...e, revision, deleted: body.deleted };
   const capacity = entityLimits[e.kind];
   // visits.kind is constrained to 'visit' by the table. Omitting that redundant
@@ -193,8 +222,10 @@ export async function handleSync(request: Request, env: Environment) {
     .bind(account, body.mutationId)
     .first<{ body_hash: string; record: string }>();
   if (accepted) {
-    if (accepted.body_hash !== hash)
+    if (accepted.body_hash !== hash) {
       return json({ error: "invalidRetry", accountId: identity.key }, 422);
+    }
+
     return json({
       accountId: identity.key,
       record: present(recordSchema.parse(JSON.parse(accepted.record))),
@@ -205,6 +236,9 @@ export async function handleSync(request: Request, env: Environment) {
   )
     .bind(account, e.id)
     .first<Row>();
-  if (!current) return json({ error: "libraryLimit", accountId: identity.key }, 413);
+  if (!current) {
+    return json({ error: "libraryLimit", accountId: identity.key }, 413);
+  }
+
   return json({ accountId: identity.key, record: present(decode(current)) }, 409);
 }

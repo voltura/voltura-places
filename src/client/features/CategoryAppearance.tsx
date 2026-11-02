@@ -52,6 +52,7 @@ import {
 import type { Category, LocalRecord } from "../../shared/model";
 import { categoryIcons, categoryColors } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
+
 function Mushroom({ size = 22 }: { size?: number }) {
   return (
     <svg
@@ -70,6 +71,7 @@ function Mushroom({ size = 22 }: { size?: number }) {
     </svg>
   );
 }
+
 const icons = {
   pin: MapPin,
   car: Car,
@@ -128,14 +130,17 @@ const defaults: Record<string, NonNullable<Category["icon"]>> = {
   mushrooms: "mushroom",
   other: "pin",
 };
+
 export function categoryAppearance(record?: LocalRecord) {
   const v = record?.kind === "category" ? record.value : undefined;
+
   return {
     icon: v?.icon ?? defaults[v?.builtIn ?? ""] ?? "pin",
     color:
       v?.builtIn === "mushrooms" && !v.icon && v.color === "amber" ? "rose" : (v?.color ?? "slate"),
   };
 }
+
 export function CategoryIcon({
   record,
   icon,
@@ -149,14 +154,18 @@ export function CategoryIcon({
 }) {
   const a = categoryAppearance(record);
   const selected = icon ?? a.icon;
-  if (selected === "none") return null;
+  if (selected === "none") {
+    return null;
+  }
   const Icon = icons[selected];
+
   return (
     <span className={`category-icon ${color ?? a.color}`} aria-hidden="true">
       <Icon size={size} />
     </span>
   );
 }
+
 export function CategoryAppearancePicker({
   icon,
   color,
@@ -174,10 +183,13 @@ export function CategoryAppearancePicker({
     const picker = ref.current!;
     const body = picker.closest<HTMLElement>(".category-editor-body");
     const sheet = picker.closest<HTMLElement>(".category-editor-sheet");
-    if (!body || !sheet) return;
+    if (!body || !sheet) {
+      return;
+    }
     const name = body.querySelector(".category-name-editor")!;
     const colors = picker.querySelector("fieldset")!;
     const heading = picker.querySelector(".category-icons-heading")!;
+
     const measure = () => {
       const viewport = window.visualViewport;
       sheet.style.setProperty(
@@ -197,16 +209,21 @@ export function CategoryAppearancePicker({
       // Reserve at least two complete 48px icon rows before pinning the fields.
       setScrollIcons(body.clientHeight - fixedHeight >= 104);
     };
+
     const observer = new ResizeObserver(measure);
-    for (const element of [body, name, colors, heading]) observer.observe(element);
+    for (const element of [body, name, colors, heading]) {
+      observer.observe(element);
+    }
     window.visualViewport?.addEventListener("resize", measure);
     measure();
+
     return () => {
       observer.disconnect();
       window.visualViewport?.removeEventListener("resize", measure);
       sheet.style.removeProperty("--category-viewport-height");
     };
   }, []);
+
   return (
     <div
       ref={ref}

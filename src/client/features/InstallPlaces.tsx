@@ -17,9 +17,13 @@ export function InstallPlaces({
   firstUse?: boolean;
 }) {
   const state = useSyncExternalStore(installation.subscribe, installation.getSnapshot);
-  if (state.installed) return null;
+  if (state.installed) {
+    return null;
+  }
   const platform = installationPlatform(navigator);
-  if (firstUse && platform === "other") return null;
+  if (firstUse && platform === "other") {
+    return null;
+  }
   const appleBrowser = appleInstallBrowser(navigator);
   const appleDevice = appleInstallDevice(navigator);
   const manualBrowser = manualInstallBrowser(navigator);
@@ -107,6 +111,7 @@ export function InstallPlaces({
       </div>
     </details>
   );
+
   return firstUse ? (
     <section className="onboarding-step stack" aria-labelledby="onboarding-install-title">
       <h3 className="onboarding-step-heading" id="onboarding-install-title">

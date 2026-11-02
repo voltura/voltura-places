@@ -13,6 +13,7 @@ export function privateJSON(body: unknown, status = 200, headers: HeadersInit = 
   result.set("Cache-Control", "private, no-store");
   result.set("Vary", "Cookie");
   result.set("X-Content-Type-Options", "nosniff");
+
   return Response.json(body, { status, headers: result });
 }
 
@@ -27,7 +28,9 @@ export function hasCanonicalOrigin(request: Request, origin: string) {
 /** Bound memory by bytes, even for chunked bodies or dishonest Content-Length. */
 export async function readBytes(request: Request, limit: number, missingStatus = 400) {
   const reader = request.body?.getReader();
-  if (!reader) throw new RequestError(missingStatus, "Request required.");
+  if (!reader) {
+    throw new RequestError(missingStatus, "Request required.");
+  }
   let bytes = new Uint8Array(0);
   let size = 0;
   let complete = false;
@@ -36,10 +39,12 @@ export async function readBytes(request: Request, limit: number, missingStatus =
       const { done, value } = await reader.read();
       if (done) {
         complete = true;
+
         return bytes.subarray(0, size);
       }
-      if (value.byteLength > limit - size)
+      if (value.byteLength > limit - size) {
         throw new RequestError(413, "The request is too large. Nothing was changed.");
+      }
       if (size + value.byteLength > bytes.byteLength) {
         const capacity = Math.min(
           limit,
@@ -53,11 +58,15 @@ export async function readBytes(request: Request, limit: number, missingStatus =
       size += value.byteLength;
     }
   } catch (error) {
-    if (error instanceof RequestError) throw error;
+    if (error instanceof RequestError) {
+      throw error;
+    }
     throw new RequestError(400, "Invalid request.");
   } finally {
     // Cancellation failure must not replace the original size/encoding error.
-    if (!complete) await reader.cancel().catch(() => {});
+    if (!complete) {
+      await reader.cancel().catch(() => {});
+    }
     reader.releaseLock();
   }
 }
@@ -66,16 +75,21 @@ export async function readJSON(request: Request, limit: number): Promise<Record<
   if (
     request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !==
     "application/json"
-  )
+  ) {
     throw new RequestError(415, "JSON required.");
+  }
   const bytes = await readBytes(request, limit);
   try {
     const value: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-    if (!value || typeof value !== "object" || Array.isArray(value))
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new RequestError(400, "Invalid request.");
+    }
+
     return value as Record<string, unknown>;
   } catch (error) {
-    if (error instanceof RequestError) throw error;
+    if (error instanceof RequestError) {
+      throw error;
+    }
     throw new RequestError(400, "Invalid request.");
   }
 }

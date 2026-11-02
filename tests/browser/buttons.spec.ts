@@ -33,6 +33,7 @@ for (const engine of [chromium, webkit]) {
                   } as GeolocationPosition),
                 0,
               );
+
               return 1;
             },
             clearWatch: () => {},
@@ -54,6 +55,7 @@ for (const engine of [chromium, webkit]) {
           const buttons = [...el.querySelectorAll("button")];
           const cancel = buttons.find((button) => button.textContent?.trim() === "Cancel")!;
           const photo = buttons.find((button) => button.textContent?.trim() === "Choose photo")!;
+
           return [getComputedStyle(cancel).borderTopColor, getComputedStyle(photo).borderTopColor];
         });
         expect(borders[0]).not.toBe(borders[1]);
@@ -98,26 +100,33 @@ for (const engine of [chromium, webkit]) {
               },
               { skin, mode },
             );
+
             const contrast = await discard.evaluate((element) => {
               const css = getComputedStyle(element);
               const probe = document.createElement("canvas").getContext("2d")!;
+
               const rgb = (colour: string) => {
                 probe.fillStyle = colour;
                 probe.fillRect(0, 0, 1, 1);
+
                 return [...probe.getImageData(0, 0, 1, 1).data].slice(0, 3).map((x) => x / 255);
               };
+
               const lum = (colour: string) =>
                 rgb(colour)
                   .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
                   .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+
               const ratio = (a: string, b: string) =>
                 (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+
               return {
                 danger: ratio(css.color, css.backgroundColor),
                 border: ratio(css.borderTopColor, css.backgroundColor),
                 focus: ratio(css.outlineColor, css.backgroundColor),
               };
             });
+
             expect(contrast.danger, `${skin} ${mode} danger`).toBeGreaterThanOrEqual(4.5);
             expect(contrast.border, `${skin} ${mode} border`).toBeGreaterThanOrEqual(3);
             expect(contrast.focus, `${skin} ${mode} focus`).toBeGreaterThanOrEqual(3);
@@ -138,6 +147,7 @@ for (const engine of [chromium, webkit]) {
         await expect(finalDiscard).toHaveClass("button danger confirm");
         const finalColours = await finalDiscard.evaluate((el) => {
           const css = getComputedStyle(el);
+
           return { background: css.backgroundColor, border: css.borderTopColor, color: css.color };
         });
         expect(finalColours.background).toBe(finalColours.border);
@@ -149,11 +159,12 @@ for (const engine of [chromium, webkit]) {
         );
         await saved.getByRole("button", { name: "Done", exact: true }).click();
         await expect(saved).toBeHidden();
-        if (!desktop)
+        if (!desktop) {
           await page
             .getByRole("dialog")
             .getByRole("button", { name: "Close", exact: true })
             .click();
+        }
         await page
           .getByRole("button", { name: "Edit place: Button review fixture", exact: true })
           .click();
@@ -184,11 +195,12 @@ for (const engine of [chromium, webkit]) {
         await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
         await page.getByRole("button", { name: "Stäng", exact: true }).click();
         await page.setViewportSize({ width: 320, height: 700 });
-        if (desktop)
+        if (desktop) {
           await page
             .getByRole("dialog", { name: "Platsinformation", exact: true })
             .getByRole("button", { name: "Stäng", exact: true })
             .click();
+        }
         await page.getByRole("button", { name: "Lägg till plats", exact: true }).click();
         await page.evaluate(() => {
           document.documentElement.style.fontSize = "200%";

@@ -3,8 +3,11 @@
   let theme = "dark";
   try {
     const saved = localStorage.getItem("places-promo-theme");
-    if (saved === "light" || saved === "dark") theme = saved;
+    if (saved === "light" || saved === "dark") {
+      theme = saved;
+    }
   } catch {}
+
   const apply = () => {
     root.dataset.theme = theme;
     document
@@ -16,6 +19,7 @@
       toggle.title = theme === "dark" ? toggle.dataset.lightLabel : toggle.dataset.darkLabel;
     }
   };
+
   apply();
   document.addEventListener("DOMContentLoaded", () => {
     apply();

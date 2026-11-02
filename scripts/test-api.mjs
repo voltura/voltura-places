@@ -2,6 +2,7 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+
 const origin = "http://127.0.0.1:5174";
 const mf = new Miniflare(
   convertV4MiniflareOptions({
@@ -19,10 +20,12 @@ const mf = new Miniflare(
   }),
 );
 let checks = 0;
+
 const check = (condition, message) => {
   assert.ok(condition, message);
   checks++;
 };
+
 try {
   const html = await readFile(".artifacts/client/index.html", "utf8");
   const mainPath = html.match(/<script[^>]*src="([^"]*\/assets\/index-[^"]+\.js)"/)?.[1];
@@ -68,8 +71,9 @@ try {
     }
     for (const statement of (await readFile(`drizzle/${file}`, "utf8"))
       .split("--> statement-breakpoint")
-      .filter((s) => s.trim()))
+      .filter((s) => s.trim())) {
       await db.prepare(statement).run();
+    }
   }
   for (const sql of [
     "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='place' AND deleted=0",
@@ -91,6 +95,7 @@ try {
       .first()),
     "Multiple-group migration preserves existing memberships",
   );
+
   const request = async (path, { body, cookie, account, headers = {}, method } = {}) =>
     mf.dispatchFetch(origin + path, {
       method: method ?? (body === undefined ? "GET" : "POST"),
@@ -102,6 +107,7 @@ try {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+
   const login = async (subject) => {
     const response = await request("/api/account/connect", {
       body: { provider: "chatgpt" },
@@ -112,6 +118,7 @@ try {
     });
     assert.equal(response.status, 200);
     const data = await response.json();
+
     return {
       account: data.account.id,
       cookie: response.headers
@@ -120,11 +127,13 @@ try {
         .join("; "),
     };
   };
-  const a = await login("fixture-a"),
-    b = await login("fixture-b");
+
+  const a = await login("fixture-a");
+  const b = await login("fixture-b");
   check(a.account !== b.account, "Accounts are isolated");
   const photoId = crypto.randomUUID();
   const jpeg = await readFile("tests/fixtures/photo.jpg");
+
   const photoRequest = (identity, body = jpeg, extra = {}) =>
     mf.dispatchFetch(origin + `/api/v1/photos/${photoId}`, {
       method: "PUT",
@@ -137,6 +146,7 @@ try {
         ...extra,
       },
     });
+
   check(
     (await request(`/api/v1/photos/${photoId}`)).status === 401,
     "Photos require authentication",
@@ -349,18 +359,23 @@ try {
   const c = await login("fixture-c");
   let defaultGroup;
   const groupTargets = new Map();
+
   const familyCall = async (who, body) => {
     const targeted = body && !["create", "code-request"].includes(body.action);
     const scoped = targeted
       ? { ...body, familyId: body.familyId ?? groupTargets.get(who.account) ?? defaultGroup }
       : body;
     const response = await request("/api/family", { ...who, body: scoped });
-    if (response.ok && body?.action === "create")
+    if (response.ok && body?.action === "create") {
       groupTargets.set(who.account, (await response.clone().json()).familyId);
-    if (response.ok && body?.action === "code-approve")
+    }
+    if (response.ok && body?.action === "code-approve") {
       groupTargets.set(body.member, scoped.familyId);
+    }
+
     return response;
   };
+
   check((await request("/api/family")).status === 401, "Family membership requires sign-in");
   check(
     (await familyCall(a, { action: "create", name: "Mushroom family" })).status === 200,
@@ -368,10 +383,12 @@ try {
   );
   const family = (await (await familyCall(a)).json()).families[0];
   defaultGroup = family.id;
+
   const familyAuth = (who) => ({
     ...who,
     headers: { "X-Places-Family": family.id, "X-Places-Photos": "1" },
   });
+
   const joinGroup = async (who, owner = a, id = family.id) => {
     await db
       .prepare("DELETE FROM places_family_code_limits WHERE key IN (?,?)")
@@ -401,8 +418,10 @@ try {
       ownerAfter.invitationVersion === null && !Object.hasOwn(memberAfter, "invitationVersion"),
       "Consumption clears the owner version and members receive no invitation metadata",
     );
+
     return approved;
   };
+
   check(
     (await request("/api/v1/sync", familyAuth(b))).status === 403,
     "Knowing group ID grants no access",
@@ -422,6 +441,7 @@ try {
   const sharedMutation = { ...mutation, mutationId: crypto.randomUUID(), entity: sharedEntity };
   response = await request("/api/v1/sync", { ...familyAuth(a), body: sharedMutation });
   check(response.status === 200, "Family place commits with its photo");
+
   // Personal metadata uses each member's own account, never the group storage identity.
   const makeVisit = (status) => {
     const id =
@@ -429,6 +449,7 @@ try {
       createHash("sha256")
         .update(JSON.stringify([family.id, sharedEntity.id]))
         .digest("hex");
+
     return {
       version: 1,
       mutationId: crypto.randomUUID(),
@@ -446,8 +467,9 @@ try {
       },
     };
   };
-  const aVisit = makeVisit("visited"),
-    bVisit = makeVisit("want");
+
+  const aVisit = makeVisit("visited");
+  const bVisit = makeVisit("want");
   check(
     (await request("/api/v1/sync", { ...a, body: aVisit })).status === 200,
     "A group member saves a private visit status",
@@ -504,7 +526,7 @@ try {
   for (const value of [
     { ...aVisit.entity.value, status: "other" },
     { ...aVisit.entity.value, libraryId: "invalid" },
-  ])
+  ]) {
     check(
       (
         await request("/api/v1/sync", {
@@ -514,6 +536,7 @@ try {
       ).status === 422,
       "Invalid personal references or statuses are rejected",
     );
+  }
   check(
     (
       await request("/api/v1/sync", {
@@ -647,8 +670,9 @@ try {
     (await familyCall(a, { action: "code-approve", member: c.account })).status === 409,
     "Family member limit is enforced",
   );
-  for (const id of filler)
+  for (const id of filler) {
     await db.prepare("DELETE FROM places_accounts WHERE id=?").bind(id).run();
+  }
   check(
     (await familyCall(a, { action: "code-approve", member: c.account })).status === 200,
     "Full-family refusal does not consume invitation",
@@ -773,7 +797,7 @@ try {
   check((await request("/api/v1/sync", a)).status === 401, "Deleted sessions cannot read data");
   for (let start = 0; start < 251; start += 25) {
     const batch = [];
-    for (let i = start; i < Math.min(start + 25, 251); i++)
+    for (let i = start; i < Math.min(start + 25, 251); i++) {
       batch.push(
         db
           .prepare(
@@ -787,6 +811,7 @@ try {
             crypto.randomUUID(),
           ),
       );
+    }
     await db.batch(batch);
   }
   const firstPage = await (await request("/api/v1/sync", b)).json();
@@ -803,18 +828,21 @@ try {
       finalPage.records.some((r) => r.kind === "visit" && r.value.status === "want"),
     "Paged reads preserve ordinary records and personal statuses across the boundary",
   );
-  const codeOwner = await login("code-owner"),
-    codeGuest = await login("code-guest"),
-    codeOther = await login("code-other");
+  const codeOwner = await login("code-owner");
+  const codeGuest = await login("code-guest");
+  const codeOther = await login("code-other");
   await familyCall(codeOwner, { action: "create", name: "Code family" });
   const codeFamily = (await (await familyCall(codeOwner)).json()).families[0];
+
   const generateCode = async () => {
     const result = await familyCall(codeOwner, { action: "code-create" });
     check(result.status === 200, "Owner can generate a short code");
     const data = await result.json();
     check(/^\d{4}$/.test(data.code) && data.expiresAt === 0, "Four-digit codes have no time limit");
+
     return data.code;
   };
+
   const code = await generateCode();
   check(
     (await familyCall(codeGuest, { action: "code-create" })).status === 403,
@@ -860,8 +888,8 @@ try {
     (await familyCall(codeOther, { action: "code-request", code })).status === 410,
     "Approved code is consumed",
   );
-  const oldCode = await generateCode(),
-    newCode = await generateCode();
+  const oldCode = await generateCode();
+  const newCode = await generateCode();
   check(
     (await familyCall(codeOther, { action: "code-request", code: oldCode })).status === 410,
     "Rotation invalidates old codes",
@@ -895,12 +923,13 @@ try {
     "Expired requests cannot be approved",
   );
   const limitedGuest = await login("limited-code-guest");
-  for (let attempt = 0; attempt < 5; attempt++)
+  for (let attempt = 0; attempt < 5; attempt++) {
     check(
       (await familyCall(limitedGuest, { action: "code-request", code: expiringCode })).status ===
         410,
       "Invalid attempts are bounded",
     );
+  }
   check(
     (await familyCall(limitedGuest, { action: "code-request", code: expiringCode })).status === 429,
     "Sixth code attempt is blocked",
@@ -910,9 +939,11 @@ try {
     .prepare("DELETE FROM places_family_code_limits WHERE key=?")
     .bind(`create:account:${codeOwner.account}`)
     .run();
-  const raceCode = await generateCode(),
-    racers = [await login("code-racer-a"), await login("code-racer-b")];
-  for (const who of racers) await familyCall(who, { action: "code-request", code: raceCode });
+  const raceCode = await generateCode();
+  const racers = [await login("code-racer-a"), await login("code-racer-b")];
+  for (const who of racers) {
+    await familyCall(who, { action: "code-request", code: raceCode });
+  }
   const approvals = await Promise.all(
     racers.map((who) => familyCall(codeOwner, { action: "code-approve", member: who.account })),
   );
@@ -936,12 +967,13 @@ try {
     "An account can own multiple independent groups",
   );
   await joinGroup(codeGuest, codeOwner, anotherGroup.id);
-  for (const name of [undefined, "", "   ", "x".repeat(81)])
+  for (const name of [undefined, "", "   ", "x".repeat(81)]) {
     check(
       (await familyCall(codeOwner, { action: "rename", familyId: anotherGroup.id, name }))
         .status === 422,
       "Group rename rejects missing, blank and oversized names",
     );
+  }
   check(
     (await familyCall(codeGuest, { action: "rename", familyId: anotherGroup.id, name: "Denied" }))
       .status === 403,

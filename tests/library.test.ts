@@ -24,9 +24,11 @@ import {
   validateBackup,
   type Entity,
 } from "../src/shared/model";
+
 beforeEach(() => {
   vi.stubGlobal("window", new EventTarget());
 });
+
 const makePlace = (
   id: string = crypto.randomUUID(),
   name = "Trailhead",
@@ -43,11 +45,12 @@ const makePlace = (
     updatedAt: "2026-10-29T10:00:00.000Z",
   },
 });
+
 describe("durable library boundaries", () => {
   test("an edit arriving during snapshot download schedules another sync immediately", async () => {
-    const key = crypto.randomUUID(),
-      first = makePlace(),
-      second = makePlace();
+    const key = crypto.randomUUID();
+    const first = makePlace();
+    const second = makePlace();
     await reconcileAccount(key, [], false);
     await saveEntity(key, first);
     vi.stubGlobal("navigator", { onLine: true });
@@ -61,9 +64,10 @@ describe("durable library boundaries", () => {
     let added = false;
     const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
       if (init?.method === "POST") {
-        const body = JSON.parse(String(init.body)),
-          record = { ...body.entity, revision: 1, deleted: false };
+        const body = JSON.parse(String(init.body));
+        const record = { ...body.entity, revision: 1, deleted: false };
         remote.push(record);
+
         return Response.json({ accountId: key, record });
       }
       if (!added) {
@@ -71,6 +75,7 @@ describe("durable library boundaries", () => {
         await saveEntity(key, second);
         await synchronize(key, () => {});
       }
+
       return Response.json({ version: 1, accountId: key, records: remote });
     });
     const statuses: string[] = [];
@@ -94,6 +99,7 @@ describe("durable library boundaries", () => {
       const body = JSON.parse(String(init?.body));
       active = false;
       await removeWorkspace(key);
+
       return Response.json({
         accountId: key,
         record: { ...body.entity, revision: 1, deleted: false },
@@ -120,11 +126,12 @@ describe("durable library boundaries", () => {
       const preset = structuredClone(starters.find((e) => e.id === "mushrooms")!);
       await saveEntity(key, preset);
       const flight = (await prepareMutation(key))!;
-      if (edited)
+      if (edited) {
         await saveEntity(key, {
           ...preset,
           value: { ...preset.value, name: "Chanterelles" },
         } as Entity);
+      }
       await acknowledge(
         key,
         flight.mutation.mutationId,
@@ -190,9 +197,9 @@ describe("durable library boundaries", () => {
     expect((await readWorkspace(key)).records.find((r) => r.id === "mushrooms")).toBeDefined();
   });
   test("switching accounts stops the old upload loop without discarding queued edits", async () => {
-    const key = crypto.randomUUID(),
-      first = makePlace(),
-      second = makePlace();
+    const key = crypto.randomUUID();
+    const first = makePlace();
+    const second = makePlace();
     await reconcileAccount(key, [], false);
     await saveEntity(key, first);
     await saveEntity(key, second);
@@ -202,6 +209,7 @@ describe("durable library boundaries", () => {
     const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
       const body = JSON.parse(String(init?.body));
       current = false;
+
       return Response.json({
         accountId: key,
         record: { ...body.entity, revision: 1, deleted: false },
@@ -239,8 +247,8 @@ describe("durable library boundaries", () => {
     expect(await readWorkspace(key)).toEqual(before);
   });
   test("cancelled imports and reconciliation preserve the destination", async () => {
-    const source = crypto.randomUUID(),
-      target = crypto.randomUUID();
+    const source = crypto.randomUUID();
+    const target = crypto.randomUUID();
     await saveEntity(source, makePlace());
     const before = await readWorkspace(target);
     await expect(
@@ -254,8 +262,8 @@ describe("durable library boundaries", () => {
     await reconcileAccount(key, [], false);
     const e = makePlace();
     await saveEntity(key, e);
-    const first = await prepareMutation(key),
-      retry = await prepareMutation(key);
+    const first = await prepareMutation(key);
+    const retry = await prepareMutation(key);
     expect(retry).toEqual(first);
     expect((await readWorkspace(key)).records.find((r) => r.id === e.id)?.dirty).toBe(true);
     await acknowledge(key, first!.mutation.mutationId, { ...e, revision: 1, deleted: false });
@@ -276,8 +284,8 @@ describe("durable library boundaries", () => {
     expect((await prepareMutation(key))?.mutation.baseRevision).toBe(1);
   });
   test("category deletion moves places without deleting them", async () => {
-    const key = crypto.randomUUID(),
-      e = makePlace();
+    const key = crypto.randomUUID();
+    const e = makePlace();
     await saveEntity(key, e);
     await deleteEntity(key, "outdoors");
     const w = await readWorkspace(key);
@@ -287,16 +295,16 @@ describe("durable library boundaries", () => {
     expect(w.records.find((r) => r.id === "outdoors")?.deleted).toBe(true);
   });
   test("malformed import cannot change the existing workspace", async () => {
-    const key = crypto.randomUUID(),
-      e = makePlace();
+    const key = crypto.randomUUID();
+    const e = makePlace();
     await saveEntity(key, e);
     const before = await readWorkspace(key);
     await expect(importBackup(key, { version: 99 }, true)).rejects.toThrow();
     expect(await readWorkspace(key)).toEqual(before);
   });
   test("backup round trip and conflicting merge keep both copies", async () => {
-    const key = crypto.randomUUID(),
-      e = makePlace();
+    const key = crypto.randomUUID();
+    const e = makePlace();
     await saveEntity(key, e);
     const backup = exportBackup(await readWorkspace(key));
     expect(validateBackup(JSON.parse(JSON.stringify(backup)))).toEqual(backup);
@@ -310,8 +318,8 @@ describe("durable library boundaries", () => {
     ).toEqual(["Imported name", "Trailhead"]);
   });
   test("same-record conflicts preserve both versions and Keep both creates a fresh ID", async () => {
-    const key = crypto.randomUUID(),
-      e = makePlace();
+    const key = crypto.randomUUID();
+    const e = makePlace();
     await reconcileAccount(key, [{ ...e, revision: 1, deleted: false }], false);
     await saveEntity(key, makePlace(e.id, "Device edit"));
     await mergeSnapshot(key, [{ ...makePlace(e.id, "Cloud edit"), revision: 2, deleted: false }]);
@@ -329,8 +337,8 @@ describe("durable library boundaries", () => {
     ).toEqual(["Cloud edit", "Device edit"]);
   });
   test("cloud deletion cannot silently resurrect a dirty stale device copy", async () => {
-    const key = crypto.randomUUID(),
-      e = makePlace();
+    const key = crypto.randomUUID();
+    const e = makePlace();
     await reconcileAccount(key, [{ ...e, revision: 1, deleted: false }], false);
     await saveEntity(key, makePlace(e.id, "Offline edit"));
     await mergeSnapshot(key, [{ ...e, revision: 2, deleted: true }]);
@@ -341,8 +349,8 @@ describe("durable library boundaries", () => {
     expect((await readWorkspace(key)).records.find((r) => r.id === e.id)?.deleted).toBe(true);
   });
   test("account workspaces never share pending operations", async () => {
-    const a = crypto.randomUUID(),
-      b = crypto.randomUUID();
+    const a = crypto.randomUUID();
+    const b = crypto.randomUUID();
     await reconcileAccount(a, [], false);
     await reconcileAccount(b, [], false);
     await saveEntity(a, makePlace());
@@ -351,7 +359,9 @@ describe("durable library boundaries", () => {
   });
   test("share snapshots preserve Unicode and reject malformed coordinates", () => {
     const e = makePlace();
-    if (e.kind !== "place") throw new Error();
+    if (e.kind !== "place") {
+      throw new Error();
+    }
     const link = shareURL(
       { ...e.value, name: "Gläntan 🌲" },
       "Friluftsliv",

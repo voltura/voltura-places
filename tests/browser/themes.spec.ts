@@ -15,22 +15,30 @@ for (const skin of skins) {
       await modePicker.selectOption(mode);
       await expect(page.locator("html")).toHaveAttribute("data-theme", mode);
       await expect(page.locator("html")).toHaveAttribute("data-skin", skin);
+
       const contrast = await page.evaluate(() => {
         const css = getComputedStyle(document.documentElement);
+
         const lum = (hex: string) => {
           let digits = hex.trim().replace("#", "");
-          if (digits.length === 3) digits = [...digits].map((x) => x + x).join("");
+          if (digits.length === 3) {
+            digits = [...digits].map((x) => x + x).join("");
+          }
           const rgb = digits
             .match(/../g)!
             .map((x) => parseInt(x, 16) / 255)
             .map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+
           return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
         };
+
         const ratio = (a: string, b: string) => {
-          const x = lum(css.getPropertyValue(a)),
-            y = lum(css.getPropertyValue(b));
+          const x = lum(css.getPropertyValue(a));
+          const y = lum(css.getPropertyValue(b));
+
           return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
         };
+
         return {
           text: ratio("--text", "--surface"),
           muted: ratio("--muted", "--surface"),
@@ -41,14 +49,16 @@ for (const skin of skins) {
           meta: document.querySelector('meta[name="theme-color"]')!.getAttribute("content"),
         };
       });
+
       for (const value of [
         contrast.text,
         contrast.muted,
         contrast.primary,
         contrast.primaryTop,
         contrast.danger,
-      ])
+      ]) {
         expect(value).toBeGreaterThanOrEqual(4.5);
+      }
       expect(contrast.meta).toBe(contrast.bg);
       await skinPicker.focus();
       await expect(skinPicker).toBeFocused();
@@ -160,7 +170,9 @@ test("storage unavailable: defaults render and selections still work", async ({ 
   const skip = page.getByRole("button", {
     name: /without an account|on this device|Get started|Continue offline/i,
   });
-  if ((await skip.count()) === 1 && (await skip.isVisible())) await skip.click();
+  if ((await skip.count()) === 1 && (await skip.isVisible())) {
+    await skip.click();
+  }
   await expect(page.locator("html")).toHaveAttribute("data-skin", "forest");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Settings", exact: true }).click();

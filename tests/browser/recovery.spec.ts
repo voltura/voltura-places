@@ -10,6 +10,7 @@ const value = (name: string, categoryId = "other", capturedAt = "2026-10-30T10:0
   longitude: 0,
   accuracy: null,
 });
+
 async function seed(page: Page, records: unknown[]) {
   await page.evaluate(async (records) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -38,6 +39,7 @@ test("newest sorting compares instants across supported ISO timestamp precision"
 }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+
   const record = (id: string, capturedAt: string) => ({
     id,
     kind: "place",
@@ -47,6 +49,7 @@ test("newest sorting compares instants across supported ISO timestamp precision"
     dirty: true,
     deleted: false,
   });
+
   await seed(page, [
     record("Earlier", "2026-10-30T10:00:00Z"),
     record("Later", "2026-10-30T10:00:00.500Z"),
@@ -119,12 +122,15 @@ test("a shared place waits for account initialization and a double click saves o
   let waiting: Route | undefined;
   let hold = true;
   await page.route("**/api/v1/sync", async (route) => {
-    if (route.request().method() !== "GET")
+    if (route.request().method() !== "GET") {
       return route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+    }
     if (hold) {
       waiting = route;
+
       return;
     }
+
     return route.fulfill({ json: { version: 1, accountId: account, records: [] } });
   });
   const snapshot = {
@@ -194,8 +200,8 @@ test("submitting a new category twice while its save is pending creates one cate
 });
 
 test("read-only groups disable category mutations and backup imports", async ({ page }) => {
-  const account = "readonly-fixture",
-    groupId = "00000000-0000-4000-8000-000000000001";
+  const account = "readonly-fixture";
+  const groupId = "00000000-0000-4000-8000-000000000001";
   await page.addInitScript(
     ({ account, groupId }) => {
       localStorage.setItem(
@@ -292,6 +298,7 @@ test("an open backup review stops accepting writes when group access ends", asyn
     window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
       Object.assign(window, { importDecodeStarted: true });
       await gate;
+
       return decode(...args);
     }) as typeof createImageBitmap;
   });
@@ -344,6 +351,7 @@ test("an open backup review stops accepting writes when group access ends", asyn
         },
       );
       db.close();
+
       return workspace?.records.some((record) => record.id === "incoming") ?? false;
     },
     { account, groupId },
@@ -352,8 +360,8 @@ test("an open backup review stops accepting writes when group access ends", asyn
 });
 
 test("a visible missing photo recovers when reconnection downloads its bytes", async ({ page }) => {
-  const account = "photo-recovery-fixture",
-    photoId = "00000000-0000-4000-8000-000000000002";
+  const account = "photo-recovery-fixture";
+  const photoId = "00000000-0000-4000-8000-000000000002";
   const record = {
     id: "photo-recovery-place",
     kind: "place",
@@ -433,6 +441,7 @@ test("an open editor preserves a cloud edit that arrives before Save", async ({
           },
         );
         db.close();
+
         return result.records.find((r) => r.id === "editor-conflict-place")?.revision;
       }, account),
     )
@@ -516,20 +525,28 @@ test("typing waits for draft restoration instead of being overwritten by its lat
           listener: EventListenerOrEventListenerObject | null,
           options?: boolean | AddEventListenerOptions,
         ) => {
-          if (!listener) return;
-          if (type !== "success") return add(type, listener, options);
+          if (!listener) {
+            return;
+          }
+          if (type !== "success") {
+            return add(type, listener, options);
+          }
           add(
             type,
             (event) => {
               setTimeout(() => {
-                if (typeof listener === "function") listener.call(request, event);
-                else listener.handleEvent(event);
+                if (typeof listener === "function") {
+                  listener.call(request, event);
+                } else {
+                  listener.handleEvent(event);
+                }
               }, 800);
             },
             options,
           );
         }) as typeof request.addEventListener;
       }
+
       return request;
     };
   });
@@ -588,6 +605,7 @@ test("signing out in one tab promptly hides its account library in another tab",
   );
   await context.route("**/api/account/sign-out", (route) => {
     signedIn = false;
+
     return route.fulfill({ json: { ok: true } });
   });
   await context.route("**/api/family", (route) => route.fulfill({ json: { families: [] } }));
@@ -769,8 +787,8 @@ test("keyboard focus keeps each conflict choice above the fixed save bar", async
   for (const name of ["Keep device", "Keep cloud", "Keep both"]) {
     const button = page.getByRole("button", { name, exact: true });
     await expect(button).toBeFocused();
-    const bounds = (await button.boundingBox())!,
-      dock = (await page.locator(".save-dock").boundingBox())!;
+    const bounds = (await button.boundingBox())!;
+    const dock = (await page.locator(".save-dock").boundingBox())!;
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(dock.y);
     await page.keyboard.press("Tab");
   }

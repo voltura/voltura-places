@@ -16,8 +16,9 @@
         ["forest", "retro-wood", "modern-metallic", "modern-black", "midnight", "matrix"].includes(
           saved.skin,
         )
-      )
+      ) {
         skin = saved.skin;
+      }
     }
   } catch {
     /* Storage is optional. */

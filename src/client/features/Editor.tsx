@@ -24,6 +24,7 @@ import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { LocationReview } from "./LocationReview";
 import { captureLocation, refineLocation } from "../foundation/location-review";
 import { PhotoPicker } from "./PlacePhoto";
+
 const draftSchema = z.object({
   base: entitySchema.nullable().optional(),
   id: z.string(),
@@ -38,6 +39,7 @@ const draftSchema = z.object({
   accuracy: z.number().nullable().optional(),
   capturedAt: z.string().datetime().optional(),
 });
+
 export function Editor({
   entity,
   categories,
@@ -73,10 +75,10 @@ export function Editor({
 }) {
   const comparisonBase = useRef<Entity | null>(entity ?? null);
   const initial = entity?.kind === "place" ? entity.value : null;
-  const [name, setName] = useState(initial?.name ?? ""),
-    [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
-  const [latitude, setLat] = useState(initial ? String(initial.latitude) : ""),
-    [longitude, setLng] = useState(initial ? String(initial.longitude) : "");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
+  const [latitude, setLat] = useState(initial ? String(initial.latitude) : "");
+  const [longitude, setLng] = useState(initial ? String(initial.longitude) : "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [descriptionOpen, setDescriptionOpen] = useState(!!initial?.description);
   const [visitedHere, setVisitedHere] = useState(false);
@@ -88,17 +90,17 @@ export function Editor({
     ) &&
     Math.abs(Number(latitude.replace(",", "."))) <= 90 &&
     Math.abs(Number(longitude.replace(",", "."))) <= 180;
-  const [accuracy, setAccuracy] = useState<number | null>(initial?.accuracy ?? null),
-    [capturedAt, setCapturedAt] = useState(initial?.capturedAt ?? new Date().toISOString());
-  const [error, setError] = useState(""),
-    [photoId, setPhoto] = useState<string | null>(initial?.photoId ?? null),
-    [photoBusy, setPhotoBusy] = useState(false),
-    [locating, setLocating] = useState(false),
-    [locationUpdated, setLocationUpdated] = useState(false),
-    [gpsReview, setGpsReview] = useState(false),
-    [busy, setBusy] = useState(false),
-    [ready, setReady] = useState(false),
-    [discarding, setDiscarding] = useState(false);
+  const [accuracy, setAccuracy] = useState<number | null>(initial?.accuracy ?? null);
+  const [capturedAt, setCapturedAt] = useState(initial?.capturedAt ?? new Date().toISOString());
+  const [error, setError] = useState("");
+  const [photoId, setPhoto] = useState<string | null>(initial?.photoId ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationUpdated, setLocationUpdated] = useState(false);
+  const [gpsReview, setGpsReview] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const [discardingPlace, setDiscardingPlace] = useState(false);
   const id = useRef(entity?.id ?? draftId ?? crypto.randomUUID());
   const nameSelected = useRef(false);
@@ -112,6 +114,7 @@ export function Editor({
     },
     [],
   );
+
   const selectPosition = (p: GeolocationPosition) => {
     setVisitedHere(true);
     setManualLocation(false);
@@ -120,10 +123,12 @@ export function Editor({
     setAccuracy(p.coords.accuracy);
     setCapturedAt(new Date(p.timestamp).toISOString());
   };
+
   const startRefinement = (accuracy: number) => {
     stopRefinement.current();
     stopRefinement.current = refineLocation(accuracy, selectPosition);
   };
+
   const latest = useRef<Record<string, unknown>>({});
   latest.current = {
     description,
@@ -160,11 +165,16 @@ export function Editor({
           setAccuracy(v.accuracy !== undefined ? v.accuracy : (initial?.accuracy ?? null));
           setCapturedAt(v.capturedAt ?? initial?.capturedAt ?? new Date().toISOString());
         }
-        if (active) setReady(true);
+        if (active) {
+          setReady(true);
+        }
       })
       .catch(() => {
-        if (active) setReady(true);
+        if (active) {
+          setReady(true);
+        }
       });
+
     return () => {
       active = false;
     };
@@ -182,10 +192,13 @@ export function Editor({
     ) {
       startRefinement(initial.accuracy);
     }
+
     return () => stopRefinement.current();
   }, [ready, workspace]);
   useEffect(() => {
-    if (ready) void setDraft(workspace, latest.current).catch(() => {});
+    if (ready) {
+      void setDraft(workspace, latest.current).catch(() => {});
+    }
   }, [
     description,
     visitedHere,
@@ -200,15 +213,20 @@ export function Editor({
     workspace,
     ready,
   ]);
+
   const save = async () => {
     if (!latitude.trim() || !longitude.trim()) {
-      if (manualLocation) setCoordinatesExpanded(true);
+      if (manualLocation) {
+        setCoordinatesExpanded(true);
+      }
       setError(t("chooseLocation"));
+
       return;
     }
     if (manualLocation && !hasValidCoordinates) {
       setCoordinatesExpanded(true);
       setError(t("invalidCoordinates"));
+
       return;
     }
     const now = new Date().toISOString();
@@ -225,6 +243,7 @@ export function Editor({
     });
     if (!parsed.success) {
       setError(t("invalidCoordinates"));
+
       return;
     }
     setBusy(true);
@@ -243,17 +262,24 @@ export function Editor({
       setBusy(false);
     }
   };
+
   const discard = () => {
-    if (busy || photoBusy || !ready) return;
+    if (busy || photoBusy || !ready) {
+      return;
+    }
     stopCapture.current();
     stopRefinement.current();
     void clearDraft(workspace, id.current)
       .then(onClose)
       .catch(() => setError(t("storageFailure")));
   };
+
   const selectedCategory = categories.find((c) => c.id === categoryId);
+
   const discardPlace = async () => {
-    if (busy || photoBusy || !ready) return;
+    if (busy || photoBusy || !ready) {
+      return;
+    }
     setBusy(true);
     stopCapture.current();
     stopRefinement.current();
@@ -274,8 +300,11 @@ export function Editor({
       setBusy(false);
     }
   };
+
   const dismiss = () => {
-    if (busy || photoBusy || !ready) return;
+    if (busy || photoBusy || !ready) {
+      return;
+    }
     const changed =
       name !== (initial?.name ?? "") ||
       description !== (initial?.description ?? "") ||
@@ -285,9 +314,13 @@ export function Editor({
       photoId !== (initial?.photoId ?? null) ||
       accuracy !== (initial?.accuracy ?? null) ||
       (initial != null && capturedAt !== initial.capturedAt);
-    if (changed) setDiscarding(true);
-    else discard();
+    if (changed) {
+      setDiscarding(true);
+    } else {
+      discard();
+    }
   };
+
   return (
     <>
       <Sheet
@@ -410,10 +443,12 @@ export function Editor({
                 setLocationUpdated(false);
                 if (reviewGps) {
                   setGpsReview(true);
+
                   return;
                 }
                 if (!navigator.geolocation) {
                   setError(t("gpsUnsupported"));
+
                   return;
                 }
                 setLocating(true);
@@ -602,7 +637,9 @@ export function Editor({
           title={t("discardPlaceTitle")}
           closeLabel={t("close")}
           onClose={() => {
-            if (!busy) setDiscardingPlace(false);
+            if (!busy) {
+              setDiscardingPlace(false);
+            }
           }}
         >
           <div className="stack">

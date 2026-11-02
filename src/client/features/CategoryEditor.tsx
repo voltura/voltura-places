@@ -36,12 +36,16 @@ export function CategoryEditor({
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
+
     return () => {
       active.current = false;
     };
   }, []);
+
   async function submit() {
-    if (pending.current) return;
+    if (pending.current) {
+      return;
+    }
     const original = categoryEdit.entity;
     const parsed = categorySchema.safeParse({
       ...categoryNameValue(
@@ -51,7 +55,9 @@ export function CategoryEditor({
       color: categoryEdit.color,
       icon: categoryEdit.icon,
     });
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      return;
+    }
     pending.current = true;
     setSavingCategory(true);
     try {
@@ -59,19 +65,28 @@ export function CategoryEditor({
         { id: original?.id ?? crypto.randomUUID(), kind: "category", value: parsed.data },
         original,
       );
-      if (active.current) onClose();
+      if (active.current) {
+        onClose();
+      }
     } catch (error) {
-      if (active.current) onError(error);
+      if (active.current) {
+        onError(error);
+      }
     } finally {
       pending.current = false;
-      if (active.current) setSavingCategory(false);
+      if (active.current) {
+        setSavingCategory(false);
+      }
     }
   }
+
   return (
     <Sheet
       title={t(categoryEdit.entity ? "editCategory" : "newCategory")}
       onClose={() => {
-        if (!savingCategory) onClose();
+        if (!savingCategory) {
+          onClose();
+        }
       }}
       className="category-editor-sheet"
       closeLabel={t("close")}

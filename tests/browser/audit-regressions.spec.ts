@@ -1,5 +1,6 @@
 import { test, expect, chromium, webkit, devices, type Page } from "./fixtures";
 import { starters } from "../../src/shared/model";
+
 const record = (id = "audit-pin", name = "Saved pin", longitude = 18) => ({
   id,
   kind: "place",
@@ -17,6 +18,7 @@ const record = (id = "audit-pin", name = "Saved pin", longitude = 18) => ({
   generation: 0,
   dirty: false,
 });
+
 async function seed(page: Page, records: unknown[]) {
   await page.evaluate(
     async (records) => {
@@ -41,6 +43,7 @@ async function seed(page: Page, records: unknown[]) {
     ],
   );
 }
+
 for (const engine of [chromium, webkit]) {
   test(`${engine.name()} phone portrait/landscape: single-pin fullscreen details, nested controls and 48px attribution`, async () => {
     const browser = await engine.launch();
@@ -148,7 +151,7 @@ for (const engine of [chromium, webkit]) {
     });
   }
 }
-for (const deleted of [false, true])
+for (const deleted of [false, true]) {
   test(`restored draft preserves revision 2 (deleted=${deleted})`, async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
@@ -163,6 +166,7 @@ for (const deleted of [false, true])
             const r = indexedDB.open("voltura-places", 1);
             r.onsuccess = () => resolve(r.result);
           });
+
           return new Promise<string>((resolve) => {
             const r = db.transaction("drafts").objectStore("drafts").get("guest");
             r.onsuccess = () => {
@@ -182,18 +186,19 @@ for (const deleted of [false, true])
     await expect(page.locator(".conflict-notice")).toContainText("My restored edit");
     await expect(page.locator(".conflict-notice")).toContainText(deleted ? "Deleted" : "New cloud");
   });
+}
 test("consumed invitation metadata clears the old code and permits a fresh invitation", async ({
   page,
 }) => {
-  const account = "invite-regression",
-    group = {
-      id: "00000000-0000-4000-8000-000000000123",
-      name: "Group",
-      ownerId: account,
-      members: [{ id: account, label: "Owner" }],
-      requests: [],
-      invitationVersion: null as string | null,
-    };
+  const account = "invite-regression";
+  const group = {
+    id: "00000000-0000-4000-8000-000000000123",
+    name: "Group",
+    ownerId: account,
+    members: [{ id: account, label: "Owner" }],
+    requests: [],
+    invitationVersion: null as string | null,
+  };
   let created = 0;
   await page.route("**/api/account", (r) =>
     r.fulfill({ json: { enabled: true, providers: {}, account: { id: account, methods: [] } } }),
@@ -205,6 +210,7 @@ test("consumed invitation metadata clears the old code and permits a fresh invit
     if (r.request().method() === "POST") {
       created++;
       group.invitationVersion = String(created).padStart(64, "a");
+
       return r.fulfill({
         json: {
           code: created === 1 ? "1234" : "5678",
@@ -213,6 +219,7 @@ test("consumed invitation metadata clears the old code and permits a fresh invit
         },
       });
     }
+
     return r.fulfill({ json: { families: [group] } });
   });
   await page.clock.install();
@@ -246,7 +253,7 @@ test("sync failure is exposed by the phone account status description", async ({
   await expect(page.locator("#account-sync-status")).toHaveAttribute("role", "status");
   await expect(page.locator("#account-sync-status")).toHaveText("Sync needs attention");
 });
-for (const engine of [chromium, webkit])
+for (const engine of [chromium, webkit]) {
   test(`${engine.name()} phone: manual update offers a tappable dialog above Settings and reopens after Later`, async () => {
     const browser = await engine.launch();
     const context = await browser.newContext({
@@ -273,7 +280,9 @@ for (const engine of [chromium, webkit])
           state: "installed",
           scriptURL: location.origin + "/sw.js",
           postMessage(message: { type?: string }) {
-            if (message.type === "SKIP_WAITING") state.auditInstallRequested = true;
+            if (message.type === "SKIP_WAITING") {
+              state.auditInstallRequested = true;
+            }
           },
         };
         const original = Object.getOwnPropertyDescriptor(
@@ -291,8 +300,9 @@ for (const engine of [chromium, webkit])
             if (
               (event.target as Element).closest("button")?.textContent?.trim() ===
               "Check for updates"
-            )
+            ) {
               state.auditWaiting = true;
+            }
           },
           true,
         );
@@ -324,8 +334,9 @@ for (const engine of [chromium, webkit])
       await browser.close();
     }
   });
+}
 
-for (const engine of [chromium, webkit])
+for (const engine of [chromium, webkit]) {
   for (const theme of ["light", "dark"]) {
     test(`${engine.name()} ${theme}: category editing and deletion reuse themed sheets`, async ({}, testInfo) => {
       const browser = await engine.launch();
@@ -404,8 +415,9 @@ for (const engine of [chromium, webkit])
       }
     });
   }
+}
 
-for (const engine of [chromium, webkit])
+for (const engine of [chromium, webkit]) {
   test(`${engine.name()} modal interface headers resist selection while editable/data text remains selectable`, async () => {
     const browser = await engine.launch();
     try {
@@ -446,3 +458,4 @@ for (const engine of [chromium, webkit])
       await browser.close();
     }
   });
+}

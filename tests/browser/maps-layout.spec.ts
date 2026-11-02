@@ -20,6 +20,7 @@ for (const engine of [webkit, chromium]) {
                   } as GeolocationPosition),
                 0,
               );
+
               return 1;
             },
             clearWatch() {},
@@ -45,9 +46,11 @@ for (const engine of [webkit, chromium]) {
         await page.evaluate((scale) => {
           document.documentElement.style.fontSize = `${scale * 100}%`;
         }, scale);
+
         const bounds = await details.evaluate((element) => {
           const rect = (selector: string) =>
             element.querySelector(selector)!.getBoundingClientRect();
+
           const select = rect(".details-map-picker select");
           const picker = rect(".details-map-picker");
           const actions = rect(".details-map-actions");
@@ -57,6 +60,7 @@ for (const engine of [webkit, chromium]) {
             .querySelector(".sheet-head")!
             .getBoundingClientRect();
           const name = rect("h2");
+
           return {
             nameGap: name.top - head.bottom,
             selectWidth: select.width,
@@ -66,6 +70,7 @@ for (const engine of [webkit, chromium]) {
             rightOffset: select.right - secondary.right,
           };
         });
+
         expect(bounds.pickerWidth).toBe(56);
         expect(bounds.selectWidth).toBeCloseTo(bounds.pickerWidth, 0);
         expect(bounds.overflow).toBeLessThanOrEqual(1);

@@ -1,5 +1,17 @@
 # Architecture
 
+## Source style
+
+`npm run format` applies the repository's pinned source-style tools; `npm run format:check` verifies without writing. `npm run check` includes that verification, so CI rejects style drift. Run the formatter after edits and the full check before submitting changes. `.editorconfig` supplies editor defaults; the executable formatter/linter configuration is authoritative.
+
+- Oxfmt owns TypeScript, TSX, JavaScript, CSS, HTML, JSON/JSONC, YAML and Markdown layout: two spaces, LF endings, a final newline, semicolons, double quotes, trailing commas and parenthesized arrow parameters. The print-width target is 100 characters; formatters may retain longer indivisible content. JSX uses double quotes and closing brackets on their own line when multiline.
+- ESLint adds complementary rules: braces on every control-flow body, one variable binding per declaration, blank lines around functions/classes (including arrow-function bindings), after the import section and before returns. Multiline class members are separated. Oxfmt collapses repeated blank lines. Keep related state declarations together and separate logical phases inside larger functions; the latter remains a review judgment.
+- PHP uses Prettier's PHP plugin with four spaces, single quotes and a 100-character target, targeting PHP 8.2-compatible syntax. Standalone SQL uses sql-formatter's SQLite dialect, two spaces, uppercase keywords and separated statements. Embedded SQL strings remain untouched. Migration names, statement order and breakpoint comments must remain intact.
+- Import order, side-effect order, names, public APIs and program behavior are preserved. Formatting is not a reason to refactor or reorder code. Do not disable rules to make checks pass; resolve legitimate exceptions explicitly in the owning configuration and document why.
+- Git-ignored dependencies, generated bundles/types, private configuration and test artifacts are excluded. The lockfile is maintained by npm. Source, scripts, configuration and tests follow the same rules, including new untracked files that are not ignored.
+
+The formatter command runs ESLint fixes before layout formatting so one command produces the final style. Use `npm run format` rather than invoking one underlying tool alone. Inline ESLint disable comments cannot bypass the policy. Both publishers check style before building new publication artifacts; the promo rollback path restores its existing backup without reformatting it. Tool versions and the lockfile are committed together. Significant style changes should be reviewed separately from behavioral changes.
+
 ## Module boundaries
 
 | Owner               | Responsibility                                                                    | May depend on                          |
@@ -14,6 +26,18 @@
 `npm run check` enforces these runtime import boundaries using the production build parser, including re-exports and literal dynamic imports. Type-only imports are erased by that parser; TypeScript checks their types. All server source, including the Better Auth adapter and account endpoints, is strict TypeScript. Transport parsing in `server/http.ts` has no account dependency; endpoints retain their own authorization and domain-error translation.
 
 `library-types.ts` owns browser workspace metadata. `library-records.ts` owns in-memory edits, capacity checks and cloud record transitions; `library.ts` owns their IndexedDB transaction/cancellation boundaries and multi-workspace orchestration. The category editor owns its transient draft, so typing and appearance selection do not update app-wide state. Preference types/parsing belong to browser foundation; the app hook owns appearance and persistence effects.
+
+### Application orchestration
+
+`App.tsx` composes focused app-layer controllers and renders the shell. `useSession` owns account discovery, provider-return handling, logout and account/device removal. `useWorkspace` owns library selection, membership refresh, access state and subscriptions to local workspace changes. Account changes go through session acceptance and one workspace transition; library changes use that same transition to invalidate operations and reset transient workflows synchronously.
+
+`operations.ts` provides separate account and workspace generations. Operation contexts capture the originating identity/key and a validity predicate, so leaving and returning to the same account or workspace never revives an old operation. Account-scoped exports can continue across library selection; edits, GPS, imports and copies use workspace-scoped validity. Writes pass these predicates into existing foundation transactions. Copies additionally verify destination membership. Membership loss invalidates selected-workspace operations while preserving cached records for read/export. Late reads, errors and completions cannot update another scope; newer workspace reads supersede older reads in the same scope.
+
+`useSynchronization` owns startup/foreground/reconnection/manual synchronization and the existing thirty-second account/record refresh. It combines selected-group and private-visit status without masking a group failure. The existing foundation synchronization module retains Web Locks, request coalescing, durable flights and retry semantics. Membership polling remains independently owned by the workspace controller, every five seconds while visible/online, with account generations and mutation/request guards.
+
+Editing/GPS, backup/device reconciliation, sharing/group copying and browsing each have a focused controller. Their dialog components compose existing feature views without changing native modal/focus ownership. Pure `foundation/library-selectors.ts` functions derive live places/categories, private visit statuses and filtered/sorted results; the query hook memoizes those results for both List and Map. Browsing owns map selection/fullscreen/provider state. Core feature imports remain eager.
+
+Browser `foundation/http.ts` owns general JSON transport and `ApiError`, independently of synchronization. `account-contract.ts` owns account response validation and schema-derived types. Account/group features import these owners directly; specialized photo byte transport remains separate. No new state-management dependency, endpoint, persisted format or migration is introduced.
 
 Settings, group management and both editors are part of the initial app bundle. Core interactions never wait for another feature module or loading dialog. The existing optional Leaflet map and photo GPS parser retain their established lazy-loading/offline-precache behavior.
 

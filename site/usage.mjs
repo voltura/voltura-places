@@ -1,6 +1,8 @@
 export function renderUsage(language) {
   const sv = language === "sv";
+
   const t = (en, se) => (sv ? se : en);
+
   const cards = [
     ["activeNow", t("Active now", "Aktiva nu")],
     ["activeToday", t("Active today", "Aktiva idag")],
@@ -9,6 +11,7 @@ export function renderUsage(language) {
     ["cloudPlaces", t("Cloud places", "Platser i molnet")],
     ["averagePersonalPlaces", t("Avg. places / account", "Snittplatser / konto")],
   ];
+
   return `<section class="usage-section" data-usage data-state="loading" aria-busy="true" aria-label="${t("Usage", "Användning")}">
 <dl class="stats-summary usage-summary">${cards.map(([key, label]) => `<div class="stat-card"><dt>${label}</dt><dd data-metric="${key}"><span class="stat-skeleton" role="img" aria-label="${t("Loading", "Laddar")}"></span></dd></div>`).join("")}</dl>
 <details class="usage-method"><summary aria-label="${t("How we count", "Så räknar vi")}"><span class="usage-status" data-usage-status role="status">${t("Loading…", "Laddar…")}</span><span class="disclosure-label">${t("How we count", "Så räknar vi")}</span></summary><div class="usage-method-panel">

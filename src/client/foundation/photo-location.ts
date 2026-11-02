@@ -1,8 +1,10 @@
 export type PhotoPosition = { latitude: number; longitude: number };
+
 export async function photoPosition(file: Blob): Promise<PhotoPosition | null> {
   try {
     const { gps } = await import("exifr");
     const value = await gps(new Uint8Array(await file.arrayBuffer()));
+
     return value &&
       Number.isFinite(value.latitude) &&
       Number.isFinite(value.longitude) &&

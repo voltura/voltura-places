@@ -3,6 +3,7 @@
 Offline-first React PWA. Sites Worker + D1; one.com owns only the isolated promo/email endpoint.
 
 - Start with docs/README.md; read task-relevant authorities. Preserve unrelated work.
+- Follow the source-style policy in docs/architecture.md and the checked-in .editorconfig, .oxfmtrc.json and eslint.config.mjs. Run `npm run format` after edits and `npm run check` before completion; do not bypass style checks or hand-format generated output. The same commands cover PHP and SQL. Preserve import/statement order and behavior; keep formatting changes separate from functional changes where possible.
 - Client composition → features → domain-neutral UI; browser infrastructure and shared schemas stay independent of presentation. Server owns authorization.
 - Persist records and pending writes atomically before success. Preserve account partitioning, deletion markers, CAS revisions and idempotent requests.
 - Never log positions, names, identity/session tokens, mail codes or secrets.

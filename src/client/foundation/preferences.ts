@@ -31,8 +31,11 @@ export function parsePreferences(
     autoHideControls: false,
     units: "metric",
   };
-  if (!value || typeof value !== "object" || Array.isArray(value)) return defaults;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return defaults;
+  }
   const v = value as Record<string, unknown>;
+
   return {
     language:
       linkedLanguage ??
@@ -56,5 +59,6 @@ export function loadPreferences(): Preferences {
   try {
     value = JSON.parse(localStorage.getItem("places-preferences") ?? "null");
   } catch {}
+
   return parsePreferences(value, location.search, navigator.language ?? "");
 }

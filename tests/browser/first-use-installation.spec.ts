@@ -84,8 +84,9 @@ for (const [name, userAgent, platform, step] of identities) {
       account.getByRole("button", { name: "Continue without an account", exact: true }),
     ).toBeVisible();
     await expect(dialog.locator("details")).not.toHaveAttribute("open");
-    if (name === "Safari iPhone")
+    if (name === "Safari iPhone") {
       await page.screenshot({ path: testInfo.outputPath("first-use-collapsed.png") });
+    }
     await dialog.locator("summary").focus();
     await dialog.locator("summary").press("Enter");
     await expect(dialog.getByText(step, { exact: true })).toBeVisible();
@@ -93,8 +94,9 @@ for (const [name, userAgent, platform, step] of identities) {
       await expect(dialog.getByText("In Safari:", { exact: true })).toBeVisible();
       await expect(dialog.getByText(/open Places in Safari/)).toHaveCount(0);
     }
-    if (name === "Safari iPhone")
+    if (name === "Safari iPhone") {
       await page.screenshot({ path: testInfo.outputPath("first-use-expanded.png") });
+    }
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Continue without an account", exact: true }).click();
     await page.reload();
@@ -108,13 +110,16 @@ for (const mode of ["desktop", "standalone", "fullscreen", "apple-standalone"]) 
       Object.defineProperty(navigator, "userAgent", {
         value: mode === "desktop" ? "Windows Chrome/140.0" : "iPhone Mobile Safari/605.1.15",
       });
-      if (mode === "apple-standalone")
+      if (mode === "apple-standalone") {
         Object.defineProperty(navigator, "standalone", { value: true });
+      }
       const original = window.matchMedia.bind(window);
       window.matchMedia = (query) => {
         const result = original(query);
-        if (query === `(display-mode: ${mode})`)
+        if (query === `(display-mode: ${mode})`) {
           Object.defineProperty(result, "matches", { value: true });
+        }
+
         return result;
       };
     }, mode);
@@ -136,8 +141,9 @@ for (const mode of ["desktop", "standalone", "fullscreen", "apple-standalone"]) 
     await expect(
       dialog.getByRole("button", { name: "Continue without an account", exact: true }),
     ).toBeVisible();
-    if (mode === "apple-standalone")
+    if (mode === "apple-standalone") {
       await page.screenshot({ path: testInfo.outputPath("first-use-installed.png") });
+    }
   });
 }
 
@@ -150,8 +156,12 @@ for (const outcome of ["accepted", "dismissed", "failed"]) {
       const event = new Event("beforeinstallprompt", { cancelable: true });
       Object.assign(event, {
         prompt: async () => {
-          if (outcome === "failed") throw new Error("Refused");
-          if (outcome === "accepted") window.dispatchEvent(new Event("appinstalled"));
+          if (outcome === "failed") {
+            throw new Error("Refused");
+          }
+          if (outcome === "accepted") {
+            window.dispatchEvent(new Event("appinstalled"));
+          }
         },
         userChoice: Promise.resolve({ outcome }),
       });
@@ -169,8 +179,9 @@ for (const outcome of ["accepted", "dismissed", "failed"]) {
     } else {
       await expect(dialog.getByText(note)).toBeVisible();
       await expect(dialog.getByText(identities[5][3], { exact: true })).toBeVisible();
-      if (outcome === "failed")
+      if (outcome === "failed") {
         await expect(dialog.getByRole("status")).toContainText("could not open");
+      }
     }
   });
 }

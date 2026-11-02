@@ -23,11 +23,12 @@ import { Sheet } from "../ui/Sheet";
 import { keepOfflineData } from "../foundation/storage";
 import { AccountPanel } from "./Account";
 import { InstallPlaces } from "./InstallPlaces";
-import type { AccountState } from "../foundation/sync";
+import type { AccountState } from "../foundation/account-contract";
 import type { Language, Message } from "../foundation/i18n";
 import type { LocalRecord } from "../../shared/model";
 import type { DistanceUnits } from "../foundation/distance";
 import type { ReactNode } from "react";
+
 const sectionIcons = {
   preferences: SlidersHorizontal,
   categories: Tag,
@@ -36,6 +37,7 @@ const sectionIcons = {
   familySharing: Users,
 };
 type Section = keyof typeof sectionIcons;
+
 export function Settings({
   canWrite,
   t,
@@ -85,7 +87,9 @@ export function Settings({
   const [reportActivity, setReportActivity] = useState(activityEnabled);
   useEffect(() => {
     const refresh = () => setReportActivity(activityEnabled());
+
     window.addEventListener("storage", refresh);
+
     return () => window.removeEventListener("storage", refresh);
   }, []);
   useEffect(() => setTab(initial), [initial]);
@@ -100,13 +104,17 @@ export function Settings({
   useLayoutEffect(() => {
     const container = navigation.current!;
     const strip = tabs.current!;
+
     const measure = () => setCompactNavigation(strip.scrollWidth > container.clientWidth);
+
     const observer = new ResizeObserver(measure);
     observer.observe(container);
     observer.observe(strip);
     measure();
+
     return () => observer.disconnect();
   }, []);
+
   return (
     <Sheet
       title={t("settings")}
@@ -137,6 +145,7 @@ export function Settings({
           >
             {sections.map((k) => {
               const Icon = sectionIcons[k];
+
               return (
                 <option key={k} value={k}>
                   <Icon size={22} aria-hidden="true" />

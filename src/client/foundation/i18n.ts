@@ -985,7 +985,9 @@ export const sv: Record<Message, string> = {
   inaccurate: "Ungefärlig position",
   today: "Idag",
 };
+
 export const messages = (lang: Language) => (key: Message) => (lang === "sv" ? sv : en)[key];
+
 export function libraryErrorMessage(error: unknown, fallback: Message = "storageFailure"): Message {
   return error instanceof Error &&
     [

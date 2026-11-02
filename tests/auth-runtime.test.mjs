@@ -20,8 +20,8 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     external: ["node:*"],
     target: "es2022",
   });
-  const mails = [],
-    secret = "test-mail-signature-secret-over-32-characters";
+  const mails = [];
+  const secret = "test-mail-signature-secret-over-32-characters";
   const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const jwk = {
     ...publicKey.export({ format: "jwk" }),
@@ -47,8 +47,9 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
         GOOGLE_CLIENT_SECRET: "test-google-secret",
       },
       outboundService: async (request) => {
-        if (request.url === "https://www.googleapis.com/oauth2/v3/certs")
+        if (request.url === "https://www.googleapis.com/oauth2/v3/certs") {
           return WorkerResponse.json({ keys: [jwk] });
+        }
         if (request.url === "https://oauth2.googleapis.com/token") {
           const form = new URLSearchParams(await request.text());
           assert.equal(form.get("code"), "valid-test-code");
@@ -70,6 +71,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
             .map((value) => Buffer.from(value).toString("base64url"))
             .join(".");
           const id_token = `${unsigned}.${signBytes("RSA-SHA256", Buffer.from(unsigned), privateKey).toString("base64url")}`;
+
           return WorkerResponse.json({
             access_token: "fixture-access-token",
             token_type: "Bearer",
@@ -84,6 +86,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
           createHmac("sha256", secret).update(body).digest("hex"),
         );
         mails.push(JSON.parse(body));
+
         return new WorkerResponse('{"ok":true}', { status: 200 });
       },
     }),
@@ -105,13 +108,15 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       for (const statement of sql
         .split("--> statement-breakpoint")
         .map((s) => s.trim())
-        .filter(Boolean))
+        .filter(Boolean)) {
         await db.prepare(statement).run();
+      }
     }
-    let cookies = new Map(),
-      nativeId = "",
-      requestNumber = 0,
-      expectedAccount = "";
+    let cookies = new Map();
+    let nativeId = "";
+    let requestNumber = 0;
+    let expectedAccount = "";
+
     const call = async (path, body, method = body ? "POST" : "GET") => {
       const response = await mf.dispatchFetch(`https://places.test${path}`, {
         method,
@@ -132,15 +137,19 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       for (const raw of response.headers.getSetCookie()) {
-        const pair = raw.split(";")[0],
-          index = pair.indexOf("=");
+        const pair = raw.split(";")[0];
+        const index = pair.indexOf("=");
         cookies.set(pair.slice(0, index), pair.slice(index + 1));
       }
+
       return response;
     };
+
     const send = (email) =>
       call("/api/auth/email-otp/send-verification-otp", { email, type: "sign-in" });
+
     const sign = (email, otp) => call("/api/auth/sign-in/email-otp", { email, otp });
+
     assert.equal((await call("/api/account")).status, 200);
     const sent = await send("listener@example.com");
     assert.equal(sent.status, 200, await sent.text());
@@ -230,6 +239,7 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     );
     const badCallback = await call("/api/auth/callback/google?code=invalid&state=invalid");
     assert.notEqual(badCallback.status, 200, "state validation");
+
     const googleLogin = async () => {
       const started = await call("/api/auth/sign-in/social", {
         provider: "google",
@@ -248,8 +258,10 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
       );
       assert.equal(callback.status, 302, await callback.clone().text());
       assert.equal(callback.headers.get("Location"), "https://places.test/?account=google");
+
       return call("/api/account/connect", { provider: "google" });
     };
+
     const googleConnected = await googleLogin();
     assert.equal(googleConnected.status, 200, await googleConnected.clone().text());
     const googleAccount = (await googleConnected.json()).account;
@@ -288,8 +300,9 @@ test("Workers + D1: real auth handlers, signed email transport, cookies, code ex
     assert.equal((await send("attempts@example.com")).status, 200);
     const good = mails.at(-1).code;
     const wrong = good === "000000" ? "000001" : "000000";
-    for (let i = 0; i < 3; i++)
+    for (let i = 0; i < 3; i++) {
       assert.equal((await sign("attempts@example.com", wrong)).status, 400);
+    }
     const exhausted = await sign("attempts@example.com", good);
     assert.notEqual(exhausted.status, 200, "attempt limit");
     assert.notEqual(exhausted.status, 429, "per-code limit, not the IP limiter");

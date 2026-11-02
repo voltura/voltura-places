@@ -14,7 +14,10 @@ const generatedNames = (["en", "sv"] as const).map((language) => ({
 // Recognise existing generated names without changing saved records or custom names.
 export function dateAppearsInPlaceName(place: Pick<Place, "name" | "capturedAt" | "updatedAt">) {
   return generatedNames.some(({ prefix, format }) => {
-    if (!place.name.startsWith(prefix)) return false;
+    if (!place.name.startsWith(prefix)) {
+      return false;
+    }
+
     return [place.capturedAt, place.updatedAt].some(
       (value) => place.name === prefix + format.format(new Date(value)),
     );

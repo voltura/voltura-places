@@ -26,8 +26,12 @@ for (const language of ["en", "sv"] as const) {
         fail
           ? route.fulfill({ status: 503, json: { error: "serviceUnavailable" } })
           : route.fulfill({ json: { version: 1, accountId, records: [] } });
-      if (hold) release = respond;
-      else await respond();
+
+      if (hold) {
+        release = respond;
+      } else {
+        await respond();
+      }
     });
     await page.goto(`/?lang=${language}`);
     await page

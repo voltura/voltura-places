@@ -20,8 +20,10 @@ const paths = {
   moon: '<path d="M20.5 13.3A8.6 8.6 0 0 1 10.7 3.5a8.6 8.6 0 1 0 9.8 9.8Z"/>',
   code: '<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>',
 };
+
 const icon = (name, cls = "") =>
   `<svg class="icon ${cls}" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+
 export function renderPromo({
   language,
   c,
@@ -39,6 +41,7 @@ export function renderPromo({
   usageScriptName,
 }) {
   const asset = (name) => `${prefix}assets/${name}`;
+
   const brand = `<img src="${asset("icon.svg")}" width="38" height="38" alt=""><span>voltura <strong>places</strong></span>`;
   const appButton = `<a class="button primary" href="${appUrl}">${c.open}${icon("arrow")}</a>`;
   const main =
@@ -58,6 +61,7 @@ export function renderPromo({
 <section id="install" class="section container install-section"><div class="install-copy"><img class="install-icon" src="${asset("icon.svg")}" alt="" width="72" height="72"><p class="eyebrow">${c.installLabel}</p><h2>${c.installTitle}</h2><p>${c.installShort}</p><div class="cta">${appButton}</div><p class="free">${c.free}</p></div><div class="install-guide"><div>${icon("phone")}<section aria-label="${c.ios}"><h3>${c.ios}</h3><ol class="install-steps">${c.iosSteps.map((text) => `<li>${text}</li>`).join("")}</ol></section></div><div>${icon("phone")}<p>${c.android}</p></div><p class="install-note">${c.installText}</p></div></section>
 <section id="privacy" class="container privacy-section"><div class="privacy-copy">${icon("lock")}<div><h3>${c.privacyTitle}</h3><p>${c.privacyText}</p></div></div><details><summary>${c.privacy}</summary><p>${c.privacyDetail}</p><p>${c.sourceText}</p></details></section>
 `;
+
   return `<!doctype html>
 <html lang="${language}" data-theme="dark"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

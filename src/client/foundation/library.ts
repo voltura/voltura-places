@@ -46,6 +46,7 @@ const database = localDatabase<PlacesDB>("voltura-places", 1, (db) => {
   db.createObjectStore("workspaces", { keyPath: "key" });
   db.createObjectStore("drafts");
 });
+
 const seed = (key: string): Workspace => ({
   key,
   reconciled: key === "guest" || !!workspaceIdentity(key).family,
@@ -58,37 +59,54 @@ const seed = (key: string): Workspace => ({
     dirty: false,
   })),
 });
+
 export const channel =
   typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("places-library") : null;
+
 const changed = () => {
   window.dispatchEvent(new Event("places-library"));
   channel?.postMessage("changed");
 };
+
 export async function readWorkspace(key: string) {
   const db = await database();
   let existing = await db.get("workspaces", key);
-  if (!existing) return seed(key);
+  if (!existing) {
+    return seed(key);
+  }
   // Older Keep both writes copied the source's conflict onto a fresh identity.
   // Its cloud version already belongs to the original record, not this copy.
-  if (existing.records.some((r) => r.conflict && r.conflict.id !== r.id))
+  if (existing.records.some((r) => r.conflict && r.conflict.id !== r.id)) {
     existing = await changeWorkspace(key, (w) => {
-      for (const r of w.records) if (r.conflict && r.conflict.id !== r.id) delete r.conflict;
+      for (const r of w.records) {
+        if (r.conflict && r.conflict.id !== r.id) {
+          delete r.conflict;
+        }
+      }
     });
-  if ((existing.presetRevision ?? 1) >= 2) return existing;
+  }
+  if ((existing.presetRevision ?? 1) >= 2) {
+    return existing;
+  }
   // Add the new preset once, preserving custom names, tombstones and in-flight writes.
   if (
     !existing.records.some((r) => r.id === "mushrooms") &&
     existing.records.filter((r) => r.kind === "category" && !r.deleted).length >=
       entityLimits.category
-  )
+  ) {
     return existing;
+  }
+
   return changeWorkspace(key, (w) => {
-    if ((w.presetRevision ?? 1) >= 2) return;
+    if ((w.presetRevision ?? 1) >= 2) {
+      return;
+    }
     if (!w.records.some((r) => r.id === "mushrooms")) {
       if (
         w.records.filter((r) => r.kind === "category" && !r.deleted).length >= entityLimits.category
-      )
+      ) {
         return;
+      }
       w.records.push({
         ...structuredClone(starters.find((e) => e.id === "mushrooms")!),
         revision: 0,
@@ -100,6 +118,7 @@ export async function readWorkspace(key: string) {
     w.presetRevision = 2;
   });
 }
+
 export async function changeWorkspace(
   key: string,
   update: (w: Workspace) => void | false,
@@ -112,30 +131,37 @@ export async function changeWorkspace(
     personalVisit,
     preservePersonalVisits = false,
   } = options;
-  const db = await database(),
-    tx = db.transaction(clearDraftId ? ["workspaces", "drafts"] : ["workspaces"], "readwrite");
+  const db = await database();
+  const tx = db.transaction(clearDraftId ? ["workspaces", "drafts"] : ["workspaces"], "readwrite");
   const store = tx.objectStore("workspaces");
   let w: Workspace;
   let modified = false;
   try {
     w = (await store.get(key)) ?? seed(key);
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     if (
       w.importLease &&
       w.importLease.expiresAt > Date.now() &&
       w.importLease.token !== importToken
-    )
+    ) {
       throw new Error("syncBusy");
+    }
     modified = update(w) !== false;
     if (modified) {
       if (personalVisit && (!Array.isArray(personalVisit) || personalVisit.length)) {
         const owner = visitOwner(key);
         const personal = owner === key ? w : ((await store.get(owner)) ?? seed(owner));
-        if (personal.importLease && personal.importLease.expiresAt > Date.now())
+        if (personal.importLease && personal.importLease.expiresAt > Date.now()) {
           throw new Error("syncBusy");
+        }
         const batch = recordBatch(personal);
-        for (const visit of Array.isArray(personalVisit) ? personalVisit : [personalVisit])
-          if (!preservePersonalVisits || !batch.get(visit.id)) batch.write(visit);
+        for (const visit of Array.isArray(personalVisit) ? personalVisit : [personalVisit]) {
+          if (!preservePersonalVisits || !batch.get(visit.id)) {
+            batch.write(visit);
+          }
+        }
         batch.commit();
         if (owner !== key) {
           enforceCapacity(personal);
@@ -146,22 +172,28 @@ export async function changeWorkspace(
       await store.put(w);
     }
     if (clearDraftId) {
-      const drafts = tx.objectStore("drafts"),
-        draft = await drafts.get(key);
+      const drafts = tx.objectStore("drafts");
+      const draft = await drafts.get(key);
       if (draft && typeof draft === "object" && "id" in draft && draft.id === clearDraftId) {
         await drafts.delete(key);
         modified = true;
       }
     }
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     await tx.done;
   } catch (error) {
     await abortTransaction(tx);
     throw error;
   }
-  if (modified) changed();
+  if (modified) {
+    changed();
+  }
+
   return w;
 }
+
 export async function saveEntity(
   key: string,
   e: Entity,
@@ -170,8 +202,13 @@ export async function saveEntity(
   isCurrent = () => true,
   personalStatus?: VisitStatus,
 ) {
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (clearDraft) await flushDrafts().catch(() => {});
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (clearDraft) {
+    await flushDrafts().catch(() => {});
+  }
+
   return changeWorkspace(
     key,
     (w) => {
@@ -181,9 +218,13 @@ export async function saveEntity(
         previous &&
         (base === null || previous.deleted || !sameValue(previous.value, base.value)) &&
         (previous.deleted || !sameValue(previous.value, e.value));
-      if (stale && previous.dirty) throw new Error("placeChanged");
+      if (stale && previous.dirty) {
+        throw new Error("placeChanged");
+      }
       const saved = write(w, e);
-      if (stale && !saved.conflict) saved.conflict = recordSchema.parse(previous);
+      if (stale && !saved.conflict) {
+        saved.conflict = recordSchema.parse(previous);
+      }
     },
     {
       clearDraftId: clearDraft ? e.id : undefined,
@@ -195,6 +236,7 @@ export async function saveEntity(
     },
   );
 }
+
 export async function saveVisit(
   key: string,
   placeId: string,
@@ -202,19 +244,27 @@ export async function saveVisit(
   isCurrent = () => true,
 ) {
   const entity = await visitEntity(key, placeId, status);
+
   return saveEntity(visitOwner(key), entity, undefined, false, isCurrent);
 }
+
 export async function copyPlaceToWorkspace(
   from: string,
   to: string,
   id: string,
   isCurrent = () => true,
 ) {
-  const source = await readWorkspace(from),
-    place = source.records.find((r) => r.id === id && r.kind === "place" && !r.deleted);
-  if (!place || place.kind !== "place") throw new Error("invalidImport");
-  if (!isCurrent()) throw new Error("accountChanged");
-  if (place.value.photoId) await loadPhoto(from, place.value.photoId, isCurrent);
+  const source = await readWorkspace(from);
+  const place = source.records.find((r) => r.id === id && r.kind === "place" && !r.deleted);
+  if (!place || place.kind !== "place") {
+    throw new Error("invalidImport");
+  }
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  if (place.value.photoId) {
+    await loadPhoto(from, place.value.photoId, isCurrent);
+  }
   const photoIds = place.value.photoId
     ? await copyPhotos(from, to, [place.value.photoId], isCurrent)
     : new Map<string, string>();
@@ -222,17 +272,22 @@ export async function copyPlaceToWorkspace(
     (r) => r.id === place.value.categoryId && r.kind === "category" && !r.deleted,
   );
   const newId = crypto.randomUUID();
+
   return changeWorkspace(
     to,
     (w) => {
-      if (!isCurrent()) throw new Error("accountChanged");
+      if (!isCurrent()) {
+        throw new Error("accountChanged");
+      }
       let categoryId = "other";
       if (category?.kind === "category") {
         const same = w.records.find(
           (r) => r.kind === "category" && !r.deleted && r.value.name === category.value.name,
         );
         categoryId = same?.id ?? crypto.randomUUID();
-        if (!same) write(w, { ...category, id: categoryId });
+        if (!same) {
+          write(w, { ...category, id: categoryId });
+        }
       }
       write(w, {
         id: newId,
@@ -248,28 +303,35 @@ export async function copyPlaceToWorkspace(
     { isCurrent },
   );
 }
+
 export async function deleteEntity(key: string, id: string, isCurrent = () => true) {
   await flushDrafts().catch(() => {});
+
   return changeWorkspace(
     key,
     (w) => {
       const r = w.records.find((r) => r.id === id);
-      if (!r || id === "other") return false;
+      if (!r || id === "other") {
+        return false;
+      }
       const batch = recordBatch(w);
-      if (r.kind === "category")
+      if (r.kind === "category") {
         for (const place of w.records.filter((p) => p.kind === "place" && !p.deleted)) {
-          if (place.kind === "place" && place.value.categoryId === id)
+          if (place.kind === "place" && place.value.categoryId === id) {
             batch.write({
               ...place,
               value: { ...place.value, categoryId: "other", updatedAt: new Date().toISOString() },
             });
+          }
         }
+      }
       batch.write(r, true);
       batch.commit();
     },
     { clearDraftId: id, isCurrent },
   );
 }
+
 export function exportBackup(
   w: Workspace,
   photos?: { id: string; data: string }[],
@@ -282,6 +344,7 @@ export function exportBackup(
   const placeIds = new Set(
     w.records.filter((r) => r.kind === "place" && !r.deleted).map((r) => r.id),
   );
+
   return validateBackup({
     format: "voltura-places",
     version: photos?.length ? 2 : 1,
@@ -306,6 +369,7 @@ export function exportBackup(
       ),
   });
 }
+
 export async function importBackup(
   key: string,
   input: unknown,
@@ -329,35 +393,47 @@ export async function importBackup(
     ),
   );
   const personalVisits: Entity[] = [];
-  if ((await readWorkspace(key)).flight) throw new Error("syncBusy");
+  if ((await readWorkspace(key)).flight) {
+    throw new Error("syncBusy");
+  }
   const existingPhotos = await workspacePhotos(key);
-  const photos = b.photos ?? [],
-    ids = new Map<string, string>();
+  const photos = b.photos ?? [];
+  const ids = new Map<string, string>();
   const stored: StoredPhoto[] = [];
   // Decode one bounded image at a time, especially on memory-constrained phones.
   for (const p of photos) {
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     const photo = await makeStoredPhoto(
       key,
       p.id,
       new Blob([decodePhoto(p.data)], { type: "image/jpeg" }),
     );
     const existing = existingPhotos.find((p) => p.id === photo.id);
-    if (existing && existing.hash !== photo.hash)
+    if (existing && existing.hash !== photo.hash) {
       photo.id = existingPhotos.find((p) => p.hash === photo.hash)?.id ?? crypto.randomUUID();
+    }
     ids.set(p.id, photo.id);
     stored.push(photo);
   }
-  if (!isCurrent()) throw new Error("accountChanged");
-  for (const place of b.places)
-    if (place.value.photoId) place.value.photoId = ids.get(place.value.photoId)!;
+  if (!isCurrent()) {
+    throw new Error("accountChanged");
+  }
+  for (const place of b.places) {
+    if (place.value.photoId) {
+      place.value.photoId = ids.get(place.value.photoId)!;
+    }
+  }
   const token = crypto.randomUUID();
   // Reserve the validated capacity before photo persistence. Other tabs cannot
   // introduce a capacity failure between staging bytes and committing records.
   await changeWorkspace(
     key,
     (w) => {
-      if (w.flight || w.deferredFlights?.length) throw new Error("syncBusy");
+      if (w.flight || w.deferredFlights?.length) {
+        throw new Error("syncBusy");
+      }
       const planned = structuredClone(w);
       applyImport(planned, b, replace, placeRemaps, visitImports);
       enforceCapacity(planned);
@@ -367,10 +443,13 @@ export async function importBackup(
   );
   try {
     await putPhotos(stored, isCurrent);
+
     return await changeWorkspace(
       key,
       (w) => {
-        if (w.importLease?.token !== token) throw new Error("syncBusy");
+        if (w.importLease?.token !== token) {
+          throw new Error("syncBusy");
+        }
         personalVisits.push(...applyImport(w, b, replace, placeRemaps, visitImports));
         delete w.importLease;
       },
@@ -386,9 +465,10 @@ export async function importBackup(
     await releaseImport(key, token).catch(() => {});
   }
 }
+
 async function releaseImport(key: string, token: string) {
-  const db = await database(),
-    tx = db.transaction("workspaces", "readwrite");
+  const db = await database();
+  const tx = db.transaction("workspaces", "readwrite");
   try {
     const w = await tx.store.get(key);
     if (w?.importLease?.token === token) {
@@ -415,9 +495,13 @@ function applyImport(
     ...b.places.map((e) => [e.id, "place"] as const),
     ...b.categories.map((e) => [e.id, "category"] as const),
   ]);
-  if (replace)
-    for (const r of [...w.records])
-      if (r.kind !== "visit" && !r.deleted && incoming.get(r.id) !== r.kind) batch.write(r, true);
+  if (replace) {
+    for (const r of [...w.records]) {
+      if (r.kind !== "visit" && !r.deleted && incoming.get(r.id) !== r.kind) {
+        batch.write(r, true);
+      }
+    }
+  }
   // Merge retains a conflicting local value under its own identity.
   const categoryMap = new Map<string, string>();
   for (const e of b.categories) {
@@ -431,7 +515,9 @@ function applyImport(
     const id =
       old && (old.kind !== "category" || (!replace && different)) ? crypto.randomUUID() : e.id;
     categoryMap.set(e.id, id);
-    if (old?.kind === "category" && !old.deleted && sameValue(old.value, e.value)) continue;
+    if (old?.kind === "category" && !old.deleted && sameValue(old.value, e.value)) {
+      continue;
+    }
     batch.write({ id, kind: "category", value: e.value });
   }
   for (const e of b.places) {
@@ -443,49 +529,74 @@ function applyImport(
       : old && (old.kind !== "place" || !replace)
         ? placeRemaps.get(e.id)!
         : e.id;
-    if (!identical) batch.write({ id, kind: "place", value });
+    if (!identical) {
+      batch.write({ id, kind: "place", value });
+    }
     const visit = visitImports.get(e.id);
     if (visit) {
       const personal = id === e.id ? visit.original : visit.copy;
-      if (visitOwner(w.key) !== w.key) personalVisits.push(personal);
-      else if (replace || !batch.get(personal.id)) batch.write(personal);
+      if (visitOwner(w.key) !== w.key) {
+        personalVisits.push(personal);
+      } else if (replace || !batch.get(personal.id)) {
+        batch.write(personal);
+      }
     }
   }
   batch.commit();
+
   return personalVisits;
 }
 
 type DevicePlace = LocalRecord & { kind: "place" };
+
 const liveDevicePlaces = (guest: Workspace) =>
   guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
+
 function handledDevicePlaces(w: Workspace, guest: Workspace) {
   const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
   const devicePlaces = liveDevicePlaces(guest);
-  if (devicePlaces.every((r) => receipts.has(r.id))) return receipts;
+  if (devicePlaces.every((r) => receipts.has(r.id))) {
+    return receipts;
+  }
   const places = w.records.filter((r) => r.kind === "place");
   const values = new Set(places.map((r) => valueKey(r.value)));
   const legacyIds = new Set(w.reconciled && !w.guestPlaces ? places.map((r) => r.id) : []);
-  for (const r of devicePlaces)
-    if (legacyIds.has(r.id) || values.has(valueKey(r.value))) receipts.add(r.id);
+  for (const r of devicePlaces) {
+    if (legacyIds.has(r.id) || values.has(valueKey(r.value))) {
+      receipts.add(r.id);
+    }
+  }
+
   return receipts;
 }
+
 function placeMatches(records: RecordState[]) {
   const byId = new Map<string, { record: RecordState; order: number }>();
   const byValue = new Map<string, { record: RecordState; order: number }>();
   let order = 0;
+
   const add = (record: RecordState) => {
-    if (record.kind !== "place") return;
+    if (record.kind !== "place") {
+      return;
+    }
     const entry = { record, order: order++ };
     byId.set(record.id, entry);
     const key = valueKey(record.value);
-    if (!byValue.has(key)) byValue.set(key, entry);
+    if (!byValue.has(key)) {
+      byValue.set(key, entry);
+    }
   };
-  for (const record of records) add(record);
+
+  for (const record of records) {
+    add(record);
+  }
+
   return {
     add,
     find(id: string, value: unknown) {
-      const identity = byId.get(id),
-        equal = byValue.get(valueKey(value));
+      const identity = byId.get(id);
+      const equal = byValue.get(valueKey(value));
+
       // Preserve the first matching record, including deletion markers, just
       // as an array scan did when identity and value match different records.
       return !identity
@@ -496,8 +607,12 @@ function placeMatches(records: RecordState[]) {
     },
   };
 }
+
 function knownAccounts(guest: Workspace, workspaces: Workspace[]) {
-  if (guest.deviceAccounts?.length) return guest.deviceAccounts;
+  if (guest.deviceAccounts?.length) {
+    return guest.deviceAccounts;
+  }
+
   return [
     ...new Set([
       ...workspaces
@@ -506,6 +621,7 @@ function knownAccounts(guest: Workspace, workspaces: Workspace[]) {
     ]),
   ];
 }
+
 function deviceTransfers(guest: Workspace, workspaces: Workspace[]) {
   const transfers: NonNullable<Workspace["deviceTransfers"]> = Object.assign(
     Object.create(null),
@@ -513,43 +629,57 @@ function deviceTransfers(guest: Workspace, workspaces: Workspace[]) {
   );
   const places = liveDevicePlaces(guest);
   for (const w of workspaces) {
-    if (w.key === "guest" || workspaceIdentity(w.key).family) continue;
+    if (w.key === "guest" || workspaceIdentity(w.key).family) {
+      continue;
+    }
     const legacy = w.reconciled && !w.guestPlaces ? handledDevicePlaces(w, guest) : null;
     const matches = legacy ? placeMatches(w.records) : null;
     for (const r of places) {
       const destination =
         (w.guestPlaces && Object.hasOwn(w.guestPlaces, r.id) ? w.guestPlaces[r.id] : null) ??
         (legacy?.has(r.id) ? matches?.find(r.id, r.value)?.id : null);
-      if (destination && !transfers[r.id])
+      if (destination && !transfers[r.id]) {
         transfers[r.id] = { account: w.key, destination, generation: r.generation };
+      }
     }
   }
+
   return transfers;
 }
+
 async function legacyTransferWorkspaces(guest: Workspace) {
-  if (guest.deviceTransfers) return [];
+  if (guest.deviceTransfers) {
+    return [];
+  }
   const db = await database();
-  if (!guest.deviceAccounts?.length) return db.getAll("workspaces");
+  if (!guest.deviceAccounts?.length) {
+    return db.getAll("workspaces");
+  }
   const workspaces = await Promise.all(
     guest.deviceAccounts.map((key) => db.get("workspaces", key)),
   );
+
   return workspaces.filter((w): w is Workspace => !!w);
 }
+
 export async function devicePlacePlan(key: string) {
-  if (key === "guest" || workspaceIdentity(key).family)
+  if (key === "guest" || workspaceIdentity(key).family) {
     return { needed: false, ask: false, pending: 0 };
-  const guest = await readWorkspace("guest"),
-    account = await readWorkspace(key);
+  }
+  const guest = await readWorkspace("guest");
+  const account = await readWorkspace(key);
   const transfers = deviceTransfers(guest, await legacyTransferWorkspaces(guest));
   const pending = liveDevicePlaces(guest).filter(
     (r) => !transfers[r.id] || transfers[r.id].account === key,
   ).length;
+
   return {
     needed: !account.reconciled || pending > 0 || !guest.deviceAccounts?.includes(key),
     ask: false,
     pending,
   };
 }
+
 function initializePrivateRecords(w: Workspace, cloud: RecordState[]) {
   w.records = cloud.map((r) => ({ ...r, generation: 0, dirty: false }));
   const presets = [
@@ -557,7 +687,7 @@ function initializePrivateRecords(w: Workspace, cloud: RecordState[]) {
     ...starters.filter((e) => e.id !== "other"),
   ];
   let count = w.records.filter((r) => r.kind === "category" && !r.deleted).length;
-  for (const e of presets)
+  for (const e of presets) {
     if (count < entityLimits.category && !w.records.some((r) => r.id === e.id)) {
       w.records.push({
         ...structuredClone(e),
@@ -568,17 +698,24 @@ function initializePrivateRecords(w: Workspace, cloud: RecordState[]) {
       });
       count++;
     }
+  }
 }
+
 export async function initializePrivateAccount(
   key: string,
   cloud: RecordState[],
   isCurrent = () => true,
 ) {
-  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
+  if (key === "guest" || workspaceIdentity(key).family) {
+    throw new Error("invalidImport");
+  }
+
   return changeWorkspace(
     key,
     (w) => {
-      if (w.reconciled) return false;
+      if (w.reconciled) {
+        return false;
+      }
       initializePrivateRecords(w, cloud);
       w.reconciled = true;
       w.guestPlaces ??= {};
@@ -586,15 +723,18 @@ export async function initializePrivateAccount(
     { isCurrent },
   );
 }
+
 export async function reconcileDevicePlaces(
   key: string,
   cloud: RecordState[],
   decision: "auto" | "copy" | "skip",
   isCurrent = () => true,
 ) {
-  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
-  const guest = await readWorkspace("guest"),
-    account = await readWorkspace(key);
+  if (key === "guest" || workspaceIdentity(key).family) {
+    throw new Error("invalidImport");
+  }
+  const guest = await readWorkspace("guest");
+  const account = await readWorkspace(key);
   const transfers = deviceTransfers(guest, await legacyTransferWorkspaces(guest));
   const handled = handledDevicePlaces(account, guest);
   const source = liveDevicePlaces(guest).filter(
@@ -603,7 +743,10 @@ export async function reconcileDevicePlaces(
   const ids = new Map(
     await Promise.all(
       source.map(async (r) => {
-        if (transfers[r.id]?.account === key) return [r.id, transfers[r.id].destination] as const;
+        if (transfers[r.id]?.account === key) {
+          return [r.id, transfers[r.id].destination] as const;
+        }
+
         return [r.id, "guest-" + (await digest(JSON.stringify([key, r.id])))] as const;
       }),
     ),
@@ -632,28 +775,35 @@ export async function reconcileDevicePlaces(
       ),
     ),
   );
+
   const transferVisit = (
     batch: ReturnType<typeof recordBatch>,
     statuses: Map<string, VisitStatus>,
     sourceId: string,
     destination: string,
   ) => {
-    const status = statuses.get(sourceId),
-      entity = visitCandidates.get(destination);
-    if (status && entity?.kind === "visit" && !batch.get(entity.id))
+    const status = statuses.get(sourceId);
+    const entity = visitCandidates.get(destination);
+    if (status && entity?.kind === "visit" && !batch.get(entity.id)) {
       batch.write({ ...entity, value: { ...entity.value, status } });
+    }
   };
-  const db = await database(),
-    tx = db.transaction("workspaces", "readwrite");
+
+  const db = await database();
+  const tx = db.transaction("workspaces", "readwrite");
   let added = 0;
   try {
     const currentGuest = (await tx.store.get("guest")) ?? seed("guest");
     const w = (await tx.store.get(key)) ?? seed(key);
-    if (w.importLease && w.importLease.expiresAt > Date.now()) throw new Error("syncBusy");
+    if (w.importLease && w.importLease.expiresAt > Date.now()) {
+      throw new Error("syncBusy");
+    }
     const accounts = currentGuest.deviceAccounts?.length
       ? currentGuest.deviceAccounts
       : knownAccounts(currentGuest, await tx.store.getAll());
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     const legacy = currentGuest.deviceTransfers
       ? []
       : currentGuest.deviceAccounts?.length
@@ -662,7 +812,9 @@ export async function reconcileDevicePlaces(
           )
         : await tx.store.getAll();
     currentGuest.deviceTransfers = deviceTransfers(currentGuest, legacy);
-    if (!w.reconciled) initializePrivateRecords(w, cloud);
+    if (!w.reconciled) {
+      initializePrivateRecords(w, cloud);
+    }
     if (w.reconciled && !w.guestPlaces) {
       const legacyIds = new Set(w.records.filter((r) => r.kind === "place").map((r) => r.id));
       w.guestPlaces = Object.fromEntries(
@@ -676,18 +828,28 @@ export async function reconcileDevicePlaces(
     const existingPlaces = placeMatches(w.records);
     const existingCategories = new Map<string, LocalRecord>();
     for (const record of w.records) {
-      if (record.kind !== "category" || record.deleted) continue;
+      if (record.kind !== "category" || record.deleted) {
+        continue;
+      }
       const value = valueKey(record.value);
-      if (!existingCategories.has(value)) existingCategories.set(value, record);
+      if (!existingCategories.has(value)) {
+        existingCategories.set(value, record);
+      }
     }
     const batch = recordBatch(w);
     const categories = new Map<string, string>();
     for (const r of source) {
       const current = guestById.get(r.id);
-      if (!current || current.deleted || current.generation !== r.generation) continue;
+      if (!current || current.deleted || current.generation !== r.generation) {
+        continue;
+      }
       const owner = currentGuest.deviceTransfers[r.id];
-      if (owner && owner.account !== key) continue;
-      if (Object.hasOwn(w.guestPlaces, r.id)) continue;
+      if (owner && owner.account !== key) {
+        continue;
+      }
+      if (Object.hasOwn(w.guestPlaces, r.id)) {
+        continue;
+      }
       const existing = existingPlaces.find(ids.get(r.id)!, r.value);
       if (existing) {
         w.guestPlaces[r.id] = existing.id;
@@ -730,45 +892,60 @@ export async function reconcileDevicePlaces(
     batch.commit();
     const currentVisits = visitStatuses(currentGuest.records, "guest");
     const personalBatch = recordBatch(w);
-    if (decision !== "skip")
+    if (decision !== "skip") {
       for (const r of source) {
         const destination = w.guestPlaces[r.id];
-        if (destination) transferVisit(personalBatch, currentVisits, r.id, destination);
+        if (destination) {
+          transferVisit(personalBatch, currentVisits, r.id, destination);
+        }
       }
+    }
     personalBatch.commit();
-    if (decision !== "skip")
+    if (decision !== "skip") {
       for (const r of liveDevicePlaces(currentGuest)) {
         const destination = Object.hasOwn(w.guestPlaces, r.id) ? w.guestPlaces[r.id] : null;
-        if (destination && !currentGuest.deviceTransfers[r.id])
+        if (destination && !currentGuest.deviceTransfers[r.id]) {
           currentGuest.deviceTransfers[r.id] = {
             account: key,
             destination,
             generation: r.generation,
           };
+        }
       }
+    }
     w.reconciled = true;
     currentGuest.deviceAccounts = [...accounts.filter((id) => id !== key), key];
     enforceCapacity(w);
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     await tx.store.put(w);
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     await tx.store.put(currentGuest);
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     await tx.done;
   } catch (error) {
     await abortTransaction(tx);
     throw error;
   }
   changed();
+
   return added;
 }
+
 // Retain the guest source until the account's record has a cloud revision and
 // no pending write/conflict. Ownership outlives the source and the account cache.
 export async function finishDevicePlaceTransfer(key: string, isCurrent = () => true) {
-  if (key === "guest" || workspaceIdentity(key).family) throw new Error("invalidImport");
+  if (key === "guest" || workspaceIdentity(key).family) {
+    throw new Error("invalidImport");
+  }
   await flushDrafts();
-  const db = await database(),
-    tx = db.transaction(["workspaces", "drafts"], "readwrite");
+  const db = await database();
+  const tx = db.transaction(["workspaces", "drafts"], "readwrite");
   let completed = 0;
   try {
     const guest = (await tx.objectStore("workspaces").get("guest")) ?? seed("guest");
@@ -777,7 +954,9 @@ export async function finishDevicePlaceTransfer(key: string, isCurrent = () => t
     const removed = new Set<string>();
     for (const r of liveDevicePlaces(guest)) {
       const transfer = guest.deviceTransfers?.[r.id];
-      if (!transfer || transfer.account !== key || transfer.generation !== r.generation) continue;
+      if (!transfer || transfer.account !== key || transfer.generation !== r.generation) {
+        continue;
+      }
       const destination = byId.get(transfer.destination);
       if (
         !destination ||
@@ -785,16 +964,20 @@ export async function finishDevicePlaceTransfer(key: string, isCurrent = () => t
         destination.dirty ||
         destination.conflict ||
         destination.revision < 1
-      )
+      ) {
         continue;
+      }
       if (
         account.flight?.mutation.entity.id === destination.id ||
         account.deferredFlights?.some((f) => f.mutation.entity.id === destination.id)
-      )
+      ) {
         continue;
+      }
       removed.add(r.id);
     }
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     if (removed.size) {
       guest.records = guest.records.filter((r) => !removed.has(r.id));
       await tx.objectStore("workspaces").put(guest);
@@ -805,19 +988,26 @@ export async function finishDevicePlaceTransfer(key: string, isCurrent = () => t
         "id" in draft &&
         typeof draft.id === "string" &&
         removed.has(draft.id)
-      )
+      ) {
         await tx.objectStore("drafts").delete("guest");
+      }
       completed = removed.size;
     }
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
     await tx.done;
   } catch (error) {
     await abortTransaction(tx);
     throw error;
   }
-  if (completed) changed();
+  if (completed) {
+    changed();
+  }
+
   return completed;
 }
+
 export async function reconcileAccount(
   key: string,
   cloud: RecordState[],
@@ -825,22 +1015,31 @@ export async function reconcileAccount(
   isCurrent = () => true,
 ) {
   if ((await readWorkspace(key)).reconciled) {
-    if (!isCurrent()) throw new Error("accountChanged");
+    if (!isCurrent()) {
+      throw new Error("accountChanged");
+    }
+
     return readWorkspace(key);
   }
   await reconcileDevicePlaces(key, cloud, merge ? "copy" : "skip", isCurrent);
+
   return readWorkspace(key);
 }
+
 export const mergeSnapshot = (key: string, remote: RecordState[], isCurrent = () => true) =>
   changeWorkspace(key, (w) => mergeRecords(w, remote), { isCurrent });
+
 export async function prepareMutation(key: string, isCurrent = () => true) {
   let flight: Workspace["flight"];
   await changeWorkspace(
     key,
     (w) => {
-      if (!w.reconciled) return false;
+      if (!w.reconciled) {
+        return false;
+      }
       if (w.flight) {
         flight = structuredClone(w.flight);
+
         return false;
       }
       if (!w.flight) {
@@ -848,14 +1047,18 @@ export async function prepareMutation(key: string, isCurrent = () => true) {
           w.records.find((r) => r.dirty && r.deleted && !r.conflict) ??
           w.records.find((r) => r.dirty && !r.conflict);
         if (!r) {
-          if (!w.deferredFlights?.length) return false;
+          if (!w.deferredFlights?.length) {
+            return false;
+          }
           w.flight = w.deferredFlights?.shift();
           flight = structuredClone(w.flight);
+
           return;
         }
         if (!r.deleted && w.deferredFlights?.length) {
           w.flight = w.deferredFlights.shift();
           flight = structuredClone(w.flight);
+
           return;
         }
         w.flight = {
@@ -873,20 +1076,27 @@ export async function prepareMutation(key: string, isCurrent = () => true) {
     },
     { isCurrent },
   );
+
   return flight;
 }
+
 export const deferCapacityFlight = (key: string, mutationId: string, isCurrent = () => true) =>
   changeWorkspace(
     key,
     (w) => {
-      if (w.flight?.mutation.mutationId !== mutationId) return false;
-      if (!w.records.some((r) => r.dirty && r.deleted && !r.conflict)) return false;
+      if (w.flight?.mutation.mutationId !== mutationId) {
+        return false;
+      }
+      if (!w.records.some((r) => r.dirty && r.deleted && !r.conflict)) {
+        return false;
+      }
       w.deferredFlights ??= [];
       w.deferredFlights.push(w.flight);
       delete w.flight;
     },
     { isCurrent },
   );
+
 export const acknowledge = (
   key: string,
   mutationId: string,
@@ -894,6 +1104,7 @@ export const acknowledge = (
   conflict = false,
   isCurrent = () => true,
 ) => changeWorkspace(key, (w) => acknowledgeRecord(w, mutationId, remote, conflict), { isCurrent });
+
 export const resolveConflict = (
   key: string,
   id: string,
@@ -904,12 +1115,19 @@ export const resolveConflict = (
     key,
     (w) => {
       const r = w.records.find((r) => r.id === id);
-      if (!r?.conflict) return false;
+      if (!r?.conflict) {
+        return false;
+      }
       const cloud = r.conflict;
-      if (r.kind === "visit" && choice === "both") throw new Error("invalidImport");
-      if (choice === "both" && !r.deleted) write(w, { ...r, id: crypto.randomUUID() });
-      if (choice === "cloud" || choice === "both") Object.assign(r, cloud, { dirty: false });
-      else {
+      if (r.kind === "visit" && choice === "both") {
+        throw new Error("invalidImport");
+      }
+      if (choice === "both" && !r.deleted) {
+        write(w, { ...r, id: crypto.randomUUID() });
+      }
+      if (choice === "cloud" || choice === "both") {
+        Object.assign(r, cloud, { dirty: false });
+      } else {
         r.revision = cloud.revision;
         r.generation++;
         r.dirty = true;
@@ -918,45 +1136,58 @@ export const resolveConflict = (
     },
     { isCurrent },
   );
+
 export async function getDraft(key: string) {
   return (await database()).get("drafts", key);
 }
+
 let pendingDraft = Promise.resolve();
+
 export function setDraft(key: string, value: unknown) {
   pendingDraft = pendingDraft
     .catch(() => {})
     .then(async () => {
       const db = await database();
-      if (value === null) await db.delete("drafts", key);
-      else await db.put("drafts", value, key);
+      if (value === null) {
+        await db.delete("drafts", key);
+      } else {
+        await db.put("drafts", value, key);
+      }
     });
+
   return pendingDraft;
 }
+
 export function clearDraft(key: string, id: string) {
   pendingDraft = pendingDraft
     .catch(() => {})
     .then(async () => {
-      const db = await database(),
-        tx = db.transaction("drafts", "readwrite");
+      const db = await database();
+      const tx = db.transaction("drafts", "readwrite");
       try {
         const draft = await tx.store.get(key);
-        if (draft && typeof draft === "object" && "id" in draft && draft.id === id)
+        if (draft && typeof draft === "object" && "id" in draft && draft.id === id) {
           await tx.store.delete(key);
+        }
         await tx.done;
       } catch (error) {
         await abortTransaction(tx);
         throw error;
       }
     });
+
   return pendingDraft;
 }
+
 export const flushDrafts = () => pendingDraft;
+
 export async function removeWorkspace(key: string) {
   await (await database()).delete("workspaces", key);
   await setDraft(key, null);
   await clearPhotos(key);
   changed();
 }
+
 export async function removeAccountWorkspaces(account: string) {
   // A family may exist only as a queued draft, with no workspace row yet.
   await flushDrafts().catch(() => {});
@@ -965,8 +1196,11 @@ export async function removeAccountWorkspaces(account: string) {
     ...(await db.getAllKeys("workspaces")),
     ...(await db.getAllKeys("drafts")),
   ]);
-  for (const key of keys)
-    if (workspaceIdentity(key).account === account) await removeWorkspace(key);
+  for (const key of keys) {
+    if (workspaceIdentity(key).account === account) {
+      await removeWorkspace(key);
+    }
+  }
   await clearAccountPhotos(account);
   try {
     localStorage.removeItem(`places-family:${account}`);

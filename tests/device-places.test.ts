@@ -19,6 +19,7 @@ import { getPhoto, makeStoredPhoto, putPhotos } from "../src/client/foundation/p
 import type { Entity, RecordState } from "../src/shared/model";
 
 const account = "normal-account";
+
 const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place" }> => ({
   id,
   kind: "place",
@@ -32,14 +33,18 @@ const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place
     updatedAt: "2026-10-30T00:00:00.000Z",
   },
 });
+
 const live = async (key: string) =>
   (await readWorkspace(key)).records.filter(
     (r): r is Extract<typeof r, { kind: "place" }> => r.kind === "place" && !r.deleted,
   );
+
 async function confirmWrites(key: string) {
   for (let i = 0; i < 6000; i++) {
     const flight = await prepareMutation(key);
-    if (!flight) return;
+    if (!flight) {
+      return;
+    }
     await acknowledge(
       key,
       flight.mutation.mutationId,
@@ -53,6 +58,7 @@ async function confirmWrites(key: string) {
   }
   throw new Error("Unexpected pending writes");
 }
+
 beforeEach(async () => {
   vi.stubGlobal("window", new EventTarget());
   await removeWorkspace(account);
@@ -296,7 +302,10 @@ test("cancellation after the cleanup write restores guest records and their draf
     key,
   ) {
     const request = put.call(this, value, key);
-    if (this.name === "workspaces" && value.key === "guest") current = false;
+    if (this.name === "workspaces" && value.key === "guest") {
+      current = false;
+    }
+
     return request;
   });
   await expect(finishDevicePlaceTransfer(account, () => current)).rejects.toThrow("accountChanged");

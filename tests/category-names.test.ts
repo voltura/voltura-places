@@ -19,7 +19,9 @@ import {
 
 test("built-in categories translate and appearance-only edits preserve their stored identity", () => {
   for (const record of starters) {
-    if (record.kind !== "category") continue;
+    if (record.kind !== "category") {
+      continue;
+    }
     const draft = categoryNameDraft(record.value, "sv");
     expect(categoryName(record.value, "en")).toBe(builtInCategoryNames[record.id].en);
     expect(categoryName(record.value, "sv")).toBe(builtInCategoryNames[record.id].sv);
@@ -50,15 +52,16 @@ test("custom legacy names stay unchanged and empty translations are omitted", ()
   });
 });
 test("translation input rejects unknown languages, blank maps, long names and non-string values", () => {
-  for (const names of [{}, { en: "" }, { sv: "x".repeat(61) }, { de: "Name" }, { en: 2 }])
+  for (const names of [{}, { en: "" }, { sv: "x".repeat(61) }, { de: "Name" }, { en: 2 }]) {
     expect(categorySchema.safeParse({ name: "Fallback", color: "green", names }).success).toBe(
       false,
     );
+  }
 });
 test("translations survive backup/import and mutation preparation", async () => {
   vi.stubGlobal("window", new EventTarget());
-  const source = crypto.randomUUID(),
-    target = crypto.randomUUID();
+  const source = crypto.randomUUID();
+  const target = crypto.randomUUID();
   const value: Category = {
     name: "Hikes",
     color: "green",

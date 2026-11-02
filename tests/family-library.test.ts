@@ -16,8 +16,8 @@ import { makeStoredPhoto, putPhotos, getPhoto } from "../src/client/foundation/p
 
 test("removing device data drains queued family drafts before enumerating account partitions", async () => {
   vi.stubGlobal("window", new EventTarget());
-  const account = crypto.randomUUID(),
-    key = familyKey(account, crypto.randomUUID());
+  const account = crypto.randomUUID();
+  const key = familyKey(account, crypto.randomUUID());
   const originalOpen = IDBFactory.prototype.open;
   let release: (() => void) | undefined;
   const opening = vi.spyOn(IDBFactory.prototype, "open").mockImplementationOnce(function (
@@ -25,26 +25,34 @@ test("removing device data drains queued family drafts before enumerating accoun
     name,
     version,
   ) {
-    const request = originalOpen.call(this, name, version),
-      add = request.addEventListener.bind(request);
+    const request = originalOpen.call(this, name, version);
+    const add = request.addEventListener.bind(request);
     request.addEventListener = ((
       type: string,
       listener: EventListenerOrEventListenerObject | null,
       options?: boolean | AddEventListenerOptions,
     ) => {
-      if (!listener) return;
-      if (type !== "success") return add(type, listener, options);
+      if (!listener) {
+        return;
+      }
+      if (type !== "success") {
+        return add(type, listener, options);
+      }
       add(
         type,
         (event) => {
           release = () => {
-            if (typeof listener === "function") listener.call(request, event);
-            else listener.handleEvent(event);
+            if (typeof listener === "function") {
+              listener.call(request, event);
+            } else {
+              listener.handleEvent(event);
+            }
           };
         },
         options,
       );
     }) as typeof request.addEventListener;
+
     return request;
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -68,8 +76,8 @@ test("removing device data drains queued family drafts before enumerating accoun
 });
 
 test("single-group cache upgrades and keeps independent active and archived group selections", () => {
-  const values = new Map<string, string>(),
-    account = crypto.randomUUID();
+  const values = new Map<string, string>();
+  const account = crypto.randomUUID();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => {
@@ -81,13 +89,13 @@ test("single-group cache upgrades and keeps independent active and archived grou
   };
   vi.stubGlobal("localStorage", storage);
   const first = {
-      id: crypto.randomUUID(),
-      name: "Couple",
-      ownerId: account,
-      members: [{ id: account, label: "Fixture" }],
-      requests: [],
-    },
-    second = { ...first, id: crypto.randomUUID(), name: "Mother's group" };
+    id: crypto.randomUUID(),
+    name: "Couple",
+    ownerId: account,
+    members: [{ id: account, label: "Fixture" }],
+    requests: [],
+  };
+  const second = { ...first, id: crypto.randomUUID(), name: "Mother's group" };
   try {
     storage.setItem(`places-family:${account}`, JSON.stringify({ family: first, active: true }));
     expect(cachedFamily(account).families).toEqual([first]);
@@ -108,15 +116,15 @@ test.each(["private", "group"])(
   "%s copies preserve originals and keep account-owned local queues/photos separate",
   async (sourceKind) => {
     vi.stubGlobal("window", new EventTarget());
-    const account = crypto.randomUUID(),
-      source = sourceKind === "group" ? familyKey(account, crypto.randomUUID()) : account,
-      other = crypto.randomUUID(),
-      group = crypto.randomUUID(),
-      key = familyKey(account, group),
-      otherKey = familyKey(other, group),
-      id = crypto.randomUUID(),
-      photoId = crypto.randomUUID(),
-      categoryId = crypto.randomUUID();
+    const account = crypto.randomUUID();
+    const source = sourceKind === "group" ? familyKey(account, crypto.randomUUID()) : account;
+    const other = crypto.randomUUID();
+    const group = crypto.randomUUID();
+    const key = familyKey(account, group);
+    const otherKey = familyKey(other, group);
+    const id = crypto.randomUUID();
+    const photoId = crypto.randomUUID();
+    const categoryId = crypto.randomUUID();
     await saveEntity(source, {
       id: categoryId,
       kind: "category",

@@ -10,7 +10,9 @@ import {
 import { fetchSnapshot, synchronizeAndWait } from "../foundation/sync";
 import type { Backup } from "../../shared/model";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
+
 type Common = { t: (key: Message) => string; onClose: () => void; onComplete: () => void };
+
 export function ImportDialog({
   backup,
   workspace,
@@ -18,33 +20,56 @@ export function ImportDialog({
   t,
   onClose,
   onComplete,
-}: Common & { backup: Backup; workspace: string; canWrite: boolean }) {
-  const [replace, setReplace] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  captureOperation,
+}: Common & {
+  backup: Backup;
+  workspace: string;
+  canWrite: boolean;
+  captureOperation?: () => () => boolean;
+}) {
+  const [replace, setReplace] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const active = useRef(true);
   const writeAllowed = useRef(canWrite);
   writeAllowed.current = canWrite;
   useEffect(() => {
     active.current = true;
+
     return () => {
       active.current = false;
     };
   }, [workspace]);
+
   async function apply() {
-    if (!writeAllowed.current) return;
-    if (replace && !confirm(t("confirmReplace"))) return;
+    if (!writeAllowed.current) {
+      return;
+    }
+    if (replace && !confirm(t("confirmReplace"))) {
+      return;
+    }
     setBusy(true);
     setError("");
+    const valid = captureOperation?.() ?? (() => true);
+
+    const isCurrent = () => active.current && writeAllowed.current && valid();
+
     try {
-      await importBackup(workspace, backup, replace, () => active.current && writeAllowed.current);
-      if (active.current) onComplete();
+      await importBackup(workspace, backup, replace, isCurrent);
+      if (isCurrent()) {
+        onComplete();
+      }
     } catch (e) {
-      if (active.current) setError(t(libraryErrorMessage(e)));
+      if (isCurrent()) {
+        setError(t(libraryErrorMessage(e)));
+      }
     } finally {
-      setBusy(false);
+      if (active.current) {
+        setBusy(false);
+      }
     }
   }
+
   return (
     <Sheet title={t("importTitle")} onClose={onClose} closeLabel={t("close")}>
       <div className="stack">
@@ -83,18 +108,21 @@ export function ImportDialog({
     </Sheet>
   );
 }
+
 export function DevicePlaceTransfer({
   accountId,
   t,
   onComplete,
   onDeferred,
   onRetry,
+  captureOperation,
 }: {
   accountId: string;
   t: (key: Message) => string;
   onComplete: (added: number) => void;
   onDeferred: () => void;
   onRetry: () => void;
+  captureOperation?: () => () => boolean;
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -104,39 +132,63 @@ export function DevicePlaceTransfer({
   callbacks.current = { t, onComplete, onDeferred, onRetry };
   useEffect(() => {
     let current = true;
-    const isCurrent = () => current;
+    const valid = captureOperation?.() ?? (() => true);
+
+    const isCurrent = () => current && valid();
+
     setBusy(true);
     void (async () => {
       try {
         if (!(await devicePlacePlan(accountId)).needed) {
-          if (current) callbacks.current.onComplete(0);
+          if (isCurrent()) {
+            callbacks.current.onComplete(0);
+          }
+
           return;
         }
         const snapshot = await fetchSnapshot(accountId, isCurrent);
-        if (!current) return;
+        if (!isCurrent()) {
+          return;
+        }
         await initializePrivateAccount(accountId, snapshot.records, isCurrent);
         await reconcileDevicePlaces(accountId, snapshot.records, "auto", isCurrent);
         if (!(await devicePlacePlan(accountId)).pending) {
-          if (current) callbacks.current.onComplete(0);
+          if (isCurrent()) {
+            callbacks.current.onComplete(0);
+          }
+
           return;
         }
         await synchronizeAndWait(accountId, () => {}, isCurrent);
-        if (!current) return;
+        if (!isCurrent()) {
+          return;
+        }
         const completed = await finishDevicePlaceTransfer(accountId, isCurrent);
-        if ((await devicePlacePlan(accountId)).pending) throw new Error("transferSaveFailed");
-        if (current) callbacks.current.onComplete(completed);
+        if ((await devicePlacePlan(accountId)).pending) {
+          throw new Error("transferSaveFailed");
+        }
+        if (isCurrent()) {
+          callbacks.current.onComplete(completed);
+        }
       } catch (error) {
-        if (current)
+        if (isCurrent()) {
           setError(callbacks.current.t(libraryErrorMessage(error, "transferSaveFailed")));
+        }
       } finally {
-        if (current) setBusy(false);
+        if (isCurrent()) {
+          setBusy(false);
+        }
       }
     })();
+
     return () => {
       current = false;
     };
   }, [accountId, attempt]);
-  if (!error) return null;
+  if (!error) {
+    return null;
+  }
+
   return (
     <section
       className="device-transfer-notice"

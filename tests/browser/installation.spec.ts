@@ -19,8 +19,12 @@ for (const outcome of ["accepted", "dismissed", "failed"] as const) {
           document.documentElement.dataset.installCalls = String(
             Number(document.documentElement.dataset.installCalls || 0) + 1,
           );
-          if (outcome === "failed") throw new Error("Browser refused");
-          if (outcome === "accepted") window.dispatchEvent(new Event("appinstalled"));
+          if (outcome === "failed") {
+            throw new Error("Browser refused");
+          }
+          if (outcome === "accepted") {
+            window.dispatchEvent(new Event("appinstalled"));
+          }
         },
         userChoice: Promise.resolve({ outcome }),
       });
@@ -47,8 +51,9 @@ for (const outcome of ["accepted", "dismissed", "failed"] as const) {
           "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
         ),
       ).toBeVisible();
-      if (outcome === "failed")
+      if (outcome === "failed") {
         await expect(page.getByRole("status").filter({ hasText: "could not open" })).toBeVisible();
+      }
       // A new browser offer can be used after dismissal or a rejected prompt.
       await page.evaluate(() => {
         const event = new Event("beforeinstallprompt", { cancelable: true });
@@ -108,13 +113,16 @@ for (const ipad of [false, true]) {
 for (const mode of ["standalone", "fullscreen", "apple"] as const) {
   test(`installed ${mode} launch hides installation`, async ({ page }) => {
     await page.addInitScript((mode) => {
-      if (mode === "apple") Object.defineProperty(navigator, "standalone", { get: () => true });
-      else {
+      if (mode === "apple") {
+        Object.defineProperty(navigator, "standalone", { get: () => true });
+      } else {
         const original = window.matchMedia.bind(window);
         window.matchMedia = (query) => {
           const result = original(query);
-          if (query === `(display-mode: ${mode})`)
+          if (query === `(display-mode: ${mode})`) {
             Object.defineProperty(result, "matches", { value: true });
+          }
+
           return result;
         };
       }

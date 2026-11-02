@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+
 for (const [language, width] of [
   ["sv", 320],
   ["en", 1280],
@@ -8,6 +9,7 @@ for (const [language, width] of [
   }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(`/?lang=${language}`);
+
     async function categories(lang: "en" | "sv") {
       await page
         .getByRole("button", { name: lang === "sv" ? "Inställningar" : "Settings", exact: true })
@@ -16,6 +18,7 @@ for (const [language, width] of [
         .getByRole("combobox", { name: lang === "sv" ? "Inställningar" : "Settings", exact: true })
         .selectOption("categories");
     }
+
     await categories(language);
     await page
       .getByRole("button", {

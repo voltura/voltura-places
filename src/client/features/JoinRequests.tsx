@@ -3,7 +3,7 @@ import { Check, UserPlus, UserRoundX } from "lucide-react";
 import { type Family } from "../../shared/families";
 import { fetchFamily } from "../foundation/family";
 import { type Message } from "../foundation/i18n";
-import { api } from "../foundation/sync";
+import { api } from "../foundation/http";
 import { Sheet } from "../ui/Sheet";
 
 export function JoinRequests({
@@ -27,6 +27,7 @@ export function JoinRequests({
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
+
     return () => {
       active.current = false;
     };
@@ -47,14 +48,20 @@ export function JoinRequests({
     );
   }, [requestKeys]);
   useEffect(() => setError(null), [request?.key]);
+
   const close = () => {
-    if (pending.current) return;
+    if (pending.current) {
+      return;
+    }
     setDeferred(requests.map((r) => r.key));
     setReview(false);
     setError(null);
   };
+
   const decide = async (action: "code-approve" | "code-reject") => {
-    if (!request || pending.current) return;
+    if (!request || pending.current) {
+      return;
+    }
     pending.current = true;
     onPending(true);
     setBusy(true);
@@ -67,7 +74,9 @@ export function JoinRequests({
       );
       // Refresh authoritative membership; never grant access optimistically.
       const groups = await fetchFamily(account);
-      if (active.current) onChanged(groups);
+      if (active.current) {
+        onChanged(groups);
+      }
     } catch (e) {
       if (active.current) {
         const message = e instanceof Error ? e.message : "";
@@ -80,7 +89,9 @@ export function JoinRequests({
         );
         try {
           const groups = await fetchFamily(account);
-          if (active.current) onChanged(groups);
+          if (active.current) {
+            onChanged(groups);
+          }
         } catch {}
       }
     } finally {
@@ -92,7 +103,11 @@ export function JoinRequests({
       }
     }
   };
-  if (!requests.length) return null;
+
+  if (!requests.length) {
+    return null;
+  }
+
   return (
     <>
       {!request && (

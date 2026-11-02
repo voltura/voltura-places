@@ -19,6 +19,7 @@ import { fetchSnapshot, synchronize } from "../src/client/foundation/sync";
 import { type Entity } from "../src/shared/model";
 
 beforeEach(() => vi.stubGlobal("window", new EventTarget()));
+
 const place = (
   id: string = crypto.randomUUID(),
   name = "Recovery fixture",
@@ -35,6 +36,7 @@ const place = (
     updatedAt: "2026-10-30T10:00:00.000Z",
   },
 });
+
 const category = (id: string): Extract<Entity, { kind: "category" }> => ({
   id,
   kind: "category",
@@ -60,12 +62,14 @@ test("a current sync request survives cancellation of the running view's request
       const mutation = JSON.parse(String(init.body));
       const record = { ...mutation.entity, revision: 1, deleted: mutation.deleted };
       remote.push(record);
+
       return Response.json({ accountId: key, record });
     }
     if (firstRead) {
       firstRead = false;
       await gate;
     }
+
     return Response.json({ version: 1, accountId: key, records: remote, nextCursor: null });
   });
   vi.stubGlobal("navigator", { onLine: true });
@@ -120,6 +124,7 @@ test("a cancelled queued sync does not schedule another network pull", async () 
   let queuedCurrent = true;
   const fetcher = vi.fn(async () => {
     await gate;
+
     return Response.json({ version: 1, accountId: key, records: [], nextCursor: null });
   });
   vi.stubGlobal("navigator", { onLine: true });
@@ -144,8 +149,8 @@ test("a cancelled queued sync does not schedule another network pull", async () 
 });
 
 test("merge imports preserve a deleted place's tombstone and recover under a new identity", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await saveEntity(key, p);
   const backup = exportBackup(await readWorkspace(key));
   await deleteEntity(key, p.id);
@@ -156,10 +161,12 @@ test("merge imports preserve a deleted place's tombstone and recover under a new
 });
 
 test("merge imports preserve a deleted category and remap its recovered places", async () => {
-  const key = crypto.randomUUID(),
-    c = category(crypto.randomUUID()),
-    p = place();
-  if (p.kind !== "place") throw new Error();
+  const key = crypto.randomUUID();
+  const c = category(crypto.randomUUID());
+  const p = place();
+  if (p.kind !== "place") {
+    throw new Error();
+  }
   p.value.categoryId = c.id;
   await saveEntity(key, c);
   await saveEntity(key, p);
@@ -177,12 +184,14 @@ test.each([false, true])(
   "import remaps cross-kind identities including tombstones (replace=%s)",
   async (replace) => {
     for (const deleted of [false, true]) {
-      const source = crypto.randomUUID(),
-        target = crypto.randomUUID(),
-        p = place();
+      const source = crypto.randomUUID();
+      const target = crypto.randomUUID();
+      const p = place();
       await saveEntity(source, p);
       await saveEntity(target, category(p.id));
-      if (deleted) await deleteEntity(target, p.id);
+      if (deleted) {
+        await deleteEntity(target, p.id);
+      }
       await importBackup(target, exportBackup(await readWorkspace(source)), replace);
       const records = (await readWorkspace(target)).records;
       expect(records.find((r) => r.id === p.id)?.kind).toBe("category");
@@ -201,22 +210,25 @@ test("unchanged category imports preserve local conflicts and do not queue write
 
 test("editing or deleting a conflicted record retains the cloud recovery version", async () => {
   for (const remove of [false, true]) {
-    const key = crypto.randomUUID(),
-      p = place();
+    const key = crypto.randomUUID();
+    const p = place();
     await reconcileAccount(key, [{ ...p, revision: 1, deleted: false }], false);
     await saveEntity(key, place(p.id, "Device edit"));
     const cloud = { ...place(p.id, "Cloud edit"), revision: 2, deleted: false };
     await mergeSnapshot(key, [cloud]);
-    if (remove) await deleteEntity(key, p.id);
-    else await saveEntity(key, place(p.id, "Later device edit"));
+    if (remove) {
+      await deleteEntity(key, p.id);
+    } else {
+      await saveEntity(key, place(p.id, "Later device edit"));
+    }
     expect((await readWorkspace(key)).records.find((r) => r.id === p.id)?.conflict).toEqual(cloud);
     expect(await prepareMutation(key)).toBeUndefined();
   }
 });
 
 test("stale snapshots cannot roll a clean record or its conflict backwards", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [{ ...p, revision: 3, deleted: false }], false);
   await mergeSnapshot(key, [{ ...place(p.id, "Stale"), revision: 2, deleted: false }]);
   expect(
@@ -232,8 +244,8 @@ test("stale snapshots cannot roll a clean record or its conflict backwards", asy
 });
 
 test("identical writes converge regardless of JSON property insertion order", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   const flight = (await prepareMutation(key))!;
@@ -250,8 +262,8 @@ test("identical writes converge regardless of JSON property insertion order", as
 });
 
 test("snapshot rejects repeated IDs before a caller can merge ambiguous pages", async () => {
-  const key = crypto.randomUUID(),
-    p = { ...place(), revision: 1, deleted: false };
+  const key = crypto.randomUUID();
+  const p = { ...place(), revision: 1, deleted: false };
   const network = vi
     .spyOn(globalThis, "fetch")
     .mockResolvedValue(Response.json({ version: 1, accountId: key, records: [p, p] }));
@@ -263,8 +275,8 @@ test("snapshot rejects repeated IDs before a caller can merge ambiguous pages", 
 });
 
 test("a mismatched mutation kind cannot overwrite the local record", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   vi.stubGlobal("navigator", { onLine: true });
@@ -284,8 +296,8 @@ test("a mismatched mutation kind cannot overwrite the local record", async () =>
 });
 
 test("Keep both creates a sendable copy without copying the original conflict metadata", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [{ ...p, revision: 1, deleted: false }], false);
   await saveEntity(key, place(p.id, "Device"));
   await mergeSnapshot(key, [{ ...place(p.id, "Cloud"), revision: 2, deleted: false }]);
@@ -297,8 +309,8 @@ test("Keep both creates a sendable copy without copying the original conflict me
 });
 
 test("acknowledging a newer device edit clears the already accepted flight conflict", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   const flight = (await prepareMutation(key))!;
@@ -337,18 +349,21 @@ test("a failed sync from a discarded account does not update the visible account
 
 test("late acknowledgements retain a newer cloud conflict and an already chosen cloud version", async () => {
   for (const resolve of [false, true]) {
-    const key = crypto.randomUUID(),
-      p = place();
+    const key = crypto.randomUUID();
+    const p = place();
     await reconcileAccount(key, [], false);
     await saveEntity(key, p);
     const flight = (await prepareMutation(key))!;
     const newer = { ...place(p.id, "New cloud version"), revision: 2, deleted: false };
     await mergeSnapshot(key, [newer]);
-    if (resolve) await resolveConflict(key, p.id, "cloud");
+    if (resolve) {
+      await resolveConflict(key, p.id, "cloud");
+    }
     await acknowledge(key, flight.mutation.mutationId, { ...p, revision: 1, deleted: false });
     const local = (await readWorkspace(key)).records.find((r) => r.id === p.id)!;
-    if (resolve) expect(local).toMatchObject({ revision: 2, value: { name: "New cloud version" } });
-    else {
+    if (resolve) {
+      expect(local).toMatchObject({ revision: 2, value: { name: "New cloud version" } });
+    } else {
       expect(local.conflict).toEqual(newer);
       await mergeSnapshot(key, [newer]);
       const retained = (await readWorkspace(key)).records.find((r) => r.id === p.id)!;
@@ -359,17 +374,19 @@ test("late acknowledgements retain a newer cloud conflict and an already chosen 
 });
 
 test("invalid local writes never become durable records or pending mutations", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   const before = await readWorkspace(key);
-  if (p.kind !== "place") throw new Error();
+  if (p.kind !== "place") {
+    throw new Error();
+  }
   await expect(saveEntity(key, { ...p, value: { ...p.value, latitude: 91 } })).rejects.toThrow();
   expect(await readWorkspace(key)).toEqual(before);
 });
 
 test("snapshot kind collisions roll back all records instead of corrupting local entity types", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await changeWorkspace(key, (w) => {
     w.reconciled = true;
   });
@@ -401,8 +418,8 @@ test("a full cloud category library opens without adding presets beyond capacity
 test.each([false, true])(
   "saving an editor opened before a cloud change preserves both versions (deleted=%s)",
   async (deleted) => {
-    const key = crypto.randomUUID(),
-      original = place();
+    const key = crypto.randomUUID();
+    const original = place();
     await reconcileAccount(key, [{ ...original, revision: 1, deleted: false }], false);
     const remote = { ...place(original.id, "Changed elsewhere"), revision: 2, deleted };
     await mergeSnapshot(key, [remote]);
@@ -415,8 +432,8 @@ test.each([false, true])(
 );
 
 test("a stale editor cannot replace a newer unsynced edit from another tab", async () => {
-  const key = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const original = place();
   await saveEntity(key, original);
   await saveEntity(key, place(original.id, "Other tab's pending edit"));
   const before = await readWorkspace(key);
@@ -427,8 +444,8 @@ test("a stale editor cannot replace a newer unsynced edit from another tab", asy
 });
 
 test("editor save and matching draft removal commit atomically", async () => {
-  const key = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const original = place();
   await saveEntity(key, original);
   await setDraft(key, { id: original.id, name: "Draft" });
   const before = await readWorkspace(key);
@@ -437,7 +454,10 @@ test("editor save and matching draft removal commit atomically", async () => {
     this: IDBObjectStore,
     id,
   ) {
-    if (this.name === "drafts") throw new DOMException("blocked", "QuotaExceededError");
+    if (this.name === "drafts") {
+      throw new DOMException("blocked", "QuotaExceededError");
+    }
+
     return remove.call(this, id);
   });
   try {
@@ -452,9 +472,9 @@ test("editor save and matching draft removal commit atomically", async () => {
 });
 
 test("deleting a place removes only its matching draft", async () => {
-  const key = crypto.randomUUID(),
-    first = place(),
-    second = place();
+  const key = crypto.randomUUID();
+  const first = place();
+  const second = place();
   await saveEntity(key, first);
   await saveEntity(key, second);
   await setDraft(key, { id: first.id, name: "Deleted draft" });
@@ -466,23 +486,25 @@ test("deleting a place removes only its matching draft", async () => {
 });
 
 test("a denied browser lock falls back to persisted-flight synchronization", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   vi.stubGlobal("navigator", {
     onLine: true,
     locks: { request: vi.fn().mockRejectedValue(new DOMException("denied", "SecurityError")) },
   });
-  const records: unknown[] = [],
-    statuses: string[] = [];
+  const records: unknown[] = [];
+  const statuses: string[] = [];
   const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
     if (init?.method === "POST") {
-      const body = JSON.parse(String(init.body)),
-        record = { ...body.entity, revision: 1, deleted: false };
+      const body = JSON.parse(String(init.body));
+      const record = { ...body.entity, revision: 1, deleted: false };
       records.push(record);
+
       return Response.json({ accountId: key, record });
     }
+
     return Response.json({ version: 1, accountId: key, records });
   });
   try {
@@ -498,12 +520,13 @@ test("a denied browser lock falls back to persisted-flight synchronization", asy
 
 test("a discarded paginated pull stops before requesting the next page", async () => {
   const key = crypto.randomUUID();
-  let current = true,
-    calls = 0;
+  let current = true;
+  let calls = 0;
   const network = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
     calls++;
     if (calls === 1) {
       current = false;
+
       return Response.json({
         version: 1,
         accountId: key,
@@ -511,6 +534,7 @@ test("a discarded paginated pull stops before requesting the next page", async (
         nextCursor: "page-a",
       });
     }
+
     return Response.json({ version: 1, accountId: key, records: [] });
   });
   try {
@@ -522,9 +546,9 @@ test("a discarded paginated pull stops before requesting the next page", async (
 });
 
 test("older Keep both copies recover from foreign conflict metadata without altering the original", async () => {
-  const key = crypto.randomUUID(),
-    original = place(),
-    copy = place();
+  const key = crypto.randomUUID();
+  const original = place();
+  const copy = place();
   const cloud = { ...original, revision: 2, deleted: false };
   await changeWorkspace(key, (w) => {
     w.reconciled = true;

@@ -1,11 +1,14 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
+
 export const startupDevices = JSON.parse(
   await readFile(new URL("../assets/branding/apple-startup-devices.json", import.meta.url), "utf8"),
 );
+
 export const startupName = (device, theme, orientation) =>
   `${device.name}-${device.width}x${device.height}-${device.dpr}x-${theme}-${orientation}.png`;
+
 const font = {
   fontFiles: [resolve("assets/branding/Inter.ttf")],
   loadSystemFonts: false,
@@ -24,16 +27,21 @@ const screenshots = Object.fromEntries(
     ]),
   ),
 );
+
 const svg = (width, height, content) =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${content}</svg>`;
+
 const mark = (x, y, size) =>
   `<g transform="translate(${x} ${y}) scale(${size / 512})">${inside}</g>`;
+
 const png = (markup, size) =>
   new Resvg(markup, { font, ...(size ? { fitTo: { mode: "width", value: size } } : {}) })
     .render()
     .asPng();
+
 export function socialImage(language) {
   const swedish = language === "sv";
+
   return png(
     svg(
       1200,
@@ -54,6 +62,7 @@ export function socialImage(language) {
     ),
   );
 }
+
 export async function generateBranding() {
   await mkdir("public/startup-images", { recursive: true });
   for (const size of [192, 512]) {
@@ -71,13 +80,15 @@ export async function generateBranding() {
     );
   }
   const apple = svg(512, 512, inside.replace('rx="112"', ""));
-  for (const size of [152, 167, 180])
+  for (const size of [152, 167, 180]) {
     await writeFile(
       `public/apple-touch-icon${size === 180 ? "" : `-${size}`}.png`,
       png(apple, size),
     );
-  for (const size of [16, 32, 48, 150])
+  }
+  for (const size of [16, 32, 48, 150]) {
     await writeFile(`public/icon-${size}.png`, png(source, size));
+  }
   const small = [16, 32, 48].map((size) => ({ size, bytes: png(source, size) }));
   const header = Buffer.alloc(6 + 16 * small.length);
   header.writeUInt16LE(1, 2);
@@ -94,13 +105,13 @@ export async function generateBranding() {
     offset += bytes.length;
   });
   await writeFile("public/favicon.ico", Buffer.concat([header, ...small.map((p) => p.bytes)]));
-  for (const device of startupDevices)
-    for (const theme of ["dark", "light"])
+  for (const device of startupDevices) {
+    for (const theme of ["dark", "light"]) {
       for (const orientation of ["portrait", "landscape"]) {
         const width = (orientation === "portrait" ? device.width : device.height) * device.dpr;
         const height = (orientation === "portrait" ? device.height : device.width) * device.dpr;
-        const size = Math.round(Math.min(width, height) * 0.28),
-          textSize = Math.round(Math.min(width, height) * 0.055);
+        const size = Math.round(Math.min(width, height) * 0.28);
+        const textSize = Math.round(Math.min(width, height) * 0.055);
         const top = Math.round((height - size - textSize * 2) / 2);
         await writeFile(
           `public/startup-images/${startupName(device, theme, orientation)}`,
@@ -116,7 +127,11 @@ export async function generateBranding() {
           ),
         );
       }
-  for (const lang of ["en", "sv"]) await writeFile(`public/social-${lang}.png`, socialImage(lang));
+    }
+  }
+  for (const lang of ["en", "sv"]) {
+    await writeFile(`public/social-${lang}.png`, socialImage(lang));
+  }
   console.log(
     `Generated Places icons, social cards and ${startupDevices.length * 4} Apple startup images.`,
   );

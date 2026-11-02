@@ -14,16 +14,24 @@ test("a delayed first worker installation does not offer a replacement update", 
       listener: EventListenerOrEventListenerObject | null,
       options?: boolean | AddEventListenerOptions,
     ) {
-      if (!listener) return;
-      if (type !== "updatefound") return original.call(this, type, listener, options);
+      if (!listener) {
+        return;
+      }
+      if (type !== "updatefound") {
+        return original.call(this, type, listener, options);
+      }
+
       return original.call(
         this,
         type,
         (event) => {
           offset = 120000;
           Object.assign(window, { delayedInstallObserved: true });
-          if (typeof listener === "function") listener.call(this, event);
-          else listener.handleEvent(event);
+          if (typeof listener === "function") {
+            listener.call(this, event);
+          } else {
+            listener.handleEvent(event);
+          }
         },
         options,
       );

@@ -23,12 +23,14 @@ const reusePreview = async () => {
       identity.workspace === previewIdentity.workspace
     ) {
       console.log(`Reuse Places preview: ${previewOrigin}/ (live changes from this checkout).`);
+
       return true;
     }
   } catch {
     // No matching preview. Strict port binding below distinguishes a free port
     // from another app or checkout; never fall forward to another port.
   }
+
   return false;
 };
 
@@ -40,10 +42,12 @@ if (!(await reusePreview())) {
   try {
     await server.listen();
     server.printUrls();
+
     const stop = async () => {
       await server.close();
       process.exit(0);
     };
+
     process.once("SIGINT", stop);
     process.once("SIGTERM", stop);
   } catch (error) {

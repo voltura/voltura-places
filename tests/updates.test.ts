@@ -31,14 +31,14 @@ test("first installation waits for activation without offering a replacement upd
 });
 test("visible tabs check on return and each minute, deduplicate work and announce once", async () => {
   vi.useFakeTimers();
-  const window = new EventTarget(),
-    document = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  const window = new EventTarget();
+  const document = Object.assign(new EventTarget(), { visibilityState: "visible" });
   const navigator = { onLine: true };
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("navigator", navigator);
-  const update = vi.fn(async () => {}),
-    ready = vi.fn();
+  const update = vi.fn(async () => {});
+  const ready = vi.fn();
   const registration = Object.assign(new EventTarget(), {
     update,
     active: {},

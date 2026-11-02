@@ -40,7 +40,10 @@ for (const permissions of ["unavailable", "rejected", "throwing", "missing-query
               ? {}
               : {
                   query: () => {
-                    if (permissions === "throwing") throw new Error("Unsupported permission");
+                    if (permissions === "throwing") {
+                      throw new Error("Unsupported permission");
+                    }
+
                     return Promise.reject(new Error("Unsupported permission"));
                   },
                 },

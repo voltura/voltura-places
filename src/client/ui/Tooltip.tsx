@@ -20,19 +20,23 @@ export function Tooltip({
   const tip = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [open, setOpen] = useState(false);
+
   const cancelTimer = () => {
     clearTimeout(timer.current);
     timer.current = undefined;
   };
+
   const close = () => {
     cancelTimer();
     setOpen(false);
   };
+
   useEffect(() => () => clearTimeout(timer.current), []);
   useLayoutEffect(() => {
     const element = tip.current!;
     if (!open) {
       element.hidePopover?.();
+
       return;
     }
     element.showPopover?.();
@@ -45,6 +49,7 @@ export function Tooltip({
     const above = anchor.top - box.height - 8;
     element.style.left = `${left}px`;
     element.style.top = `${Math.max(8, Math.min(above >= 8 ? above : anchor.bottom + 8, innerHeight - box.height - 8))}px`;
+
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -52,9 +57,11 @@ export function Tooltip({
         close();
       }
     };
+
     window.addEventListener("keydown", escape, true);
     window.addEventListener("resize", close);
     document.addEventListener("scroll", close, true);
+
     return () => {
       element.hidePopover?.();
       window.removeEventListener("keydown", escape, true);
@@ -62,6 +69,7 @@ export function Tooltip({
       document.removeEventListener("scroll", close, true);
     };
   }, [open]);
+
   return (
     <span
       ref={trigger}
@@ -74,14 +82,18 @@ export function Tooltip({
       }}
       onPointerLeave={() => {
         cancelTimer();
-        if (!trigger.current?.contains(document.activeElement)) setOpen(false);
+        if (!trigger.current?.contains(document.activeElement)) {
+          setOpen(false);
+        }
       }}
       onFocusCapture={() => {
         cancelTimer();
         setOpen(true);
       }}
       onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          close();
+        }
       }}
       onClick={close}
     >

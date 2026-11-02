@@ -4,8 +4,11 @@ import { mkdir, readFile, readdir, writeFile, cp, rm } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+
 const root = process.cwd();
-if (!root.endsWith("voltura-places")) throw new Error("Run from the Places checkout.");
+if (!root.endsWith("voltura-places")) {
+  throw new Error("Run from the Places checkout.");
+}
 await mkdir("public", { recursive: true });
 const { generateBranding } = await import("./branding.mjs");
 await generateBranding();
@@ -23,19 +26,24 @@ const types = {
   ".ico": "image/x-icon",
 };
 const assets = {};
+
 async function collect(dir = "") {
   for (const e of await readdir(resolve(".artifacts/client", dir), { withFileTypes: true })) {
     const path = dir ? `${dir}/${e.name}` : e.name;
-    if (e.isDirectory()) await collect(path);
-    else if (e.isFile()) {
+    if (e.isDirectory()) {
+      await collect(path);
+    } else if (e.isFile()) {
       const bytes = await readFile(resolve(".artifacts/client", path));
       assets[`/${path}`] = [
         types[extname(path)] ?? "application/octet-stream",
         bytes.toString("base64"),
       ];
-    } else throw new Error("Linked assets are not supported");
+    } else {
+      throw new Error("Linked assets are not supported");
+    }
   }
 }
+
 await collect();
 let revision = "development";
 try {

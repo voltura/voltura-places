@@ -3,6 +3,7 @@ import type { RecordState } from "../../src/shared/model";
 
 const accountId = "transfer-fixture";
 const familyId = "e4c4ef13-a164-4aa3-a45e-426e2c62e1e8";
+
 const place = (id: string): RecordState => ({
   id,
   kind: "place",
@@ -18,6 +19,7 @@ const place = (id: string): RecordState => ({
     updatedAt: "2026-11-02T08:00:00Z",
   },
 });
+
 async function local(page: Page, key: string) {
   return page.evaluate(async (key) => {
     const db = await new Promise<IDBDatabase>((resolve) => {
@@ -33,6 +35,7 @@ async function local(page: Page, key: string) {
       r.onsuccess = () => resolve(r.result ?? { records: [] });
     });
     db.close();
+
     return value;
   }, key);
 }
@@ -75,12 +78,14 @@ for (const scenario of [
     await page.route("**/api/v1/sync", (route) => {
       const request = route.request();
       const isFamily = !!request.headers()["x-places-family"];
-      if (isFamily)
+      if (isFamily) {
         return route.fulfill({
           json: { version: 1, accountId: `family:${identity}:${familyId}`, records: [] },
         });
-      if (failing || (failWrites && request.method() === "POST"))
+      }
+      if (failing || (failWrites && request.method() === "POST")) {
         return route.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+      }
       if (request.method() === "POST") {
         expect(request.headers()["x-places-account"]).toBe(accountId);
         const body = request.postDataJSON();
@@ -91,8 +96,10 @@ for (const scenario of [
         } as RecordState;
         records.set(record.id, record);
         writes.push(record.id);
+
         return route.fulfill({ json: { accountId: identity, record } });
       }
+
       return route.fulfill({
         json: {
           version: 1,
@@ -154,7 +161,9 @@ for (const scenario of [
         { family, accountId, familyId },
       );
       await page.reload();
-    } else await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    } else {
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    }
     if (["retry-write", "retry-read", "wrong-account"].includes(scenario)) {
       const failure = page.locator(".device-transfer-notice");
       await expect(failure).toBeVisible();
@@ -203,12 +212,13 @@ for (const scenario of [
       (await local(page, accountId)).records.filter((r) => r.kind === "place" && !r.deleted),
     ).toHaveLength(4);
     expect(new Set(writes).size).toBe(3);
-    if (scenario === "family")
+    if (scenario === "family") {
       expect(
         (await local(page, `family:${accountId}:${familyId}`)).records.filter(
           (r) => r.kind === "place",
         ),
       ).toHaveLength(0);
+    }
     await page.reload();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(records.size).toBe(4);

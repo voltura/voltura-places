@@ -26,6 +26,7 @@ import { longitudeArcStart, wrapLongitude } from "../src/client/foundation/map-c
 import { jpegDimensions } from "../src/shared/photos";
 import { storeFamilies } from "../src/client/foundation/family";
 import type { Entity } from "../src/shared/model";
+
 const place = (
   id = crypto.randomUUID(),
   name = "Audit fixture",
@@ -42,6 +43,7 @@ const place = (
     updatedAt: "2026-10-30T10:00:00Z",
   },
 });
+
 beforeEach(() => {
   vi.stubGlobal("window", new EventTarget());
   vi.stubGlobal("navigator", { onLine: true });
@@ -53,8 +55,8 @@ afterEach(() => {
 test.each([false, true])(
   "a restored original editor base preserves newer remote data (deleted=%s)",
   async (deleted) => {
-    const key = crypto.randomUUID(),
-      p = place();
+    const key = crypto.randomUUID();
+    const p = place();
     await reconcileAccount(key, [{ ...p, revision: 1, deleted: false }], false);
     const draftBase = structuredClone(p);
     await mergeSnapshot(key, [
@@ -69,8 +71,8 @@ test.each([false, true])(
   },
 );
 test("legacy drafts with an unknown base do not silently overwrite a clean cloud record", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [{ ...p, revision: 2, deleted: false }], false);
   await saveEntity(key, { ...p, value: { ...p.value, name: "Legacy draft" } }, null);
   expect((await readWorkspace(key)).records.find((r) => r.id === p.id)?.conflict?.revision).toBe(2);
@@ -84,8 +86,8 @@ test("discarding one editor preserves another place's draft", async () => {
   expect(await getDraft(key)).toBeUndefined();
 });
 test("snapshot writes recheck cancellation after database opening and cannot recreate removed data", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await removeWorkspace(key);
   let active = true;
@@ -100,19 +102,26 @@ test("snapshot writes recheck cancellation after database opening and cannot rec
   db.close();
 });
 test("a full cloud permits freeing deletions before retrying the exact rejected body", async () => {
-  const key = crypto.randomUUID(),
-    existing = place(),
-    next = place();
+  const key = crypto.randomUUID();
+  const existing = place();
+  const next = place();
   await reconcileAccount(key, [{ ...existing, revision: 1, deleted: false }], false);
   await saveEntity(key, next);
   let full = true;
   const bodies: { mutationId: string; entity: Entity; deleted: boolean }[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
-    if (init?.method !== "POST") return Response.json({ version: 1, accountId: key, records: [] });
+    if (init?.method !== "POST") {
+      return Response.json({ version: 1, accountId: key, records: [] });
+    }
     const body = JSON.parse(String(init.body));
     bodies.push(body);
-    if (body.deleted) full = false;
-    if (full) return Response.json({ accountId: key, error: "libraryLimit" }, { status: 413 });
+    if (body.deleted) {
+      full = false;
+    }
+    if (full) {
+      return Response.json({ accountId: key, error: "libraryLimit" }, { status: 413 });
+    }
+
     return Response.json({
       accountId: key,
       record: { ...body.entity, revision: body.baseRevision + 1, deleted: body.deleted },
@@ -126,9 +135,9 @@ test("a full cloud permits freeing deletions before retrying the exact rejected 
   expect((await readWorkspace(key)).records.some((r) => r.dirty)).toBe(false);
 });
 test("deferred flights survive storage reads and keep their request identity", async () => {
-  const key = crypto.randomUUID(),
-    p = place(),
-    other = place();
+  const key = crypto.randomUUID();
+  const p = place();
+  const other = place();
   await reconcileAccount(key, [{ ...other, revision: 1, deleted: false }], false);
   await saveEntity(key, p);
   const first = (await prepareMutation(key))!;
@@ -139,8 +148,8 @@ test("deferred flights survive storage reads and keep their request identity", a
   expect(await prepareMutation(key)).toEqual(first);
 });
 test("identical pull values converge without dropping a newer dirty value", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   await mergeSnapshot(key, [{ ...p, revision: 1, deleted: false }]);
@@ -154,11 +163,11 @@ test("identical pull values converge without dropping a newer dirty value", asyn
   expect(r.value).toMatchObject({ name: "Newer device" });
 });
 test("online group copying fetches an uncached cloud image and reuses an equal category name", async () => {
-  const from = crypto.randomUUID(),
-    to = `family:${from}:${crypto.randomUUID()}`,
-    p = place(),
-    photoId = crypto.randomUUID(),
-    jpeg = await readFile("tests/fixtures/photo.jpg");
+  const from = crypto.randomUUID();
+  const to = `family:${from}:${crypto.randomUUID()}`;
+  const p = place();
+  const photoId = crypto.randomUUID();
+  const jpeg = await readFile("tests/fixtures/photo.jpg");
   await saveEntity(from, { ...p, value: { ...p.value, photoId, categoryId: "parking" } });
   await changeWorkspace(to, (w) => {
     w.records.find((r) => r.id === "parking")!.value = { name: "Parking", color: "blue" };
@@ -174,11 +183,11 @@ test("online group copying fetches an uncached cloud image and reuses an equal c
   ).toHaveLength(1);
 });
 test("photo collision import is repeatable without duplicate places or images", async () => {
-  const from = crypto.randomUUID(),
-    to = crypto.randomUUID(),
-    photoId = crypto.randomUUID(),
-    p = place(),
-    jpeg = await readFile("tests/fixtures/photo.jpg");
+  const from = crypto.randomUUID();
+  const to = crypto.randomUUID();
+  const photoId = crypto.randomUUID();
+  const p = place();
+  const jpeg = await readFile("tests/fixtures/photo.jpg");
   await putPhotos([await makeStoredPhoto(from, photoId, new Blob([jpeg]))]);
   const different = new Uint8Array(jpeg);
   different[10] ^= 1;
@@ -190,10 +199,10 @@ test("photo collision import is repeatable without duplicate places or images", 
   expect((await readWorkspace(to)).records.filter((r) => r.kind === "place")).toHaveLength(1);
 });
 test("a capacity-rejected photo import stores neither places nor photo bytes", async () => {
-  const from = crypto.randomUUID(),
-    to = crypto.randomUUID(),
-    photoId = crypto.randomUUID(),
-    p = place();
+  const from = crypto.randomUUID();
+  const to = crypto.randomUUID();
+  const photoId = crypto.randomUUID();
+  const p = place();
   await putPhotos([
     await makeStoredPhoto(from, photoId, new Blob([await readFile("tests/fixtures/photo.jpg")])),
   ]);
@@ -273,8 +282,8 @@ test("an active import reservation prevents another tab consuming its validated 
 });
 
 test("deleting the capacity-rejected new place drains its original flight without resurrection", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await reconcileAccount(key, [], false);
   await saveEntity(key, p);
   const first = (await prepareMutation(key))!;

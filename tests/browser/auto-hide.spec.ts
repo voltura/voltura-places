@@ -83,6 +83,7 @@ for (const engine of [chromium, webkit]) {
           const edge =
             header.getBoundingClientRect().right -
             parseFloat(getComputedStyle(header).paddingRight);
+
           return Math.abs(element.getBoundingClientRect().right - edge);
         });
         expect(rightAlignment).toBeLessThanOrEqual(1);
@@ -151,6 +152,7 @@ for (const engine of [chromium, webkit]) {
               .locator(".places-map-section:not(.places-map-preview) .leaflet-control-attribution")
               .boundingBox())!;
             const pill = (await reveal.boundingBox())!;
+
             return attribution.y + attribution.height <= pill.y;
           })
           .toBe(true);

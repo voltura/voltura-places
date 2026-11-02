@@ -70,6 +70,7 @@ test("review does not restart GPS when focus returns to a still-pending permissi
         watchPosition: (callback: PositionCallback) => {
           requests++;
           success = callback;
+
           return requests;
         },
         clearWatch: () => {},
@@ -97,11 +98,12 @@ test("review does not restart GPS when focus returns to a still-pending permissi
   const review = page.getByRole("dialog", { name: "Check your location", exact: true });
   await expect(review).toBeVisible();
   await page.clock.fastForward(1000);
-  for (let i = 0; i < 3; i++)
+  for (let i = 0; i < 3; i++) {
     await page.evaluate(() => {
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
     });
+  }
   await page.clock.fastForward(16000);
   expect(
     await page.evaluate(() => (window as unknown as { gpsRequests: () => number }).gpsRequests()),

@@ -10,6 +10,7 @@ export function DialogLayer({ children }: { children: ReactNode }) {
         Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).at(-1) ??
           document.body,
       );
+
     const observer = new MutationObserver(relocate);
     observer.observe(document.body, {
       subtree: true,
@@ -18,7 +19,9 @@ export function DialogLayer({ children }: { children: ReactNode }) {
       attributeFilter: ["open"],
     });
     relocate();
+
     return () => observer.disconnect();
   }, []);
+
   return createPortal(children, host);
 }

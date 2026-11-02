@@ -6,10 +6,13 @@ import { emailOTP, type EmailOTPOptions } from "better-auth/plugins/email-otp";
 export type SignInCode = Parameters<EmailOTPOptions["sendVerificationOTP"]>[0];
 
 export async function sendSignInCode(env: Environment, { email, otp, type }: SignInCode) {
-  if (type !== "sign-in" || !env.MAIL_RELAY_URL || !env.MAIL_RELAY_SECRET)
+  if (type !== "sign-in" || !env.MAIL_RELAY_URL || !env.MAIL_RELAY_SECRET) {
     throw new Error("Email sign-in unavailable");
+  }
   const target = new URL(env.MAIL_RELAY_URL);
-  if (target.protocol !== "https:") throw new Error("Email sign-in unavailable");
+  if (target.protocol !== "https:") {
+    throw new Error("Email sign-in unavailable");
+  }
   const body = JSON.stringify({
     recipient: email,
     code: otp,
@@ -31,7 +34,9 @@ export async function sendSignInCode(env: Environment, { email, otp, type }: Sig
     redirect: "manual",
     signal: AbortSignal.timeout(10000),
   });
-  if (!response.ok) throw new Error("Email delivery unavailable");
+  if (!response.ok) {
+    throw new Error("Email delivery unavailable");
+  }
 }
 
 // Request-scoped: a D1 binding or a visitor's session must never leak into another request.

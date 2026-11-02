@@ -12,14 +12,17 @@ test("physical line counts handle empty files, final newlines and Windows line e
     ["one\n", 1],
     ["one\r\n\r\n", 2],
     ["one\ntwo", 2],
-  ] as const)
+  ] as const) {
     expect(physicalLines(text)).toBe(lines);
+  }
 });
 
 test("inventory excludes untracked files, dependencies, assets and lockfiles from source totals", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "places-statistics-"));
+
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd, windowsHide: true, stdio: "pipe" });
+
   try {
     git("init", "-b", "main");
     await mkdir(join(cwd, "src", "client"), { recursive: true });
@@ -63,8 +66,9 @@ test("inventory excludes untracked files, dependencies, assets and lockfiles fro
     if (
       !resolve(cwd).startsWith(resolve(tmpdir()) + sep) ||
       !basename(cwd).startsWith("places-statistics-")
-    )
+    ) {
       throw Error("Unsafe fixture cleanup");
+    }
     await rm(cwd, { recursive: true, force: true });
   }
 });

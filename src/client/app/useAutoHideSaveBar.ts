@@ -4,13 +4,16 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey: string) {
   const [hidden, setHidden] = useState(false);
   const scroll = useRef({ y: 0, distance: 0, direction: 0 });
+
   const resetScroll = () => {
     scroll.current = { y: Math.max(0, window.scrollY), distance: 0, direction: 0 };
   };
+
   const reveal = () => {
     setHidden(false);
     resetScroll();
   };
+
   const browse = () => {
     const active = document.activeElement;
     if (
@@ -20,10 +23,12 @@ export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey:
       active?.closest(
         ".app-header, .save-dock, input, textarea, select, [contenteditable]:not([contenteditable=false])",
       )
-    )
+    ) {
       return;
+    }
     setHidden(true);
   };
+
   useEffect(() => {
     reveal();
   }, [enabled, blocked, resetKey]);
@@ -37,16 +42,27 @@ export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey:
         ? scroll.current.distance + Math.abs(delta)
         : Math.abs(delta);
     scroll.current = { y, direction, distance };
-    if (!delta) return;
-    if (direction < 0 && distance >= 24) reveal();
-    else if (direction > 0 && distance >= 48) browse();
+    if (!delta) {
+      return;
+    }
+    if (direction < 0 && distance >= 24) {
+      reveal();
+    } else if (direction > 0 && distance >= 48) {
+      browse();
+    }
   });
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
     resetScroll();
+
     const listener = () => onScroll();
+
     window.addEventListener("scroll", listener, { passive: true });
+
     return () => window.removeEventListener("scroll", listener);
   }, [enabled]);
+
   return { hidden: isHidden, reveal, browse, rebase: resetScroll };
 }

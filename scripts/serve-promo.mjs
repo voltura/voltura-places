@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { assertDestination } from "./promo-manifest.mjs";
+
 await import("./build-promo.mjs");
 const mime = {
   html: "text/html; charset=utf-8",
@@ -14,9 +15,12 @@ createServer(async (req, res) => {
     let path = new URL(req.url, "http://127.0.0.1:5175").pathname;
     if (path === "/places" || path === "/places/sv") {
       res.writeHead(302, { Location: path + "/" }).end();
+
       return;
     }
-    if (path.endsWith("/")) path += "index.html";
+    if (path.endsWith("/")) {
+      path += "index.html";
+    }
     assertDestination(path.slice(1));
     const bytes = await readFile(".artifacts/promo/" + path.slice("/places/".length));
     res

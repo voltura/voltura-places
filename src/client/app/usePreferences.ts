@@ -19,10 +19,14 @@ export function usePreferences() {
   }, [preferences]);
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme: dark)");
+
     const apply = () => applyAppearance(preferences.theme, preferences.skin, media.matches);
+
     apply();
     media.addEventListener("change", apply);
+
     return () => media.removeEventListener("change", apply);
   }, [preferences.theme, preferences.skin]);
+
   return [preferences, setPreferences] as const;
 }

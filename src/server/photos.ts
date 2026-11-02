@@ -3,7 +3,9 @@ import { authorizedWorkspace, WorkspaceError, membershipSQL, membershipArgs } fr
 import { jpegDimensions, photoHash, PHOTO_BYTES, PHOTO_QUOTA } from "../shared/photos";
 import type { Environment } from "./types";
 import { z } from "zod";
+
 const json = (error: string, status: number) => Response.json({ error }, { status });
+
 export async function handlePhoto(request: Request, env: Environment) {
   let identity;
   try {
@@ -15,13 +17,16 @@ export async function handlePhoto(request: Request, env: Environment) {
     );
   }
   const id = new URL(request.url).pathname.split("/").at(-1)!;
-  if (!z.string().uuid().safeParse(id).success) return json("invalidPhoto", 400);
+  if (!z.string().uuid().safeParse(id).success) {
+    return json("invalidPhoto", 400);
+  }
   if (request.method === "GET") {
     const photo = await env.DB.prepare(
       `SELECT data FROM places_photos WHERE account_id=? AND id=? AND ${membershipSQL}`,
     )
       .bind(identity.storage, id, ...membershipArgs(identity))
       .first<{ data: number[] }>();
+
     return photo
       ? new Response(new Uint8Array(photo.data), {
           headers: {
@@ -32,14 +37,23 @@ export async function handlePhoto(request: Request, env: Environment) {
         })
       : json("photoUnavailable", 404);
   }
-  if (request.method !== "PUT") return json("methodNotAllowed", 405);
-  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) return json("invalidOrigin", 403);
-  if (request.headers.get("Content-Type") !== "image/jpeg") return json("invalidPhoto", 415);
+  if (request.method !== "PUT") {
+    return json("methodNotAllowed", 405);
+  }
+  if (!hasCanonicalOrigin(request, env.AUTH_ORIGIN)) {
+    return json("invalidOrigin", 403);
+  }
+  if (request.headers.get("Content-Type") !== "image/jpeg") {
+    return json("invalidPhoto", 415);
+  }
   let bytes;
   try {
     bytes = await readBytes(request, PHOTO_BYTES, 422);
   } catch (error) {
-    if (!(error instanceof RequestError)) throw error;
+    if (!(error instanceof RequestError)) {
+      throw error;
+    }
+
     return json("invalidPhoto", error.status);
   }
   const length = bytes.byteLength;
@@ -76,6 +90,9 @@ export async function handlePhoto(request: Request, env: Environment) {
   const stored = await env.DB.prepare("SELECT hash FROM places_photos WHERE account_id=? AND id=?")
     .bind(identity.storage, id)
     .first<{ hash: string }>();
-  if (!stored) return json("photoQuota", 413);
+  if (!stored) {
+    return json("photoQuota", 413);
+  }
+
   return stored.hash === hash ? Response.json({ ok: true }) : json("invalidPhoto", 409);
 }

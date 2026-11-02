@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+
 for (const provider of ["Google Maps", "Apple Maps"]) {
   test(`${provider} opens separately from the picker and remembered provider`, async ({
     page,
@@ -25,8 +26,11 @@ for (const provider of ["Google Maps", "Apple Maps"]) {
     const destination = await link.getAttribute("href");
     for (const source of ["picker", "remembered"]) {
       const opened = context.waitForEvent("page");
-      if (source === "picker") await link.click();
-      else await openMaps.click();
+      if (source === "picker") {
+        await link.click();
+      } else {
+        await openMaps.click();
+      }
       const maps = await opened;
       await expect(maps).toHaveURL(destination!);
       await maps.waitForLoadState("domcontentloaded");
@@ -75,11 +79,13 @@ test("saved-place editor refines only better GPS fixes and saves the matching co
           callback = success;
           const id = ++next;
           watches.add(id);
-          if (id === 1)
+          if (id === 1) {
             success({
               timestamp: Date.now(),
               coords: { latitude: 0, longitude: 0, accuracy: 500 },
             } as GeolocationPosition);
+          }
+
           return id;
         },
         clearWatch: (id: number) => watches.delete(id),
@@ -94,12 +100,14 @@ test("saved-place editor refines only better GPS fixes and saves the matching co
       activeWatches: () => watches.size,
     });
   });
+
   const emit = (accuracy: number, latitude: number) =>
     page.evaluate(
       ([a, lat]) =>
         (window as unknown as { emitFix: (a: number, lat: number) => void }).emitFix(a, lat),
       [accuracy, latitude],
     );
+
   await page.goto("/");
   await page.getByRole("button", { name: "Save position", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: /^(Edit place|Place saved)$/, exact: true });
@@ -167,12 +175,15 @@ test("quick save recovers from initial unavailable positions without enabling ac
       value: {
         watchPosition: (success: PositionCallback, error: PositionErrorCallback) => {
           const attempt = ++attempts;
-          if (attempt < 3) error({ code: 2 } as GeolocationPositionError);
-          else
+          if (attempt < 3) {
+            error({ code: 2 } as GeolocationPositionError);
+          } else {
             success({
               timestamp: Date.now(),
               coords: { latitude: 0, longitude: 0, accuracy: 9 },
             } as GeolocationPosition);
+          }
+
           return attempt;
         },
         clearWatch: () => {},
@@ -232,6 +243,7 @@ test("first location permission grant recovers in the current app without a rest
       value: {
         watchPosition: (success: PositionCallback) => {
           fixes.push(success);
+
           return fixes.length;
         },
         clearWatch: () => {},
@@ -261,7 +273,9 @@ for (const failure of ["invalid", "throw"] as const) {
         Object.defineProperty(navigator, "geolocation", {
           value: {
             getCurrentPosition: (success: PositionCallback) => {
-              if (mode === "throw") throw new Error("unavailable");
+              if (mode === "throw") {
+                throw new Error("unavailable");
+              }
               success({
                 timestamp: NaN,
                 coords: { latitude: NaN, longitude: 0, accuracy: 5 },
@@ -322,23 +336,28 @@ for (const [width, height, textScale] of [
   }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/?lang=sv");
-    if (textScale !== 1)
+    if (textScale !== 1) {
       await page.evaluate((scale) => {
         document.documentElement.style.fontSize = `${scale * 100}%`;
       }, textScale);
+    }
+
     const font = (selector: string) =>
       page
         .locator(selector)
         .first()
         .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
     const fits = async () => {
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
       ).toBe(true);
       const content = page.locator("dialog[open] .sheet-content").last();
-      if (await content.count())
+      if (await content.count()) {
         expect(await content.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      }
     };
+
     expect(await font(".save-here")).toBeGreaterThanOrEqual(20 * textScale);
     await page.getByRole("button", { name: "Spara position", exact: true }).click();
     await page
@@ -355,7 +374,9 @@ for (const [width, height, textScale] of [
         })),
       );
     expect(photoButtons.every((button) => button.width >= 48)).toBe(true);
-    if (width >= 430 && textScale === 1) expect(photoButtons[0].top).toBe(photoButtons[1].top);
+    if (width >= 430 && textScale === 1) {
+      expect(photoButtons[0].top).toBe(photoButtons[1].top);
+    }
     await fits();
     await page.getByRole("button", { name: "Klart", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Stäng", exact: true }).click();
@@ -483,6 +504,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
               ),
             ),
           );
+
           return id;
         },
         clearWatch: (id: number) => {
@@ -548,6 +570,7 @@ test("accuracy review shows waiting, live quality, stale fix protection and retr
               timestamp: Date.now(),
               coords: { latitude: 0, longitude: 0, accuracy },
             });
+
           return 1;
         },
         clearWatch: () => {},
@@ -609,6 +632,7 @@ test("accuracy review handles denied permission and cancel without saving", asyn
       value: {
         watchPosition: (_s: unknown, error: (e: unknown) => void) => {
           setTimeout(() => error({ code: 1 }), 20);
+
           return 1;
         },
         clearWatch: () => {},
@@ -812,16 +836,19 @@ test("sign-out retains sign-in providers and rejects a late account response", a
   const oldRequested = new Promise<void>((resolve) => {
     held = resolve;
   });
+
   const state = (account: typeof identity | null) => ({
     enabled: true,
     providers: { google: true, email: true, chatgpt: true },
     account,
   });
+
   await page.route("**/api/account", async (route) => {
     if (holdNext) {
       holdNext = false;
       releaseOld = () => route.fulfill({ json: state(identity) });
       held!();
+
       return;
     }
     await route.fulfill({ json: state(signedIn ? identity : null) });
@@ -882,6 +909,7 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   expect(
     await toast.evaluate((element) => {
       const r = element.getBoundingClientRect();
+
       return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
     }),
   ).toBe(true);
@@ -916,10 +944,12 @@ for (const theme of ["dark", "light"]) {
     await page.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     const card = page.locator(".place-card");
+
     const open = async () => {
       await card.getByRole("button", { name: /^Edit place:/ }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
     };
+
     await open();
     const confirmation = page.getByRole("dialog", { name: "Delete this place?", exact: true });
     const cancel = confirmation
@@ -969,17 +999,20 @@ for (const [width, scale] of [
       "UnbrokenLocationName".repeat(3);
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(name);
     await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
-    if (scale !== 1)
+    if (scale !== 1) {
       await page.evaluate((scale) => {
         document.documentElement.style.fontSize = `${scale * 100}%`;
       }, scale);
+    }
     const details = page.locator(".details-content:visible");
     await expect(details.getByRole("heading", { name, exact: true })).toBeVisible();
     await expect(details.locator(".coordinate-display")).toHaveText(
       width === 320 ? "59.123, 18.100" : "-58.912058, -117.944706",
     );
+
     const measurements = await details.evaluate((el) => {
       const rect = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+
       return {
         fits: el.scrollWidth <= el.clientWidth + 1,
         buttons: Array.from(el.querySelectorAll("button")).map((button) => ({
@@ -1007,6 +1040,7 @@ for (const [width, scale] of [
         padding: getComputedStyle(el).paddingLeft,
       };
     });
+
     expect(measurements.fits).toBe(true);
     for (const button of measurements.buttons) {
       expect(button.height).toBeGreaterThanOrEqual(48);

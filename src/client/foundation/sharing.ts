@@ -9,16 +9,21 @@ export function supportsNativeShare(data: ShareData): boolean {
     return false;
   }
 }
+
 export async function shareOrCopy(data: ShareData, fallback: string) {
   if (!supportsNativeShare(data)) {
     await navigator.clipboard.writeText(fallback);
+
     return "copied" as const;
   }
   try {
     await navigator.share(data);
+
     return "shared" as const;
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return "dismissed" as const;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return "dismissed" as const;
+    }
     throw error;
   }
 }

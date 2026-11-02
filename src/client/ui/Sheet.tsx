@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+
 export function Sheet({
   title,
   subtitle,
@@ -26,8 +27,10 @@ export function Sheet({
     const dialog = ref.current!;
     dialog.showModal();
     (dialog.querySelector<HTMLElement>("[data-initial-focus]") ?? dialog).focus();
+
     return () => dialog.close();
   }, []);
+
   return (
     <dialog
       ref={ref}
@@ -39,15 +42,18 @@ export function Sheet({
         onClose();
       }}
       onClick={(e) => {
-        if (e.target !== ref.current) return;
+        if (e.target !== ref.current) {
+          return;
+        }
         const rect = e.currentTarget.getBoundingClientRect();
         if (
           e.clientX < rect.left ||
           e.clientX >= rect.right ||
           e.clientY < rect.top ||
           e.clientY >= rect.bottom
-        )
+        ) {
           onClose();
+        }
       }}
     >
       <div className="sheet-head">

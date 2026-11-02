@@ -5,6 +5,7 @@ import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
 import { handleStatistics } from "./statistics";
 import type { Environment } from "./types";
+
 export type AssetMap = Record<string, [string, string]>;
 const security = {
   "X-Content-Type-Options": "nosniff",
@@ -13,16 +14,18 @@ const security = {
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
 };
+
 export function createWorker(assets: AssetMap, version: string) {
   return {
     async fetch(request: Request, env: Environment): Promise<Response> {
       const url = new URL(request.url);
       try {
-        if (url.pathname === "/api/health")
+        if (url.pathname === "/api/health") {
           return Response.json(
             { ok: true, product: "voltura-places", version },
             { headers: { "Cache-Control": "no-store", ...security } },
           );
+        }
         if (url.pathname.startsWith("/api/")) {
           let response: Response;
           if (["/api/v1/activity", "/api/v1/statistics"].includes(url.pathname)) {
@@ -32,26 +35,36 @@ export function createWorker(assets: AssetMap, version: string) {
           } else if (url.pathname.startsWith("/api/v1/photos/")) {
             response = await handlePhoto(request, env);
           } else if (url.pathname === "/api/v1/sync") {
-            if (env.ACCOUNTS_ENABLED !== "true" || !env.DB)
+            if (env.ACCOUNTS_ENABLED !== "true" || !env.DB) {
               return Response.json(
                 { error: "serviceUnavailable" },
                 { status: 503, headers: { "Cache-Control": "no-store" } },
               );
+            }
             response = await handleSync(request, env);
-          } else
+          } else {
             response =
               (await handleAccounts(request, env)) ??
               Response.json({ error: "serviceUnavailable" }, { status: 503 });
+          }
           const headers = new Headers(response.headers);
-          for (const [k, v] of Object.entries(security)) headers.set(k, v);
+          for (const [k, v] of Object.entries(security)) {
+            headers.set(k, v);
+          }
           headers.set("Cache-Control", "private, no-store");
+
           return new Response(response.body, { status: response.status, headers });
         }
-        if (!["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405 });
+        if (!["GET", "HEAD"].includes(request.method)) {
+          return new Response(null, { status: 405 });
+        }
         const path = url.pathname === "/" ? "/index.html" : url.pathname;
         const asset = assets[path];
-        if (!asset) return new Response("Not found", { status: 404, headers: security });
+        if (!asset) {
+          return new Response("Not found", { status: 404, headers: security });
+        }
         const [type, data] = asset;
+
         return new Response(request.method === "HEAD" ? null : Buffer.from(data, "base64"), {
           headers: {
             ...security,

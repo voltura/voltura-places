@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Cloud, ArrowRight, Mail, Trash2, MonitorX } from "lucide-react";
-import { api, type AccountState } from "../foundation/sync";
+import { api } from "../foundation/http";
+import { type AccountState } from "../foundation/account-contract";
 import type { Message } from "../foundation/i18n";
+
 export function AccountPanel({
   state,
   t,
@@ -21,12 +23,13 @@ export function AccountPanel({
   onDelete: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
 }) {
-  const [email, setEmail] = useState(""),
-    [otp, setOtp] = useState(""),
-    [sent, setSent] = useState(false),
-    [linking, setLinking] = useState(false),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [sent, setSent] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   const execute = async (action: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -44,9 +47,13 @@ export function AccountPanel({
       setBusy(false);
     }
   };
+
   const startLink = async (provider: string) => {
-    if (state.account) await api("/api/account/link", { provider }, state.account.id);
+    if (state.account) {
+      await api("/api/account/link", { provider }, state.account.id);
+    }
   };
+
   const google = () =>
     execute(async () => {
       await startLink("google");
@@ -55,16 +62,19 @@ export function AccountPanel({
         linking: !!state.account,
       });
       const url = new URL(result.url);
-      if (url.protocol !== "https:" || url.hostname !== "accounts.google.com")
+      if (url.protocol !== "https:" || url.hostname !== "accounts.google.com") {
         throw new Error("Invalid provider");
+      }
       location.assign(url.href);
     });
+
   const native = () =>
     execute(async () => {
       await startLink("chatgpt");
       const returnTo = `/?account=chatgpt${state.account ? "-link" : ""}`;
       location.assign(`/signin-with-chatgpt?returnTo=${encodeURIComponent(returnTo)}`);
     });
+
   const send = () =>
     execute(async () => {
       await startLink("email");
@@ -72,6 +82,7 @@ export function AccountPanel({
       await api("/api/auth/email-otp/send-verification-otp", { email, type: "sign-in" });
       setSent(true);
     });
+
   const verify = () =>
     execute(async () => {
       await api("/api/auth/sign-in/email-otp", { email, otp });
@@ -80,6 +91,7 @@ export function AccountPanel({
       setOtp("");
       await onRefresh();
     });
+
   const signInControls = (
     <div className="stack">
       {state.providers.google &&
@@ -166,6 +178,7 @@ export function AccountPanel({
         )}
     </div>
   );
+
   return (
     <section className="stack">
       <h3>{t("account")}</h3>
@@ -257,7 +270,9 @@ export function AccountPanel({
               className="button danger"
               disabled={busy}
               onClick={() => {
-                if (confirm(t("deleteAccountBody"))) void execute(onDelete);
+                if (confirm(t("deleteAccountBody"))) {
+                  void execute(onDelete);
+                }
               }}
             >
               <Trash2 size={20} aria-hidden="true" />
@@ -271,7 +286,9 @@ export function AccountPanel({
               className="button danger"
               disabled={busy}
               onClick={() => {
-                if (confirm(t("removeDeviceBody"))) void execute(onRemoveDevice);
+                if (confirm(t("removeDeviceBody"))) {
+                  void execute(onRemoveDevice);
+                }
               }}
             >
               <MonitorX size={20} aria-hidden="true" />

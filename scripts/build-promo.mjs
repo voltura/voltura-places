@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir, cp, rm, lstat, realpath } from "node:fs/pro
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { socialImage } from "./branding.mjs";
+
 const themeScript = await readFile("site/theme.js", "utf8");
 const statistics = await collectStatistics();
 const content = JSON.parse(await readFile("site/content.json", "utf8"));
@@ -13,21 +14,27 @@ await mkdir(resolve(".artifacts"), { recursive: true });
 if (
   relative(process.cwd(), output) !== ".artifacts/promo" &&
   relative(process.cwd(), output) !== ".artifacts\\promo"
-)
+) {
   throw new Error("Unsafe promo build directory");
+}
 if (
   (await lstat(resolve(".artifacts"))).isSymbolicLink() ||
   (await realpath(resolve(".artifacts"))) !== resolve(".artifacts")
-)
+) {
   throw new Error("Linked artifact directory");
+}
 try {
-  if ((await lstat(output)).isSymbolicLink()) throw new Error("Linked promo output");
+  if ((await lstat(output)).isSymbolicLink()) {
+    throw new Error("Linked promo output");
+  }
 } catch (error) {
-  if (error.code !== "ENOENT") throw error;
+  if (error.code !== "ENOENT") {
+    throw error;
+  }
 }
 await rm(output, { recursive: true, force: true });
-const css = await readFile("site/site.css"),
-  hash = createHash("sha256").update(css).digest("hex").slice(0, 16);
+const css = await readFile("site/site.css");
+const hash = createHash("sha256").update(css).digest("hex").slice(0, 16);
 await mkdir(".artifacts/promo/assets", { recursive: true });
 await mkdir(".artifacts/promo/sv", { recursive: true });
 await writeFile(`.artifacts/promo/assets/site.${hash}.css`, css);

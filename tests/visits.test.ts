@@ -25,6 +25,7 @@ import {
 import { exportWithPhotos } from "../src/client/foundation/photo-backup";
 
 beforeEach(() => vi.stubGlobal("window", new EventTarget()));
+
 const place = (): Extract<Entity, { kind: "place" }> => ({
   id: crypto.randomUUID(),
   kind: "place",
@@ -41,13 +42,13 @@ const place = (): Extract<Entity, { kind: "place" }> => ({
 });
 
 test("GPS saves atomically store the creator's status privately for a group", async () => {
-  const owner = crypto.randomUUID(),
-    group = crypto.randomUUID(),
-    key = familyKey(owner, group),
-    p = place();
+  const owner = crypto.randomUUID();
+  const group = crypto.randomUUID();
+  const key = familyKey(owner, group);
+  const p = place();
   await saveEntity(key, p, undefined, false, () => true, "visited");
-  const shared = await readWorkspace(key),
-    personal = await readWorkspace(owner);
+  const shared = await readWorkspace(key);
+  const personal = await readWorkspace(owner);
   expect(shared.records.some((r) => r.kind === "visit")).toBe(false);
   expect(visitStatuses(personal.records, key).get(p.id)).toBe("visited");
   expect(visitStatuses(personal.records, familyKey(owner, crypto.randomUUID())).size).toBe(0);
@@ -58,9 +59,9 @@ test("GPS saves atomically store the creator's status privately for a group", as
 });
 
 test("private status failure rolls back the group save and retains its draft", async () => {
-  const owner = crypto.randomUUID(),
-    key = familyKey(owner, crypto.randomUUID()),
-    p = place();
+  const owner = crypto.randomUUID();
+  const key = familyKey(owner, crypto.randomUUID());
+  const p = place();
   await setDraft(key, { id: p.id, name: "Unsaved draft" });
   await changeWorkspace(owner, (w) => {
     w.importLease = { token: "busy", expiresAt: Date.now() + 60000 };
@@ -73,9 +74,9 @@ test("private status failure rolls back the group save and retains its draft", a
 });
 
 test("cancellation rolls back both the shared place and personal status", async () => {
-  const owner = crypto.randomUUID(),
-    key = familyKey(owner, crypto.randomUUID()),
-    p = place();
+  const owner = crypto.randomUUID();
+  const key = familyKey(owner, crypto.randomUUID());
+  const p = place();
   let current = true;
   const original = IDBObjectStore.prototype.put;
   const spy = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (
@@ -84,7 +85,10 @@ test("cancellation rolls back both the shared place and personal status", async 
     ...args
   ) {
     const result = original.call(this, value, ...args);
-    if (this.name === "workspaces" && value.key === owner) current = false;
+    if (this.name === "workspaces" && value.key === owner) {
+      current = false;
+    }
+
     return result;
   });
   try {
@@ -99,8 +103,8 @@ test("cancellation rolls back both the shared place and personal status", async 
 });
 
 test("statuses are stable personal records, and clearing status survives another save", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await saveEntity(key, p);
   await saveVisit(key, p.id, "want");
   await saveVisit(key, p.id, "visited");
@@ -124,18 +128,19 @@ test("sharing preserves Unicode descriptions but never a personal status", async
 
 test("private and group backup imports restore statuses for the importing person only", async () => {
   for (const group of [false, true]) {
-    const source = crypto.randomUUID(),
-      p = place();
+    const source = crypto.randomUUID();
+    const p = place();
     await saveEntity(source, p, undefined, false, () => true, "visited");
     const backup = exportBackup(await readWorkspace(source));
-    const owner = crypto.randomUUID(),
-      target = group ? familyKey(owner, crypto.randomUUID()) : owner;
+    const owner = crypto.randomUUID();
+    const target = group ? familyKey(owner, crypto.randomUUID()) : owner;
     await importBackup(target, backup);
     expect(visitStatuses((await readWorkspace(owner)).records, target).get(p.id)).toBe("visited");
     const exported = await exportWithPhotos(await readWorkspace(target));
     expect(exported.visits).toEqual([{ placeId: p.id, status: "visited" }]);
-    if (group)
+    if (group) {
       expect((await readWorkspace(target)).records.some((r) => r.kind === "visit")).toBe(false);
+    }
     await saveVisit(target, p.id, "want");
     await importBackup(target, backup);
     expect(visitStatuses((await readWorkspace(owner)).records, target).get(p.id)).toBe("want");
@@ -145,15 +150,15 @@ test("private and group backup imports restore statuses for the importing person
 });
 
 test("merge remaps incoming statuses with copied place identities and retains existing preferences", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await saveEntity(key, p, undefined, false, () => true, "visited");
   const backup = exportBackup(await readWorkspace(key));
   backup.places[0].value.name = "Imported clearing";
   backup.visits![0].status = "want";
   await importBackup(key, backup);
-  const w = await readWorkspace(key),
-    copies = w.records.filter((r) => r.kind === "place" && !r.deleted);
+  const w = await readWorkspace(key);
+  const copies = w.records.filter((r) => r.kind === "place" && !r.deleted);
   expect(copies).toHaveLength(2);
   expect(visitStatuses(w.records, key).get(p.id)).toBe("visited");
   expect(visitStatuses(w.records, key).get(copies.find((r) => r.id !== p.id)!.id)).toBe("want");
@@ -163,12 +168,12 @@ test("merge remaps incoming statuses with copied place identities and retains ex
 
 test("guest transfer carries personal status while group copies never inherit it", async () => {
   await removeWorkspace("guest");
-  const p = place(),
-    owner = crypto.randomUUID();
+  const p = place();
+  const owner = crypto.randomUUID();
   await saveEntity("guest", p, undefined, false, () => true, "visited");
   await reconcileDevicePlaces(owner, [], "auto");
-  const w = await readWorkspace(owner),
-    copied = w.records.find((r) => r.kind === "place")!;
+  const w = await readWorkspace(owner);
+  const copied = w.records.find((r) => r.kind === "place")!;
   expect(visitStatuses(w.records, owner).get(copied.id)).toBe("visited");
   const destination = familyKey(owner, crypto.randomUUID());
   await copyPlaceToWorkspace(owner, destination, copied.id);
@@ -178,12 +183,12 @@ test("guest transfer carries personal status while group copies never inherit it
 });
 
 test("backup status references and direct group metadata writes are validated", async () => {
-  const key = crypto.randomUUID(),
-    p = place();
+  const key = crypto.randomUUID();
+  const p = place();
   await saveEntity(key, p);
   const b = exportBackup(await readWorkspace(key));
   expect(() => validateBackup({ ...b, visits: [{ placeId: "absent", status: "want" }] })).toThrow();
-  const group = familyKey(key, crypto.randomUUID()),
-    entity = await visitEntity(group, p.id, "want");
+  const group = familyKey(key, crypto.randomUUID());
+  const entity = await visitEntity(group, p.id, "want");
   await expect(saveEntity(group, entity)).rejects.toThrow("invalidImport");
 });

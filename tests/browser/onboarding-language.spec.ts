@@ -21,11 +21,12 @@ for (const [browserLanguage, saved, query, expected] of [
     await page.addInitScript(
       ({ browserLanguage, saved }) => {
         Object.defineProperty(navigator, "language", { value: browserLanguage });
-        if (saved && !localStorage.getItem("places-preferences"))
+        if (saved && !localStorage.getItem("places-preferences")) {
           localStorage.setItem(
             "places-preferences",
             JSON.stringify({ language: saved, theme: "dark", provider: "" }),
           );
+        }
       },
       { browserLanguage, saved },
     );
@@ -93,10 +94,11 @@ for (const width of [320, 390]) {
     test(`language header fits ${width}px, doubled text ${doubled}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
-      if (doubled)
+      if (doubled) {
         await page.evaluate(() => {
           document.documentElement.style.fontSize = "32px";
         });
+      }
       const dialog = page.getByRole("dialog");
       for (const language of ["en", "sv"]) {
         const select = dialog.getByRole("combobox");
@@ -113,6 +115,7 @@ for (const width of [320, 390]) {
             const title = header.querySelector("h2")!.getBoundingClientRect();
             const control = header.querySelector("select")!.getBoundingClientRect();
             const close = header.querySelector("button")!.getBoundingClientRect();
+
             return (
               header.scrollWidth <= header.clientWidth + 1 &&
               title.right <= close.left &&

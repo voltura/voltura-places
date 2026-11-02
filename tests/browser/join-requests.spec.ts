@@ -34,10 +34,14 @@ for (const language of ["en", "sv"] as const) {
       if (r.request().method() === "POST") {
         decisions.push(r.request().postDataJSON());
         expect(r.request().headers()["x-places-account"]).toBe("request-owner");
-        if (fail) return r.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+        if (fail) {
+          return r.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+        }
         incoming = false;
+
         return r.fulfill({ json: { ok: true } });
       }
+
       return r.fulfill({
         json: {
           families: [
@@ -50,6 +54,9 @@ for (const language of ["en", "sv"] as const) {
     const title = language === "en" ? "Join requests" : "Förfrågningar om att gå med";
     const prompt = page.getByRole("dialog", { name: title, exact: true });
     await expect(prompt).toBeHidden();
+    await expect(page.locator("#account-sync-status")).toHaveText(
+      language === "en" ? "Synced" : "Synkroniserat",
+    );
     await page.clock.install();
     incoming = true;
     await page.clock.fastForward(5000);
@@ -124,15 +131,19 @@ test("decline and stale approvals use the correct owned group and live server st
     r.fulfill({ json: { version: 1, accountId: account, records: [] } }),
   );
   await page.route("**/api/family", async (r) => {
-    if (unavailable) return r.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+    if (unavailable) {
+      return r.fulfill({ status: 503, json: { error: "serviceUnavailable" } });
+    }
     if (r.request().method() === "POST") {
       decisions.push(r.request().postDataJSON());
       requests = [];
+
       return r.fulfill({
         status: fail ? 409 : 200,
         json: fail ? { error: "familyCodeChanged" } : { ok: true },
       });
     }
+
     return r.fulfill({
       json: {
         families: [

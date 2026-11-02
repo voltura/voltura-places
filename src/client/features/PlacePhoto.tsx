@@ -5,6 +5,7 @@ import { loadPhoto, preparePhoto } from "../foundation/photos";
 import { watchPhoto } from "../foundation/photo-store";
 import type { Message } from "../foundation/i18n";
 import { photoPosition, type PhotoPosition } from "../foundation/photo-location";
+
 export function PlacePhoto({
   workspace,
   id,
@@ -17,15 +18,19 @@ export function PlacePhoto({
   const [url, setUrl] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let active = true,
-      objectUrl = "";
+    let active = true;
+    let objectUrl = "";
     setUrl("");
+
     const changed = () => {
-      if (active) setAttempt((value) => value + 1);
+      if (active) {
+        setAttempt((value) => value + 1);
+      }
     };
+
     const stopWatching = id ? watchPhoto(workspace, id, changed) : () => {};
     window.addEventListener("online", changed);
-    if (id)
+    if (id) {
       void loadPhoto(workspace, id, () => active)
         .then((blob) => {
           if (active) {
@@ -34,23 +39,32 @@ export function PlacePhoto({
           }
         })
         .catch(() => {});
+    }
+
     return () => {
       active = false;
       stopWatching();
       window.removeEventListener("online", changed);
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
   }, [workspace, id, attempt]);
-  if (!id) return null;
+  if (!id) {
+    return null;
+  }
+
   return url ? (
     <PhotoView key={`${workspace}:${id}`} url={url} t={t} />
   ) : (
     <p className="muted small">{t("photoUnavailable")}</p>
   );
 }
+
 function PhotoView({ url, t }: { url: string; t: (key: Message) => string }) {
   const [fullscreen, setFullscreen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
+
   return (
     <div className="place-photo-frame">
       <img className="place-photo" src={url} alt={t("placePhoto")} />
@@ -93,12 +107,14 @@ function FullscreenPhoto({
     const { scrollX, scrollY } = window;
     surface.showModal();
     surface.querySelector("button")?.focus({ preventScroll: true });
+
     return () => {
       surface.close();
       window.scrollTo(scrollX, scrollY);
       returnFocus();
     };
   }, []);
+
   return createPortal(
     <dialog
       ref={dialog}
@@ -123,6 +139,7 @@ function FullscreenPhoto({
     document.body,
   );
 }
+
 export function PhotoPicker({
   workspace,
   id,
@@ -138,21 +155,25 @@ export function PhotoPicker({
   onBusy: (busy: boolean) => void;
   onPosition: (position: PhotoPosition) => void;
 }) {
-  const camera = useRef<HTMLInputElement>(null),
-    library = useRef<HTMLInputElement>(null),
-    active = useRef(true);
-  const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [position, setPosition] = useState<PhotoPosition | null>(null),
-    [missingPosition, setMissingPosition] = useState(false);
+  const camera = useRef<HTMLInputElement>(null);
+  const library = useRef<HTMLInputElement>(null);
+  const active = useRef(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [position, setPosition] = useState<PhotoPosition | null>(null);
+  const [missingPosition, setMissingPosition] = useState(false);
   useEffect(() => {
     active.current = true;
+
     return () => {
       active.current = false;
     };
   }, []);
+
   const choose = async (file?: File) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
     setBusy(true);
     onBusy(true);
     setError("");
@@ -165,10 +186,11 @@ export function PhotoPicker({
         setMissingPosition(!location);
       }
     } catch (e) {
-      if (active.current)
+      if (active.current) {
         setError(
           t(e instanceof Error && e.message === "photoQuota" ? "photoQuota" : "invalidPhoto"),
         );
+      }
     } finally {
       if (active.current) {
         setBusy(false);
@@ -176,6 +198,7 @@ export function PhotoPicker({
       }
     }
   };
+
   return (
     <fieldset className="photo-picker" aria-label={id ? t("photo") : undefined}>
       {!id && <legend>{t("photo")}</legend>}

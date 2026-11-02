@@ -1,39 +1,51 @@
 import { readdir, readFile, lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
+
 export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
 export function assertDestination(path) {
   if (
     typeof path !== "string" ||
     !/^places\/(?:(?:index|stats)\.html|sv\/(?:index|stats)\.html|assets\/(?:site\.[a-f0-9]{16}\.css|usage\.[a-f0-9]{16}\.js|(?:app|desktop|social)-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg)|mail\/relay\.php)$/.test(
       path,
     )
-  )
+  ) {
     throw new Error("Destination outside isolated Places allowlist.");
+  }
+
   return path;
 }
+
 export async function promoManifest() {
   const entries = [];
   const base = resolve(".artifacts/promo");
+
   async function collect(dir = "") {
     for (const e of await readdir(resolve(base, dir), { withFileTypes: true })) {
       const relative = dir ? `${dir}/${e.name}` : e.name;
-      const full = resolve(base, relative),
-        s = await lstat(full);
-      if (s.isSymbolicLink()) throw new Error("Linked promo path");
-      if (s.isDirectory()) await collect(relative);
-      else {
-        const path = assertDestination(`places/${relative}`),
-          bytes = await readFile(full);
+      const full = resolve(base, relative);
+      const s = await lstat(full);
+      if (s.isSymbolicLink()) {
+        throw new Error("Linked promo path");
+      }
+      if (s.isDirectory()) {
+        await collect(relative);
+      } else {
+        const path = assertDestination(`places/${relative}`);
+        const bytes = await readFile(full);
         entries.push({ path, source: full, sha256: digest(bytes), size: bytes.length });
       }
     }
   }
+
   await collect();
-  if (entries.length !== 13)
+  if (entries.length !== 13) {
     throw new Error(
       "Expected two promo pages, two statistics pages, four screenshots, two social cards, one stylesheet, one usage script and one icon.",
     );
+  }
+
   return entries.sort(
     (a, b) =>
       Number(a.path.endsWith("index.html")) - Number(b.path.endsWith("index.html")) ||

@@ -7,8 +7,10 @@ test("first Settings and Family sharing opens are immediate and retain the selec
     Object.defineProperty(window, "loadingDialogs", { value: 0, writable: true });
     const show = HTMLDialogElement.prototype.showModal;
     HTMLDialogElement.prototype.showModal = function () {
-      if (this.getAttribute("aria-label")?.startsWith("Working"))
+      if (this.getAttribute("aria-label")?.startsWith("Working")) {
         (window as unknown as { loadingDialogs: number }).loadingDialogs++;
+      }
+
       return show.call(this);
     };
   });
@@ -39,24 +41,30 @@ for (const [width, height, scale] of [
   test(`signed-out family layout ${width}px at ${scale}x text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height });
     await page.goto("/");
-    if (scale !== 1)
+    if (scale !== 1) {
       await page.evaluate(
         (scale) => (document.documentElement.style.fontSize = `${16 * scale}px`),
         scale,
       );
+    }
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
     const selector = page.getByRole("combobox", { name: "Settings", exact: true });
-    if (await selector.isVisible()) await selector.selectOption("familySharing");
-    else await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+    if (await selector.isVisible()) {
+      await selector.selectOption("familySharing");
+    } else {
+      await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+    }
     const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
     await expect(
       dialog.getByText(
         "Share places with family or other groups. Each group has its own members and places. Your private places stay private.",
       ),
     ).toBeVisible();
+
     const geometry = await dialog.evaluate((el) => {
       const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+
       const head = box(".sheet-head");
       const compact =
         el.querySelector(".settings-navigation")!.getAttribute("data-compact") === "true";
@@ -66,6 +74,7 @@ for (const [width, height, scale] of [
       const title = box(compact ? ".settings-section-label > span" : ".family-heading h3");
       const close = box(".sheet-head button");
       const body = el.querySelector(".sheet-content")!;
+
       return {
         top: el.getBoundingClientRect().top,
         bottom: el.getBoundingClientRect().bottom,
@@ -80,6 +89,7 @@ for (const [width, height, scale] of [
         padding: getComputedStyle(body).paddingLeft,
       };
     });
+
     expect(geometry.top).toBe(20);
     expect(geometry.bottom).toBeLessThanOrEqual(height - 20);
     expect(geometry.gap).toBe(12);
@@ -89,7 +99,9 @@ for (const [width, height, scale] of [
     expect(geometry.closeHeight).toBeGreaterThanOrEqual(48);
     expect(geometry.overflow).toBe(false);
     expect(geometry.padding).toBe(width <= 640 ? "16px" : "24px");
-    if (width < 640) await expect(selector).toBeVisible();
+    if (width < 640) {
+      await expect(selector).toBeVisible();
+    }
     const action = dialog.getByRole("button", { name: "Sign in to share", exact: true });
     expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(48);
     await action.scrollIntoViewIfNeeded();
@@ -101,11 +113,16 @@ for (const [width, height, scale] of [
     ).toBeVisible();
     // Repeating the action must navigate even when Account was the initial section.
     for (let repeat = 0; repeat < 2; repeat++) {
-      if (await selector.isVisible()) await selector.selectOption("familySharing");
-      else await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+      if (await selector.isVisible()) {
+        await selector.selectOption("familySharing");
+      } else {
+        await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+      }
       await action.click();
       await expect(dialog.getByText("Not signed in", { exact: true })).toBeVisible();
-      if (await selector.isVisible()) await expect(selector).toHaveValue("account");
+      if (await selector.isVisible()) {
+        await expect(selector).toHaveValue("account");
+      }
     }
   });
 }
@@ -118,8 +135,11 @@ test("backup actions adapt and the section selector uses the app theme", async (
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   const selector = page.getByRole("combobox", { name: "Settings", exact: true });
-  if (await selector.isVisible()) await selector.selectOption("backup");
-  else await page.getByRole("button", { name: "Backup & restore", exact: true }).click();
+  if (await selector.isVisible()) {
+    await selector.selectOption("backup");
+  } else {
+    await page.getByRole("button", { name: "Backup & restore", exact: true }).click();
+  }
   const actions = page.locator(".backup-actions .button");
   const first = (await actions.nth(0).boundingBox())!;
   const second = (await actions.nth(1).boundingBox())!;
@@ -378,6 +398,7 @@ for (const [width, scale] of [
       const layout = await option.evaluate((el) => {
         const icon = el.querySelector("svg")!.getBoundingClientRect();
         const label = el.querySelector("span")!.getBoundingClientRect();
+
         return {
           icon: icon.width,
           gap: label.left - icon.right,

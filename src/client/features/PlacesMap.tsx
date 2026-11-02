@@ -51,7 +51,9 @@ function MapSurface({
   const scroll = useRef({ x: 0, y: 0 });
   useLayoutEffect(() => {
     const surface = dialog.current;
-    if (!surface) return;
+    if (!surface) {
+      return;
+    }
     if (fullscreen) {
       scroll.current = { x: window.scrollX, y: window.scrollY };
       surface.close();
@@ -68,7 +70,10 @@ function MapSurface({
         ?.focus({ preventScroll: true });
     }
   }, [fullscreen]);
-  if (preview) return children;
+  if (preview) {
+    return children;
+  }
+
   return (
     <dialog
       ref={dialog}
@@ -94,14 +99,18 @@ function point(place: PlaceRecord, start = -180): L.LatLngTuple {
     wrapLongitude(place.value.longitude, start),
   ];
 }
+
 function fitPlaces(map: L.Map | null, places: PlaceRecord[], preview = false) {
-  if (!map || !places.length) return;
+  if (!map || !places.length) {
+    return;
+  }
   const start = longitudeArcStart(places.map((p) => p.value.longitude));
   const bounds = L.latLngBounds(places.map((p) => point(p, start)));
   if (preview) {
     for (const place of places) {
-      if (place.value.accuracy !== null && place.value.accuracy > 0)
+      if (place.value.accuracy !== null && place.value.accuracy > 0) {
         bounds.extend(L.latLng(point(place, start)).toBounds(place.value.accuracy * 2));
+      }
     }
   }
   map.fitBounds(bounds, {
@@ -150,16 +159,21 @@ export default function PlacesMap({
     ]),
   );
   const browsing = useEffectEvent(() => {
-    if (!preview && !fullscreen) onBrowse?.();
+    if (!preview && !fullscreen) {
+      onBrowse?.();
+    }
   });
   const live = useEffectEvent(() => ({ places, categoryColor, t, onSelect, selected, start }));
   const updateVisibility = useEffectEvent(() => {
     const map = mapRef.current;
-    if (!map || preview) return;
+    if (!map || preview) {
+      return;
+    }
     const size = map.getSize();
     setAllVisible(
       places.every((place) => {
         const position = map.latLngToContainerPoint(point(place, start));
+
         return (
           position.x >= 24 &&
           position.x <= size.x - 24 &&
@@ -191,21 +205,34 @@ export default function PlacesMap({
       keyboard: !preview,
     }).setView([0, 0], 2);
     mapRef.current = map;
+
     // Drag is always user initiated; zoom/pan from fitBounds and resize must not hide UI.
     const userBrowse = () => browsing();
+
     const userKey = (event: KeyboardEvent) => {
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "+", "-", "="].includes(event.key))
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "+", "-", "="].includes(event.key)) {
         browsing();
+      }
     };
+
     const userWheel = (event: WheelEvent) => {
-      if (event.deltaY) browsing();
+      if (event.deltaY) {
+        browsing();
+      }
     };
+
     const userTouch = (event: TouchEvent) => {
-      if (event.touches.length > 1) browsing();
+      if (event.touches.length > 1) {
+        browsing();
+      }
     };
+
     const userZoomButton = (event: MouseEvent) => {
-      if ((event.target as Element).closest(".leaflet-control-zoom a")) browsing();
+      if ((event.target as Element).closest(".leaflet-control-zoom a")) {
+        browsing();
+      }
     };
+
     const surface = map.getContainer();
     map.on("dragstart", userBrowse);
     surface.addEventListener("keydown", userKey);
@@ -215,11 +242,13 @@ export default function PlacesMap({
     surface.addEventListener("dblclick", userBrowse);
 
     const visibilityChanged = () => updateVisibility();
+
     map.on("moveend zoomend resize", visibilityChanged);
     fitPlaces(map, live().places, preview);
     const { t } = live();
-    if (!preview)
+    if (!preview) {
       L.control.zoom({ zoomInTitle: t("zoomIn"), zoomOutTitle: t("zoomOut") }).addTo(map);
+    }
     map.attributionControl.setPrefix(false);
     const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
@@ -232,14 +261,21 @@ export default function PlacesMap({
     });
     tiles.on("loading", () => setTileFailed(false));
     tiles.on("tileerror", () => setTileFailed(true));
+
     const connectivity = () => {
       setOffline(!navigator.onLine);
       if (navigator.onLine) {
         setTileFailed(false);
-        if (!map.hasLayer(tiles)) tiles.addTo(map);
-        else tiles.redraw();
-      } else tiles.remove();
+        if (!map.hasLayer(tiles)) {
+          tiles.addTo(map);
+        } else {
+          tiles.redraw();
+        }
+      } else {
+        tiles.remove();
+      }
     };
+
     connectivity();
     window.addEventListener("online", connectivity);
     window.addEventListener("offline", connectivity);
@@ -254,6 +290,7 @@ export default function PlacesMap({
         const label = document.createElement("span");
         label.textContent = String(count);
         label.setAttribute("aria-label", `${count} ${live().t("mapPlaces")}`);
+
         return L.divIcon({ html: label, className: "places-map-cluster", iconSize: [48, 48] });
       },
     }).addTo(map);
@@ -261,7 +298,9 @@ export default function PlacesMap({
     group.on("clusterclick clusterkeypress", (event: L.LeafletEvent) => {
       if (event.type === "clusterkeypress") {
         const key = (event as L.LeafletKeyboardEvent).originalEvent;
-        if (key.key !== "Enter" && key.key !== " ") return;
+        if (key.key !== "Enter" && key.key !== " ") {
+          return;
+        }
         key.preventDefault();
       }
       const cluster = (event as L.LeafletEvent & { layer: L.MarkerCluster }).layer;
@@ -275,10 +314,13 @@ export default function PlacesMap({
         setChoices(
           [...markersRef.current].filter(([, marker]) => members.has(marker)).map(([id]) => id),
         );
-      } else cluster.zoomToBounds({ padding: [36, 36], animate: false });
+      } else {
+        cluster.zoomToBounds({ padding: [36, 36], animate: false });
+      }
     });
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: true, animate: false }));
     resize.observe(container.current!);
+
     return () => {
       resize.disconnect();
       window.removeEventListener("online", connectivity);
@@ -299,11 +341,13 @@ export default function PlacesMap({
   }, []);
 
   useEffect(() => {
-    if (!preview) return;
+    if (!preview) {
+      return;
+    }
     const map = mapRef.current!;
     const circles = L.layerGroup().addTo(map);
     for (const place of places) {
-      if (place.value.accuracy !== null && place.value.accuracy > 0)
+      if (place.value.accuracy !== null && place.value.accuracy > 0) {
         L.circle(point(place, start), {
           radius: place.value.accuracy,
           className: "place-accuracy-radius",
@@ -313,8 +357,10 @@ export default function PlacesMap({
           fillOpacity: 0.12,
           interactive: false,
         }).addTo(circles);
+      }
     }
     fit();
+
     return () => {
       circles.remove();
     };
@@ -324,11 +370,13 @@ export default function PlacesMap({
     const group = groupRef.current!;
     const { places, categoryColor, start } = live();
     const ids = new Set(places.map((place) => place.id));
-    const removed: L.Marker[] = [],
-      added: L.Marker[] = [];
+    const removed: L.Marker[] = [];
+    const added: L.Marker[] = [];
     const moved: { marker: L.Marker; position: L.LatLngTuple }[] = [];
     for (const [id, marker] of markersRef.current) {
-      if (ids.has(id)) continue;
+      if (ids.has(id)) {
+        continue;
+      }
       removed.push(marker);
       markersRef.current.delete(id);
       pinsRef.current.delete(id);
@@ -339,7 +387,9 @@ export default function PlacesMap({
       const existing = markersRef.current.get(place.id);
       if (existing) {
         const pin = pinsRef.current.get(place.id)!;
-        if (pin.className !== className) pin.className = className;
+        if (pin.className !== className) {
+          pin.className = className;
+        }
         if (existing.options.title !== place.value.name) {
           existing.options.title = existing.options.alt = place.value.name;
           existing.getElement()?.setAttribute("title", place.value.name);
@@ -368,7 +418,9 @@ export default function PlacesMap({
       marker.on("click keypress", (event: L.LeafletEvent) => {
         if (event.type === "keypress") {
           const key = (event as L.LeafletKeyboardEvent).originalEvent;
-          if (key.key !== "Enter" && key.key !== " ") return;
+          if (key.key !== "Enter" && key.key !== " ") {
+            return;
+          }
           key.preventDefault();
         }
         setChoices([]);
@@ -383,9 +435,15 @@ export default function PlacesMap({
       pinsRef.current.set(place.id, pin);
       added.push(marker);
     }
-    if (removed.length) group.removeLayers(removed);
-    for (const { marker, position } of moved) marker.setLatLng(position);
-    if (added.length) group.addLayers(added);
+    if (removed.length) {
+      group.removeLayers(removed);
+    }
+    for (const { marker, position } of moved) {
+      marker.setLatLng(position);
+    }
+    if (added.length) {
+      group.addLayers(added);
+    }
     updateVisibility();
   }, [dataKey]);
 
@@ -411,8 +469,9 @@ export default function PlacesMap({
       button?.setAttribute("title", label);
       button?.setAttribute("aria-label", label);
     }
-    for (const count of surface?.querySelectorAll(".places-map-cluster > span") ?? [])
+    for (const count of surface?.querySelectorAll(".places-map-cluster > span") ?? []) {
       count.setAttribute("aria-label", `${count.textContent} ${t("mapPlaces")}`);
+    }
   }, [t]);
   const focusPlace = useEffectEvent(() => {
     const place = places.find((place) => place.id === focusId);
@@ -422,7 +481,9 @@ export default function PlacesMap({
     }
   });
   useEffect(() => {
-    if (focusId) focusPlace();
+    if (focusId) {
+      focusPlace();
+    }
   }, [focusId, focusRequest]);
 
   return (

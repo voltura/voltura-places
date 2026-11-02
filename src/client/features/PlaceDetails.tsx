@@ -8,7 +8,9 @@ import type { Message } from "../foundation/i18n";
 import { formatAccuracy, type DistanceUnits } from "../foundation/distance";
 import { PlacePhoto } from "./PlacePhoto";
 import { Tooltip } from "../ui/Tooltip";
+
 const PlacesMap = lazy(() => import("./PlacesMap"));
+
 export function PlaceDetails({
   canWrite,
   visitStatus,
@@ -59,6 +61,7 @@ export function PlaceDetails({
   const decimals = Math.max(
     ...coordinates.map((value) => value.toString().split(".")[1]?.length ?? 0),
   );
+
   return (
     <div className="details-content">
       <h2>{placeDetailsName(record.value)}</h2>
@@ -120,8 +123,9 @@ export function PlaceDetails({
             value=""
             onChange={(event) => {
               const provider = event.target.value;
-              if (provider === "google" || provider === "apple" || provider === "geo")
+              if (provider === "google" || provider === "apple" || provider === "geo") {
                 chooseMapProvider(record.value, provider);
+              }
             }}
           >
             <option value="" disabled hidden>

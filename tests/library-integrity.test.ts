@@ -27,6 +27,7 @@ import {
 import { synchronize } from "../src/client/foundation/sync";
 import { preparePhoto, uploadPhoto } from "../src/client/foundation/photos";
 import { starters, type Entity } from "../src/shared/model";
+
 const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place" }> => ({
   id,
   kind: "place",
@@ -40,6 +41,7 @@ const place = (id: string = crypto.randomUUID()): Extract<Entity, { kind: "place
     updatedAt: "2026-11-01T00:00:00Z",
   },
 });
+
 beforeEach(() => vi.stubGlobal("window", new EventTarget()));
 afterEach(() => {
   vi.restoreAllMocks();
@@ -62,6 +64,7 @@ test("an aborted initial transaction read retains the record and draft without a
       abort = false;
       queueMicrotask(() => this.transaction.abort());
     }
+
     return request;
   });
   await expect(
@@ -96,6 +99,7 @@ test.each(["draft", "photos"] as const)(
           abort = false;
           queueMicrotask(() => this.transaction.abort());
         }
+
         return request;
       });
       await expect(clearDraft(key, id)).rejects.toMatchObject({ name: "AbortError" });
@@ -114,6 +118,7 @@ test.each(["draft", "photos"] as const)(
           abort = false;
           queueMicrotask(() => this.objectStore.transaction.abort());
         }
+
         return request;
       });
       await expect(clearPhotos(key)).rejects.toMatchObject({ name: "AbortError" });
@@ -123,8 +128,8 @@ test.each(["draft", "photos"] as const)(
 );
 
 test("a cancelled editor save retains both the original record and its draft", async () => {
-  const key = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const original = place();
   await saveEntity(key, original);
   await setDraft(key, { id: original.id, name: "Unsaved draft" });
   let current = true;
@@ -147,8 +152,8 @@ test("a cancelled editor save retains both the original record and its draft", a
 });
 
 test("a cancelled conflict choice does not create a Keep both copy", async () => {
-  const key = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const original = place();
   await saveEntity(key, original);
   await mergeSnapshot(key, [
     {
@@ -166,9 +171,9 @@ test("a cancelled conflict choice does not create a Keep both copy", async () =>
 });
 
 test("a copy cancelled while its destination write is pending rolls back that write", async () => {
-  const from = crypto.randomUUID(),
-    to = crypto.randomUUID(),
-    original = place();
+  const from = crypto.randomUUID();
+  const to = crypto.randomUUID();
+  const original = place();
   await saveEntity(from, original);
   let current = true;
   const put = IDBObjectStore.prototype.put;
@@ -178,7 +183,10 @@ test("a copy cancelled while its destination write is pending rolls back that wr
     key,
   ) {
     const result = put.call(this, value, key);
-    if (this.name === "workspaces" && value?.key === to) current = false;
+    if (this.name === "workspaces" && value?.key === to) {
+      current = false;
+    }
+
     return result;
   });
   await expect(copyPlaceToWorkspace(from, to, original.id, () => current)).rejects.toThrow(
@@ -188,8 +196,8 @@ test("a copy cancelled while its destination write is pending rolls back that wr
 });
 
 test("an idle mutation check and identical pull do not rewrite or broadcast the workspace", async () => {
-  const key = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const original = place();
   const remote = { ...original, revision: 1, deleted: false };
   await reconcileAccount(key, [remote], false);
   const before = await readWorkspace(key);
@@ -218,8 +226,8 @@ test.each(["destination", "guest"])(
       workspace.deviceAccounts = [];
     });
     await saveEntity("guest", place());
-    const guest = await readWorkspace("guest"),
-      before = await readWorkspace(key);
+    const guest = await readWorkspace("guest");
+    const before = await readWorkspace(key);
     let current = true;
     const put = IDBObjectStore.prototype.put;
     vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (
@@ -228,8 +236,10 @@ test.each(["destination", "guest"])(
       id,
     ) {
       const request = put.call(this, value, id);
-      if (this.name === "workspaces" && value?.key === (cancelAt === "guest" ? "guest" : key))
+      if (this.name === "workspaces" && value?.key === (cancelAt === "guest" ? "guest" : key)) {
         current = false;
+      }
+
       return request;
     });
     await expect(reconcileDevicePlaces(key, [], "copy", () => current)).rejects.toThrow(
@@ -243,8 +253,8 @@ test.each(["destination", "guest"])(
 test.each([undefined, null])(
   "optional photoId %s retains its JSON meaning when a retry converges",
   async (photoId) => {
-    const key = crypto.randomUUID(),
-      original = place();
+    const key = crypto.randomUUID();
+    const original = place();
     await reconcileAccount(key, [], false);
     await saveEntity(key, { ...original, value: { ...original.value, photoId } });
     const flight = (await prepareMutation(key))!;
@@ -262,8 +272,8 @@ test.each([undefined, null])(
 );
 
 test("a photo upload cancelled during its local acknowledgement leaves it retryable", async () => {
-  const key = crypto.randomUUID(),
-    id = crypto.randomUUID();
+  const key = crypto.randomUUID();
+  const id = crypto.randomUUID();
   await putPhotos([
     await makeStoredPhoto(key, id, new Blob([await readFile("tests/fixtures/photo.jpg")])),
   ]);
@@ -276,7 +286,10 @@ test("a photo upload cancelled during its local acknowledgement leaves it retrya
     key,
   ) {
     const result = put.call(this, value, key);
-    if (this.name === "photos" && value.uploaded) current = false;
+    if (this.name === "photos" && value.uploaded) {
+      current = false;
+    }
+
     return result;
   });
   await expect(uploadPhoto(key, id, () => current)).rejects.toThrow("accountChanged");
@@ -310,11 +323,12 @@ test("photo preparation cancelled while decoding stops before canvas processing"
 });
 
 test("an unavailable photo does not block downloading other referenced photos", async () => {
-  const key = crypto.randomUUID(),
-    a = crypto.randomUUID(),
-    b = crypto.randomUUID();
+  const key = crypto.randomUUID();
+  const a = crypto.randomUUID();
+  const b = crypto.randomUUID();
   const records = [a, b].map((id) => {
     const p = place();
+
     return { ...p, value: { ...p.value, photoId: id }, revision: 1, deleted: false };
   });
   await reconcileAccount(key, records, false);
@@ -335,9 +349,9 @@ test("an unavailable photo does not block downloading other referenced photos", 
 });
 
 test("a pull checks cached photo identities without reading every image blob", async () => {
-  const key = crypto.randomUUID(),
-    photoId = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const photoId = crypto.randomUUID();
+  const original = place();
   const records = [
     { ...original, value: { ...original.value, photoId }, revision: 1, deleted: false },
   ];
@@ -355,7 +369,10 @@ test("a pull checks cached photo identities without reading every image blob", a
     this: IDBObjectStore,
     key,
   ) {
-    if (this.name === "photos") imageReads++;
+    if (this.name === "photos") {
+      imageReads++;
+    }
+
     return get.call(this, key);
   });
   const statuses: string[] = [];
@@ -366,9 +383,9 @@ test("a pull checks cached photo identities without reading every image blob", a
 });
 
 test("sync status includes a local edit arriving while photo downloads finish", async () => {
-  const key = crypto.randomUUID(),
-    photoId = crypto.randomUUID(),
-    original = place();
+  const key = crypto.randomUUID();
+  const photoId = crypto.randomUUID();
+  const original = place();
   const records = [
     { ...original, value: { ...original.value, photoId }, revision: 1, deleted: false },
   ];
@@ -378,8 +395,10 @@ test("sync status includes a local edit arriving while photo downloads finish", 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
     if (String(url).includes("/photos/")) {
       await saveEntity(key, place());
+
       return new Response(jpeg);
     }
+
     return Response.json({ version: 1, accountId: key, records });
   });
   const statuses: string[] = [];
@@ -398,8 +417,8 @@ test("explicit device account history avoids reading all cached libraries", asyn
 });
 
 test("device copying retains the first matching cloud tombstone when identity and value match different records", async () => {
-  const key = crypto.randomUUID(),
-    source = place();
+  const key = crypto.randomUUID();
+  const source = place();
   await changeWorkspace("guest", (workspace) => {
     workspace.records = [
       ...starters.map((category) => ({
@@ -448,6 +467,7 @@ test("a maximum-size device library copies atomically and retrying does not dupl
       })),
       ...Array.from({ length: 5000 }, (_, i) => {
         const original = place(`bulk-device-${i}`);
+
         return {
           ...original,
           value: { ...original.value, name: `Synthetic ${i}` },
@@ -479,6 +499,7 @@ test("bulk category deletion retains the exact flight and newer place generation
   const key = crypto.randomUUID();
   const places = Array.from({ length: 5000 }, () => {
     const original = place();
+
     return { ...original, value: { ...original.value, categoryId: "outdoors" } };
   });
   await changeWorkspace(key, (workspace) => {

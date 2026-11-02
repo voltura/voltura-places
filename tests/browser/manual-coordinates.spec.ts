@@ -93,6 +93,7 @@ test("manual entry returns after GPS cancellation or denial and hides after a fi
           requests++;
           success = onPosition;
           failure = onError;
+
           return 1;
         },
         clearWatch: () => {},

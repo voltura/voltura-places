@@ -15,8 +15,9 @@ test.each(["en", "sv"])(
     const generated = { name: `${prefix} · ${date}`, capturedAt, updatedAt: capturedAt };
     expect(placeDetailsName(generated)).toBe(prefix);
     expect(generated.name).toBe(`${prefix} · ${date}`);
-    for (const name of ["Weekend picnic", "Place · My favourite café", "Plats · 30 okt. utflykt"])
+    for (const name of ["Weekend picnic", "Place · My favourite café", "Plats · 30 okt. utflykt"]) {
       expect(placeDetailsName({ ...generated, name })).toBe(name);
+    }
     expect(
       dateAppearsInPlaceName({ name: `${prefix} · ${date}`, capturedAt, updatedAt: capturedAt }),
     ).toBe(true);

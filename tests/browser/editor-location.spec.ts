@@ -8,11 +8,13 @@ test("editor location update reports progress, cancellation, success and bounded
     let success!: PositionCallback;
     let failure: PositionErrorCallback | null = null;
     const active = new Set<number>();
+
     const fix = (accuracy: number) =>
       ({
         timestamp: Date.now(),
         coords: { latitude: 0, longitude: 0, accuracy },
       }) as GeolocationPosition;
+
     Object.defineProperty(navigator, "permissions", {
       value: { query: async () => Object.assign(new EventTarget(), { state: "granted" }) },
     });
@@ -23,7 +25,10 @@ test("editor location update reports progress, cancellation, success and bounded
           active.add(id);
           success = onPosition;
           failure = onError;
-          if (id === 1) queueMicrotask(() => onPosition(fix(90)));
+          if (id === 1) {
+            queueMicrotask(() => onPosition(fix(90)));
+          }
+
           return id;
         },
         clearWatch: (id: number) => active.delete(id),

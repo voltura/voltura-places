@@ -8,14 +8,23 @@ export function enforceCapacity(w: Workspace) {
   const family = workspaceIdentity(w.key).family;
   const counts = { place: 0, category: 0, visit: 0 };
   for (const record of w.records) {
-    if (family && record.kind === "visit") throw new Error("invalidImport");
-    if (!record.deleted && ++counts[record.kind] > entityLimits[record.kind])
+    if (family && record.kind === "visit") {
+      throw new Error("invalidImport");
+    }
+    if (!record.deleted && ++counts[record.kind] > entityLimits[record.kind]) {
       throw new Error("libraryLimit");
+    }
   }
 }
+
 function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = false): LocalRecord {
-  if (e.kind !== "visit" && e.id.startsWith("visit-")) throw new Error("invalidImport");
-  if (previous && previous.kind !== e.kind) throw new Error("invalidImport");
+  if (e.kind !== "visit" && e.id.startsWith("visit-")) {
+    throw new Error("invalidImport");
+  }
+  if (previous && previous.kind !== e.kind) {
+    throw new Error("invalidImport");
+  }
+
   return {
     ...entitySchema.parse(e),
     revision: previous?.revision ?? 0,
@@ -25,23 +34,30 @@ function editedRecord(previous: LocalRecord | undefined, e: Entity, deleted = fa
     ...(previous?.conflict ? { conflict: previous.conflict } : {}),
   };
 }
+
 export function write(w: Workspace, e: Entity, deleted = false) {
   const index = w.records.findIndex((record) => record.id === e.id);
   const next = editedRecord(index < 0 ? undefined : w.records[index], e, deleted);
-  if (index >= 0) w.records.splice(index, 1);
+  if (index >= 0) {
+    w.records.splice(index, 1);
+  }
   w.records.push(next);
+
   return next;
 }
+
 // Bulk operations preserve the same replacement order, revisions, generations
 // and conflict metadata as individual writes without rebuilding an array per edit.
 export function recordBatch(w: Workspace) {
   const records = new Map(w.records.map((record) => [record.id, record]));
+
   return {
     get: (id: string) => records.get(id),
     write(e: Entity, deleted = false) {
       const next = editedRecord(records.get(e.id), e, deleted);
       records.delete(e.id);
       records.set(e.id, next);
+
       return next;
     },
     commit() {
@@ -62,6 +78,7 @@ export const valueKey = (value: unknown) =>
         )
       : entry,
   );
+
 export const sameValue = (a: unknown, b: unknown) => valueKey(a) === valueKey(b);
 
 export function mergeRecords(w: Workspace, remote: RecordState[]) {
@@ -76,16 +93,21 @@ export function mergeRecords(w: Workspace, remote: RecordState[]) {
       modified = true;
       continue;
     }
-    if (local.kind !== r.kind) throw new Error("invalidResponse");
-    if (r.revision < Math.max(local.revision, local.conflict?.revision ?? 0)) continue;
+    if (local.kind !== r.kind) {
+      throw new Error("invalidResponse");
+    }
+    if (r.revision < Math.max(local.revision, local.conflict?.revision ?? 0)) {
+      continue;
+    }
     if (!local.dirty) {
       if (
         !local.conflict &&
         local.revision === r.revision &&
         local.deleted === r.deleted &&
         sameValue(local.value, r.value)
-      )
+      ) {
         continue;
+      }
       Object.assign(local, r);
       delete local.conflict;
       modified = true;
@@ -98,13 +120,16 @@ export function mergeRecords(w: Workspace, remote: RecordState[]) {
         local.conflict?.revision === r.revision &&
         local.conflict.deleted === r.deleted &&
         sameValue(local.conflict.value, r.value)
-      )
+      ) {
         continue;
+      }
       local.conflict = r;
       modified = true;
     }
   }
-  if (!modified) return false;
+  if (!modified) {
+    return false;
+  }
 }
 
 export function acknowledgeRecord(
@@ -114,9 +139,12 @@ export function acknowledgeRecord(
   conflict: boolean,
 ) {
   const flight = w.flight;
-  if (!flight || flight.mutation.mutationId !== mutationId) return false;
-  if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind)
+  if (!flight || flight.mutation.mutationId !== mutationId) {
+    return false;
+  }
+  if (remote.id !== flight.mutation.entity.id || remote.kind !== flight.mutation.entity.kind) {
     throw new Error("invalidResponse");
+  }
   const r = w.records.find((r) => r.id === remote.id);
   if (r) {
     if (
@@ -127,6 +155,7 @@ export function acknowledgeRecord(
         sameValue(r.value, remote.value))
     ) {
       delete w.flight;
+
       return;
     }
     const newerConflict =
@@ -136,8 +165,9 @@ export function acknowledgeRecord(
       remote.deleted === flight.mutation.deleted &&
       sameValue(remote.value, flight.mutation.entity.value);
     // Two devices may add the same new preset before either sees the other's write.
-    if (conflict && !identical) r.conflict = newerConflict ?? remote;
-    else if (r.generation === flight.generation) {
+    if (conflict && !identical) {
+      r.conflict = newerConflict ?? remote;
+    } else if (r.generation === flight.generation) {
       Object.assign(r, remote, { dirty: false });
       delete r.conflict;
     } else {

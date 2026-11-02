@@ -1,4 +1,5 @@
 import { MapPin, Check } from "lucide-react";
+
 export function Brand() {
   return (
     <div className="brand">

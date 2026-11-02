@@ -4,6 +4,7 @@ test("activity opt-out clears the browser ID and survives reload", async ({ page
   let reports = 0;
   await page.route("**/api/v1/activity", (route) => {
     reports++;
+
     return route.fulfill({ json: { ok: true } });
   });
   await page.goto("/");
@@ -24,8 +25,8 @@ test("activity opt-out clears the browser ID and survives reload", async ({ page
   expect(reports).toBe(before);
 });
 
-for (const language of ["en", "sv"])
-  for (const width of [390, 1280])
+for (const language of ["en", "sv"]) {
+  for (const width of [390, 1280]) {
     test(`public usage cards ${language} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.route("**/api/v1/statistics", (route) =>
@@ -67,6 +68,8 @@ for (const language of ["en", "sv"])
       await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
       await expect(page.locator('[data-metric="activeNow"]')).toHaveText("7");
     });
+  }
+}
 
 test("public usage failure leaves code statistics available", async ({ page }) => {
   await page.route("**/api/v1/statistics", (route) =>

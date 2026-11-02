@@ -17,17 +17,27 @@ const layers = {
     "shared",
   ]),
 };
+
 const layerOf = (path) => Object.keys(layers).find((layer) => path.startsWith(`${layer}/`));
+
 async function* sources(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) yield* sources(path);
-    else if (/\.[cm]?[jt]sx?$/.test(entry.name)) yield path;
+    if (entry.isDirectory()) {
+      yield* sources(path);
+    } else if (/\.[cm]?[jt]sx?$/.test(entry.name)) {
+      yield path;
+    }
   }
 }
+
 const violations = [];
 const entryPoints = [];
-for await (const file of sources(root)) if (!file.endsWith(".d.ts")) entryPoints.push(file);
+for await (const file of sources(root)) {
+  if (!file.endsWith(".d.ts")) {
+    entryPoints.push(file);
+  }
+}
 // The production build parser understands comments, TS, re-exports and dynamic imports.
 // Type-only imports are erased; this guard enforces runtime dependencies.
 await build({
@@ -41,13 +51,17 @@ await build({
       name: "places-runtime-boundaries",
       setup(builder) {
         builder.onResolve({ filter: /.*/ }, ({ path: target, importer }) => {
-          if (!importer) return;
+          if (!importer) {
+            return;
+          }
           const name = relative(root, importer).replaceAll("\\", "/");
           const layer = layerOf(name);
           if (layer) {
             if (target.startsWith(".")) {
               const path = relative(root, resolve(dirname(importer), target)).replaceAll("\\", "/");
-              if (!layers[layer].has(layerOf(path))) violations.push(`${name} -> ${target}`);
+              if (!layers[layer].has(layerOf(path))) {
+                violations.push(`${name} -> ${target}`);
+              }
             } else if (
               (layer === "shared" || layer === "client/foundation") &&
               /^react(?:-dom)?(?:\/|$)/.test(target)
@@ -55,12 +69,14 @@ await build({
               violations.push(`${name} -> ${target} (presentation dependency)`);
             }
           }
+
           return { path: target, external: true };
         });
       },
     },
   ],
 });
-if (violations.length)
+if (violations.length) {
   throw new Error(`Architecture boundary violations:\n${violations.join("\n")}`);
+}
 console.log(`Runtime architecture boundaries checked in ${entryPoints.length} source files.`);

@@ -28,6 +28,8 @@ Node 24 LTS and npm 12. `npm run dev` runs the local API/built app with local D1
 
 The optional Wrangler database explorer is disabled because this pinned release omits its UI bundle; local D1 and the app remain available.
 
+Run `npm run format` after editing source. `npm run check` enforces the shared formatting and style rules as well as types and module boundaries; CI runs the same check. See the [source-style policy](docs/architecture.md#source-style) for language-specific conventions.
+
 ```sh
 npm run check
 npm test
