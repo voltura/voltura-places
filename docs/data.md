@@ -88,6 +88,8 @@ GPS is explicit, never background-tracked. No end-to-end encryption claim. The a
 
 Sign-out invalidates both the Places session and the short-lived Better Auth proof session. A pending offline logout is account-specific; a server account-change response clears the stale marker instead of trapping the next account in a retry loop. Disabled account configuration denies family/photo capabilities as well as personal synchronization.
 
+If a pending logout fails, public provider discovery keeps the sign-in controls available while the previous identity stays hidden. Starting Google, ChatGPT or email sign-in must finish the pending logout before creating a new provider proof or session. Account discovery failures can be retried directly from Settings without clearing device data.
+
 Account metadata changes in another tab trigger a fresh account check. Browser settings-storage failures do not prevent online account discovery; a failed logout retains an in-memory retry marker when browser settings cannot persist it. Export preparation and photo retrieval stop when their originating account is discarded.
 
 An archived group keeps its display name and library ID for offline viewing and export. Its archived metadata omits participant and applicant identities and invitation state. The next successful membership refresh also removes that information from older archived cache entries.

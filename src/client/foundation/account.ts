@@ -93,7 +93,10 @@ export async function currentAccount(): Promise<AccountState> {
     try {
       await completeLogout(pending);
     } catch {
-      return empty;
+      // Public provider discovery must remain usable while a private logout retries.
+      const config = await api<Record<string, unknown>>("/api/account/config");
+
+      return accountStateSchema.parse({ ...config, account: null });
     }
   }
   const previous = accountCache();
@@ -115,6 +118,14 @@ export async function currentAccount(): Promise<AccountState> {
   } catch {}
 
   return result;
+}
+
+export async function finishPendingLogout() {
+  const pending = pendingLogout();
+  if (pending) {
+    // Finish before creating any new provider proof or session for the same account.
+    await completeLogout(pending);
+  }
 }
 
 export async function signOutLocally(accountId?: string) {

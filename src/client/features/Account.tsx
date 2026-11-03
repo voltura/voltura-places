@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { api, ApiError } from "../foundation/http";
+import { finishPendingLogout } from "../foundation/account";
 import { displayNameSchema } from "../../shared/display-name";
 import { type Account, type AccountState } from "../foundation/account-contract";
 import type { Message } from "../foundation/i18n";
@@ -234,6 +235,7 @@ export function AccountPanel({
   };
 
   const startLink = async (provider: string) => {
+    await finishPendingLogout();
     if (state.account) {
       await api("/api/account/link", { provider }, state.account.id);
     }
@@ -413,7 +415,19 @@ export function AccountPanel({
           <p className="muted">{t("accountIntro")}</p>
         </>
       )}
-      {!state.enabled && <p className="notice">{t("accountUnavailable")}</p>}
+      {!state.enabled && (
+        <div className="stack">
+          <p className="notice">{t("accountUnavailable")}</p>
+          <button
+            className="button outline"
+            disabled={busy}
+            onClick={() => void execute(onRefresh)}
+          >
+            <RotateCw size={20} aria-hidden="true" />
+            {t("retry")}
+          </button>
+        </div>
+      )}
       {state.account && (
         <>
           <div className="account-summary">

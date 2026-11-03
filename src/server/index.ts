@@ -9,7 +9,7 @@ import type { Environment } from "./types";
 export type AssetMap = Record<string, [string, string]>;
 const security = {
   "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
+  "Referrer-Policy": "same-origin",
   "Permissions-Policy": "geolocation=(self), camera=(), microphone=()",
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",

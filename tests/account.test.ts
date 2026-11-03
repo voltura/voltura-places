@@ -1,5 +1,46 @@
 import { test, expect, vi } from "vitest";
-import { cachedAccount, currentAccount, signOutLocally } from "../src/client/foundation/account";
+import {
+  cachedAccount,
+  currentAccount,
+  finishPendingLogout,
+  signOutLocally,
+} from "../src/client/foundation/account";
+
+test("failed pending logout retains public sign-in options but must finish before signing in", async () => {
+  const data = new Map([["places-pending-logout", "previous-member"]]);
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => data.set(key, value),
+    removeItem: (key: string) => data.delete(key),
+  });
+  let unavailable = true;
+  const config = { enabled: true, providers: { google: true, email: true } };
+  const network = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    if (String(url).endsWith("sign-out")) {
+      return unavailable
+        ? Response.json({ error: "temporary failure" }, { status: 503 })
+        : Response.json({ ok: true });
+    }
+    expect(url).toBe("/api/account/config");
+
+    return Response.json(config);
+  });
+  try {
+    expect(await currentAccount()).toEqual({ ...config, account: null });
+    expect(data.get("places-pending-logout")).toBe("previous-member");
+    expect(cachedAccount().account).toBeNull();
+    await expect(finishPendingLogout()).rejects.toThrow("temporary failure");
+    unavailable = false;
+    await finishPendingLogout();
+    expect(data.has("places-pending-logout")).toBe(false);
+    expect(network.mock.calls[0][1]?.headers).toMatchObject({
+      "X-Places-Account": "previous-member",
+    });
+  } finally {
+    network.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
 
 test("unavailable browser settings storage does not prevent online account discovery or logout retry", async () => {
   vi.stubGlobal("localStorage", {

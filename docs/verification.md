@@ -1,3 +1,9 @@
+# Login and logout recovery, 3 November 2026 (0.1.25)
+
+Production iPhone requests around 01:22 CET showed `POST /api/account/sign-out` rejected with 403 and `Origin: null`. The app's `no-referrer` response policy caused WebKit to null the Origin on the same-origin-mode POST. Responses now use `same-origin`; strict server origin validation remains intact. Failed pending logout no longer hides public sign-in providers, and new sign-in attempts finish pending logout before creating provider proofs. Settings includes a direct retry after account-discovery failure.
+
+All 335 unit tests, 218 real workerd/D1 API checks, the authentication runtime suite, formatting, TypeScript, architecture/document checks and the production build pass. Five focused browser scenarios pass: actual Chromium/WebKit logout and reauthentication, failed pending logout recovery, failed discovery retry and the existing late-response sign-out regression. The WebKit scenario reproduces the old policy's null Origin/403 before verifying the corrected flow. Browser engines do not prove installed physical-iPhone behavior. The shared 5173 preview served successfully; opening it through the local browser tool was unavailable because Work settings disable local browser access. No device storage reset is required.
+
 # Account sync status pill, 3 November 2026 (local, unpublished)
 
 Account & sync now shows a non-interactive status pill beside the explanation on desktop and below it at 700px and narrower. Header and Settings share SyncStatusIcon and warning classification, retaining existing wording, decorative icons and syncing animation. Long statuses can wrap. Existing sync actions and success toasts are unchanged.
