@@ -61,7 +61,13 @@ test("anonymous route preview consumes its token and saves offline", async ({ pa
   await expect(page.locator(".route-line")).toHaveCount(0);
   await page.getByRole("button", { name: "Route start: Shared trail", exact: true }).click();
   await expect(page.locator(".route-line").first()).toBeVisible();
-  await expect(page.locator(".details-map-preview .route-line")).toBeVisible();
+  const details = page.getByRole("dialog", { name: "Route details", exact: true });
+  await expect(details.locator(".details-map-preview .route-line")).toBeVisible();
+  await details.getByRole("button", { name: "Expand map", exact: true }).click();
+  await expect(details).toHaveCount(0);
+  await expect(page.locator(".map-surface .route-line")).toBeVisible();
+  await page.locator(".map-surface .map-fullscreen-toggle").click();
+  await expect(page.locator(".map-surface.is-fullscreen .route-line")).toBeVisible();
 });
 
 async function fix(page: Page, latitude: number, accuracy = 5) {
@@ -129,6 +135,7 @@ test("terrain preference persists and failed terrain tiles fall back", async ({ 
 for (const language of ["en", "sv"]) {
   test(`live recording stays focused, stable and updates fullscreen: ${language}`, async ({
     page,
+    browserName,
   }) => {
     await page.addInitScript((language) => {
       localStorage.setItem("places-account-choice", "done");
@@ -208,6 +215,34 @@ for (const language of ["en", "sv"]) {
     await page
       .getByRole("textbox", { name: sv ? "Namn" : "Name", exact: true })
       .fill(sv ? "Testpromenad" : "Test walk");
+    await expect(
+      page.getByRole("combobox", { name: sv ? "Kategori" : "Category", exact: true }),
+    ).toHaveValue("route");
+    if (browserName === "chromium") {
+      const photo = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 100;
+        canvas.height = 100;
+
+        return canvas.toDataURL("image/png").split(",")[1];
+      });
+      await page
+        .locator('input[type="file"][accept="image/*"]')
+        .last()
+        .setInputFiles({
+          name: "route-photo.png",
+          mimeType: "image/png",
+          buffer: Buffer.from(photo, "base64"),
+        });
+      await expect(
+        page.getByRole("button", { name: sv ? "Ta bort foto" : "Remove photo", exact: true }),
+      ).toBeEnabled();
+      await expect(
+        page.getByText(
+          sv ? /^Bilden saknar läsbar platsinformation/ : /^This photo has no readable location/,
+        ),
+      ).toHaveCount(0);
+    }
     await page.getByRole("button", { name: sv ? "Spara" : "Save", exact: true }).click();
     await expect(recording).toHaveCount(0);
     await expect(page.getByText(sv ? "Testpromenad" : "Test walk", { exact: true })).toBeVisible();

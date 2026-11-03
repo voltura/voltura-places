@@ -338,14 +338,14 @@ export default function PlacesMap({
       mapRef.current,
       workspace,
       places,
-      selected,
+      selected ?? focusId,
       categoryColor,
       onSelect,
       { start: t("routeStartMarker"), end: t(recording ? "routeLatestMarker" : "routeEndMarker") },
       recording,
       geometry,
     );
-  }, [workspace, places, selected, categoryColor, onSelect, geometry, recording, t]);
+  }, [workspace, places, selected, focusId, categoryColor, onSelect, geometry, recording, t]);
   useEffect(() => {
     if (!preview) {
       return;

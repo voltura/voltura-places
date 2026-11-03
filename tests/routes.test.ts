@@ -202,6 +202,7 @@ test("recording samples, closes hidden/error segments, excludes stale callbacks 
     expect((await draftGeometry(draft)).segments.map((s) => s.length)).toEqual([2, 1, 1]);
     expect(release).toHaveBeenCalled();
     const entity = await prepareRecordedRoute(draft);
+    expect(entity.value.categoryId).toBe("route");
     expect(Date.parse(entity.value.stoppedAt) - Date.parse(entity.value.startedAt)).toBe(30000);
     const resumed = await startRouteRecording(
       workspace,

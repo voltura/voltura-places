@@ -218,7 +218,7 @@ export function PhotoPicker({
       if (!isCurrent()) {
         return;
       }
-      const location = await photoPosition(file, isCurrent);
+      const location = onPosition ? await photoPosition(file, isCurrent) : null;
       if (isCurrent()) {
         onChange(photoId);
         setPosition(location);
@@ -312,7 +312,7 @@ export function PhotoPicker({
           {t("usePhotoLocation")}
         </button>
       )}
-      {missingPosition && <p className="muted small">{t("photoNoLocation")}</p>}
+      {onPosition && missingPosition && <p className="muted small">{t("photoNoLocation")}</p>}
       {busy && (
         <p className="muted small" role="status">
           {t("processingPhoto")}

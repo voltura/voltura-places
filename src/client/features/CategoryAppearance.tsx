@@ -24,6 +24,7 @@ import {
   Plane,
   Wrench,
   Footprints,
+  Route,
   Binoculars,
   Bird,
   Cat,
@@ -98,6 +99,7 @@ const icons = {
   plane: Plane,
   wrench: Wrench,
   footprints: Footprints,
+  route: Route,
   binoculars: Binoculars,
   bird: Bird,
   cat: Cat,
@@ -128,6 +130,7 @@ const defaults: Record<string, NonNullable<Category["icon"]>> = {
   outdoors: "trees",
   accommodation: "house",
   mushrooms: "mushroom",
+  route: "route",
   other: "pin",
 };
 

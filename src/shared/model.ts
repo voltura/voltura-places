@@ -31,6 +31,7 @@ export const categoryIcons = [
   "plane",
   "wrench",
   "footprints",
+  "route",
   "binoculars",
   "bird",
   "cat",
@@ -243,6 +244,11 @@ export const starters: Entity[] = [
     id: "mushrooms",
     kind: "category",
     value: { name: "Mushrooms", color: "amber", builtIn: "mushrooms" },
+  },
+  {
+    id: "route",
+    kind: "category",
+    value: { name: "Route", color: "green", builtIn: "route" },
   },
   { id: "other", kind: "category", value: { name: "Other", color: "slate", builtIn: "other" } },
 ];

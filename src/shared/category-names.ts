@@ -7,6 +7,7 @@ export const builtInCategoryNames: Record<string, Record<CategoryLanguage, strin
   outdoors: { en: "Outdoors", sv: "Friluftsliv" },
   accommodation: { en: "Accommodation", sv: "Boende" },
   mushrooms: { en: "Mushrooms", sv: "Svampar" },
+  route: { en: "Route", sv: "Rutt" },
   other: { en: "Other", sv: "Övrigt" },
 };
 

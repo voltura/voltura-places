@@ -59,7 +59,8 @@ import { InstallPlaces } from "../features/InstallPlaces";
 import { messages, type Message } from "../foundation/i18n";
 import { keepOfflineData } from "../foundation/storage";
 import { cachedAccount } from "../foundation/account";
-import { flushDrafts, saveVisit } from "../foundation/library";
+import { flushDrafts, getDraft, saveVisit } from "../foundation/library";
+import { hasUnfinishedEdits } from "../foundation/editor-draft";
 import { mapURL, type PlaceRecord } from "../../shared/model";
 
 export function App() {
@@ -225,6 +226,7 @@ export function App() {
   }, [account.account?.id]);
   const [settings, setSettings] = useState<string | null>(null);
   const [update, setUpdate] = useState(false);
+
   const [mobile, setMobile] = useState(() => matchMedia("(max-width:700px)").matches);
   const fileRef = useRef<HTMLInputElement>(null);
   const importSelection = useRef<(() => boolean) | null>(null);
@@ -365,6 +367,25 @@ export function App() {
       updateMonitor.current?.dispose();
     };
   }, []);
+
+  const [updateDraftScope, setUpdateDraftScope] = useState<string | null>(null);
+  useEffect(() => {
+    let current = true;
+    setUpdateDraftScope(null);
+    if (update && !editor) {
+      void getDraft(scope)
+        .then((draft) => {
+          if (current && hasUnfinishedEdits(draft)) {
+            setUpdateDraftScope(scope);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      current = false;
+    };
+  }, [update, editor, scope]);
 
   const applyUpdate = async () => {
     if (applyingUpdate.current) {
@@ -1173,7 +1194,7 @@ export function App() {
           onClose={() => setUpdate(false)}
         >
           <div className="stack">
-            <p>{t("updateHint")}</p>
+            <p>{t(updateDraftScope === scope ? "updateDraftHint" : "updateHint")}</p>
             <button className="button primary" onClick={() => void applyUpdate()}>
               <CircleArrowUp size={20} aria-hidden="true" />
               {t("update")}

@@ -701,3 +701,5 @@ which repeats the release gates including real workerd/D1 authorization and data
 integrity checks. Browser checks use emulation; physical devices were not tested.
 
 Naturkartan terrain was visually checked in an isolated Chromium phone viewport with a synthetic Swedish location and real tiles. Contours, forest shading, wetland markings were visible. Country-selection tests include Swedish mainland/islands, adjacent countries, low zoom and wrapped longitude.
+
+Route follow-up checks cover the Route/Rutt preset migration and default, retained route lines when expanding details maps, and conditional update-draft wording. Route-photo notice checks run in Chromium. Windows Playwright WebKit reports UnknownError when storing image blobs in IndexedDB, independently reproduced through the photo preparation function; physical iPhone photo storage remains a separate check.

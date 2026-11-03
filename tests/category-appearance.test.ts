@@ -31,6 +31,7 @@ test("legacy defaults do not rewrite saved categories", () => {
     "trees",
     "house",
     "mushroom",
+    "route",
     "pin",
   ]);
   expect(new Set(records.map((r) => categoryAppearance(r).color)).size).toBe(6);
@@ -100,7 +101,7 @@ test("every catalog appearance validates and renders", async () => {
   const { createElement } = await import("react");
   const { CategoryIcon } = await import("../src/client/features/CategoryAppearance");
   expect(categoryColors).toHaveLength(12);
-  expect(categoryIcons).toHaveLength(49);
+  expect(categoryIcons).toHaveLength(50);
   for (const color of categoryColors) {
     for (const icon of categoryIcons) {
       expect(categorySchema.safeParse({ name: "Example", color, icon }).success).toBe(true);

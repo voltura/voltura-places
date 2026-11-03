@@ -178,6 +178,24 @@ describe("durable library boundaries", () => {
     ]);
   });
 
+  test("adds Route to older libraries once and preserves its deletion", async () => {
+    const key = crypto.randomUUID();
+    await changeWorkspace(key, (w) => {
+      w.presetRevision = 2;
+      w.reconciled = true;
+      w.records = w.records.filter((r) => r.id !== "route");
+    });
+    expect((await readWorkspace(key)).records.find((r) => r.id === "route")).toMatchObject({
+      kind: "category",
+      dirty: true,
+      value: { name: "Route", builtIn: "route" },
+    });
+    await deleteEntity(key, "route");
+    expect((await readWorkspace(key)).records.filter((r) => r.id === "route")).toMatchObject([
+      { deleted: true },
+    ]);
+  });
+
   test("defers the preset migration when categories are full", async () => {
     const key = crypto.randomUUID();
     await changeWorkspace(key, (w) => {

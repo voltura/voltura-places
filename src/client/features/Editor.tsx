@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { clearDraft, getDraft, setDraft } from "../foundation/library";
+import { hasUnfinishedEdits } from "../foundation/editor-draft";
 import {
   entitySchema,
   placeSchema,
@@ -415,7 +416,7 @@ export function Editor({
         {updateReady && (
           <div className="notice stack">
             <strong>{t("updateReady")}</strong>
-            <p>{t("updateHint")}</p>
+            <p>{t(hasUnfinishedEdits(latest.current) ? "updateDraftHint" : "updateHint")}</p>
             <button
               type="button"
               className="button outline"

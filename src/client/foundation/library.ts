@@ -56,7 +56,7 @@ const database = localDatabase<PlacesDB>("voltura-places", 1, (db) => {
 const seed = (key: string): Workspace => ({
   key,
   reconciled: key === "guest" || !!workspaceIdentity(key).family,
-  presetRevision: 2,
+  presetRevision: 3,
   records: starters.map((e) => ({
     ...structuredClone(e),
     revision: 0,
@@ -100,40 +100,42 @@ export async function readWorkspace(key: string) {
       { existingOnly: true },
     );
   }
-  if ((existing.presetRevision ?? 1) >= 2) {
-    return existing;
-  }
-  // Add the new preset once, preserving custom names, tombstones and in-flight writes.
-  if (
-    !existing.records.some((r) => r.id === "mushrooms") &&
-    existing.records.filter((r) => r.kind === "category" && !r.deleted).length >=
-      entityLimits.category
-  ) {
+  if ((existing.presetRevision ?? 1) >= 3) {
     return existing;
   }
 
+  // Install each preset once; preserve customizations, tombstones and pending writes.
   return changeWorkspace(
     key,
     (w) => {
-      if ((w.presetRevision ?? 1) >= 2) {
-        return false;
-      }
-      if (!w.records.some((r) => r.id === "mushrooms")) {
-        if (
-          w.records.filter((r) => r.kind === "category" && !r.deleted).length >=
-          entityLimits.category
-        ) {
-          return false;
+      let changed = false;
+      for (const [revision, id] of [
+        [2, "mushrooms"],
+        [3, "route"],
+      ] as const) {
+        if ((w.presetRevision ?? 1) >= revision) {
+          continue;
         }
-        w.records.push({
-          ...structuredClone(starters.find((e) => e.id === "mushrooms")!),
-          revision: 0,
-          deleted: false,
-          generation: 0,
-          dirty: key !== "guest" && w.reconciled,
-        });
+        if (!w.records.some((r) => r.id === id)) {
+          if (
+            w.records.filter((r) => r.kind === "category" && !r.deleted).length >=
+            entityLimits.category
+          ) {
+            return changed ? undefined : false;
+          }
+          w.records.push({
+            ...structuredClone(starters.find((e) => e.id === id)!),
+            revision: 0,
+            deleted: false,
+            generation: 0,
+            dirty: key !== "guest" && w.reconciled,
+          });
+        }
+        w.presetRevision = revision;
+        changed = true;
       }
-      w.presetRevision = 2;
+
+      return changed ? undefined : false;
     },
     { existingOnly: true },
   );

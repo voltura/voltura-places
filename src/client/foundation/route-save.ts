@@ -28,13 +28,19 @@ export async function prepareRecordedRoute(
     return putGeometry(draft.workspace, await draftGeometry(draft), isCurrent);
   });
   const startedAt = new Date(draft.startedAt).toISOString();
+  const workspace = await readWorkspace(draft.workspace);
+  const categoryId = workspace.records.some(
+    (r) => r.kind === "category" && r.id === "route" && !r.deleted,
+  )
+    ? "route"
+    : "other";
 
   return {
     id: draft.id,
     kind: "route",
     value: routeSchema.parse({
       name: "Route",
-      categoryId: "other",
+      categoryId,
       capturedAt: startedAt,
       updatedAt: new Date().toISOString(),
       ...geometry.summary,
