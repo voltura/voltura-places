@@ -70,6 +70,8 @@ export function watchLocation(
   let resumes = 0;
   let lastResume = -Infinity;
   let transientRetries = 0;
+  let denialRetried = false;
+  let awaitingPermission = false;
   let lastAcquisitionError: "gpsUnavailable" | "gpsTimeout" | null = null;
   const retryDelays = [1000, 3000, 6000];
   const started = Date.now();
@@ -85,7 +87,7 @@ export function watchLocation(
 
   const permissionChanged = () => {
     if (permission?.state === "denied") {
-      finish("gpsDenied");
+      handleDenial();
     } else if (permission?.state === "granted") {
       resume();
     }
@@ -134,8 +136,47 @@ export function watchLocation(
     onState(state);
   };
 
+  const handleDenial = () => {
+    if (!active) {
+      return;
+    }
+    // Native callbacks and permission status can lag the first system grant.
+    // Keep its listener alive briefly, but never retry a confirmed refusal.
+    if (!state.position) {
+      if (awaitingPermission) {
+        return;
+      }
+      if (!denialRetried) {
+        denialRetried = true;
+        awaitingPermission = true;
+        if (retry) {
+          clearTimeout(retry);
+        }
+        retry = setTimeout(() => {
+          retry = undefined;
+          if (permission?.state === "denied") {
+            finish("gpsDenied");
+          } else if (!permission || permission.state === "granted") {
+            // Without Permissions API support, allow one automatic retry.
+            start();
+          }
+          // A pending prompt keeps its original acquisition until the grant.
+        }, 1000);
+
+        return;
+      }
+    }
+    finish("gpsDenied");
+  };
+
   const finishDeadline = () =>
-    finish(freshPosition(state.position) ? null : (lastAcquisitionError ?? "gpsTimeout"));
+    finish(
+      freshPosition(state.position)
+        ? null
+        : awaitingPermission
+          ? "gpsDenied"
+          : (lastAcquisitionError ?? "gpsTimeout"),
+    );
 
   const expired = () => {
     if (Date.now() - started < 60000) {
@@ -172,6 +213,7 @@ export function watchLocation(
       return;
     }
     const current = ++generation;
+    awaitingPermission = false;
     if (id !== undefined) {
       clearWatch(id);
       id = undefined;
@@ -198,6 +240,7 @@ export function watchLocation(
             retry = undefined;
           }
           lastAcquisitionError = null;
+          awaitingPermission = false;
           state = { position, running: true, error: null };
           onState(state);
         },
@@ -206,7 +249,7 @@ export function watchLocation(
             return;
           }
           if (error.code === 1) {
-            finish("gpsDenied");
+            handleDenial();
 
             return;
           }
@@ -257,7 +300,7 @@ export function watchLocation(
           if (status.state !== "denied") {
             recovery = setInterval(() => {
               if (status.state === "denied") {
-                finish("gpsDenied");
+                handleDenial();
               } else if (
                 status.state === "granted" &&
                 (typeof document === "undefined" || document.visibilityState === "visible")
