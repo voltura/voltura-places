@@ -1,3 +1,9 @@
+# Members heading focus, 3 November 2026 (0.1.29)
+
+The Members heading keeps its programmatic focus when opening participants, but no longer draws a focus rectangle. The CSS rule targets only that heading; interactive controls retain their focus indicators.
+
+Formatting, the full static check and production build pass. The existing real two-member family browser scenario passes, including participant navigation, sharing, offline writes, member removal and private/group isolation. Isolated Chromium and WebKit checks on the shared 5173 preview confirm the heading remains focused with no outline and keyboard-focused buttons retain their outline. The participant screenshot was visually inspected. These checks use browser engines; physical-iPhone appearance remains unverified. Publication uses the Sites app publisher and the exact validated clean-main commit.
+
 # Save-bar bottom bounce, 3 November 2026 (0.1.28)
 
 The user reported the auto-hidden save bar reappearing and bouncing the list near its end on an iPhone 17 Pro Max. Scroll tracking now clamps both edges to the document's scroll range and rebases when that range changes. Returning from elastic overscroll and document-end clamping no longer count as upward browsing. The existing upward-scroll and explicit pill restoration remain available.

@@ -2229,6 +2229,9 @@ details p {
 .family-requests {
   margin-top: 8px;
 }
+#family-participants:focus {
+  outline: none;
+}
 .family-panel p,
 .family-invitation p {
   font-size: 1rem;
