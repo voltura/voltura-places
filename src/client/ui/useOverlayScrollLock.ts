@@ -18,6 +18,7 @@ export function useOverlayScrollLock(ref: RefObject<HTMLElement | null>, open = 
       document.documentElement.style.overflow = "hidden";
       let lastY = 0;
       let lastX = 0;
+      const supportsOpenSelect = CSS.supports("selector(select:open)");
 
       const start = (event: TouchEvent) => {
         lastY = event.touches[0]?.clientY ?? 0;
@@ -44,6 +45,16 @@ export function useOverlayScrollLock(ref: RefObject<HTMLElement | null>, open = 
         let element = target instanceof Element ? target : null;
         while (container && element && container.contains(element)) {
           const style = getComputedStyle(element);
+          // A customizable select scrolls its picker pseudo-element, which is
+          // not part of the DOM ancestry inspected below.
+          if (
+            element instanceof HTMLSelectElement &&
+            supportsOpenSelect &&
+            element.matches(":open") &&
+            style.appearance === "base-select"
+          ) {
+            return;
+          }
           const horizontal = Math.abs(deltaX) > Math.abs(delta);
           const movement = horizontal ? deltaX : delta;
           const position = horizontal ? element.scrollLeft : element.scrollTop;

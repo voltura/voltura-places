@@ -2567,6 +2567,7 @@ details p {
     box-shadow: 0 12px 32px #0004;
     max-height: min(24rem, 60dvh);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
   select option {
     min-height: 48px;
