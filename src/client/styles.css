@@ -4540,3 +4540,69 @@ select[name="map-provider"] option svg {
     padding-inline: 24px;
   }
 }
+
+/* A separate modal preserves the underlying library and map state. */
+.sheet.follow-route-view {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  display: flex;
+  flex-direction: column;
+}
+.follow-route-view .sheet-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+}
+.follow-route-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 8px 12px;
+}
+.follow-route-map {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.follow-route-map .places-map {
+  flex: 1;
+  min-height: 120px;
+  height: auto;
+}
+.follow-route-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+.follow-route-controls .button {
+  flex: 1;
+  min-height: 48px;
+}
+
+.follow-route-map .route-line {
+  stroke: #7c3aed;
+}
+.follow-route-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.follow-route-swatch {
+  width: 28px;
+  height: 6px;
+  border-radius: 6px;
+  background: #7c3aed;
+  outline: 2px solid #fff;
+  flex: none;
+}

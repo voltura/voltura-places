@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import { DeferredPlacesMap } from "../features/DeferredPlacesMap";
 import { familyKey } from "../../shared/families";
-import { Copy, MapPin, Pencil, Share2, Trash2, Users, Map } from "lucide-react";
+import { Copy, MapPin, Pencil, Share2, Trash2, Users, Map, Route } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { GroupCopyPicker } from "../features/GroupCopyPicker";
 import type { Sharing } from "./useSharing";
 import type { PlaceEditing } from "./usePlaceEditing";
 import type { WorkspaceController } from "./useWorkspace";
 import type { Session } from "./useSession";
-import type { Place } from "../../shared/model";
+import type { Place, PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 
 export function SharingDialogs({
@@ -19,6 +19,7 @@ export function SharingDialogs({
   reconciling,
   t,
   openMaps,
+  followRoute,
 }: {
   sharing: Sharing;
   editing: PlaceEditing;
@@ -27,6 +28,7 @@ export function SharingDialogs({
   reconciling: boolean;
   t: (key: Message) => string;
   openMaps: (place: Place) => void;
+  followRoute: (record: PlaceRecord) => void;
 }) {
   const {
     shared,
@@ -247,6 +249,18 @@ export function SharingDialogs({
             />
           ) : (
             <div className="stack place-actions">
+              {menu.kind === "route" && (
+                <button
+                  className="button primary"
+                  onClick={(event) => {
+                    event.currentTarget.focus({ preventScroll: true });
+                    followRoute(menu);
+                  }}
+                >
+                  <Route size={20} />
+                  {t("followRoute")}
+                </button>
+              )}
               <button
                 className="button outline"
                 disabled={!canWrite}

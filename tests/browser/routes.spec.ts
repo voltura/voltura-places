@@ -156,6 +156,7 @@ for (const language of ["en", "sv"]) {
       });
     }, language);
     await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
     await page.clock.install();
     const sv = language === "sv";
     await chooseSaveOption(page, "route");

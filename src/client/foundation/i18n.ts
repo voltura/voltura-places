@@ -1,4 +1,16 @@
 export const en = {
+  followSavedRoute: "Saved route",
+  followRoute: "Follow route",
+  followRecentre: "Re-centre",
+  followShowRoute: "Show route",
+  followFinding: "Finding your location…",
+  followLive: "Your location",
+  followDenied: "Allow location access, then retry.",
+  followUnavailable: "Location unavailable. Retry.",
+  followStale: "Location is out of date. Retry.",
+  followPaused: "Location paused while Places is hidden.",
+  followGeometryFailed: "Could not load the route. Retry when connected.",
+
   routes: "routes",
   routeDetails: "Route details",
   routeQuota: "Route storage full. Export or use another library.",
@@ -614,6 +626,18 @@ export const en = {
 export type Message = keyof typeof en;
 export type Language = "en" | "sv";
 export const sv: Record<Message, string> = {
+  followSavedRoute: "Sparad rutt",
+  followRoute: "Följ rutt",
+  followRecentre: "Centrera",
+  followShowRoute: "Visa rutt",
+  followFinding: "Söker din plats…",
+  followLive: "Din plats",
+  followDenied: "Tillåt platsåtkomst och försök igen.",
+  followUnavailable: "Platsen är inte tillgänglig. Försök igen.",
+  followStale: "Platsen är inaktuell. Försök igen.",
+  followPaused: "Platsuppdatering pausad när Places är dolt.",
+  followGeometryFailed: "Rutten kunde inte laddas. Försök igen med anslutning.",
+
   trackRoute: "Spela in rutt",
   recordingInterval: "Inspelningsintervall",
   recordingVisible: "Ha Places öppet för att spela in.",

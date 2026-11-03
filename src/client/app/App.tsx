@@ -1,3 +1,5 @@
+import { useRouteFollowing } from "./useRouteFollowing";
+import { FollowRoute } from "../features/FollowRoute";
 import { useRouteRecording } from "./useRouteRecording";
 import { RecordingPreview } from "../features/RecordingPreview";
 import { RecordingView } from "../features/RecordingView";
@@ -112,6 +114,7 @@ export function App() {
     session,
     (reason) => {
       browsing.reset();
+      following.close();
       editing.reset();
       sharing.reset();
       backups.reset(reason);
@@ -258,6 +261,8 @@ export function App() {
       setFullscreenScope(null);
     }
   }, [filtered.length]);
+  const following = useRouteFollowing(scope, places);
+  const followingActive = !!following.record;
   const editing = usePlaceEditing({
     session,
     workspace: workspaceController,
@@ -298,14 +303,19 @@ export function App() {
   });
   const { shared, sharePlace, setSharePlace, menu, setMenu, copyGroupPicker, copy } = sharing;
   useEffect(() => {
+    // Keep the underlying details surface mounted while the follow modal owns focus.
+    if (followingActive) {
+      return;
+    }
     const query = matchMedia("(max-width:700px)");
 
     const change = () => setMobile(query.matches);
 
+    change();
     query.addEventListener("change", change);
 
     return () => query.removeEventListener("change", change);
-  }, []);
+  }, [followingActive]);
   useEffect(() => {
     if (!notice) {
       return;
@@ -515,6 +525,7 @@ export function App() {
       formatDate={formatDate}
       openMaps={openMaps}
       navigate={navigate}
+      followRoute={following.start}
       expandMap={(place) => {
         setSearch("");
         setFilter("all");
@@ -1042,7 +1053,18 @@ export function App() {
         }}
         onUpdate={applyUpdate}
       />
+      {following.record && (
+        <FollowRoute
+          key={`${scope}:${following.record.id}`}
+          record={following.record}
+          workspace={scope}
+          t={t}
+          categoryColor={categoryColor}
+          onClose={following.close}
+        />
+      )}
       <SharingDialogs
+        followRoute={following.start}
         {...{ sharing, editing, workspaceController, session, reconciling, t, openMaps }}
       />
       {settings && (

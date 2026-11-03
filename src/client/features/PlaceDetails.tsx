@@ -25,6 +25,7 @@ export function PlaceDetails({
   formatDate,
   openMaps,
   navigate,
+  followRoute,
   expandMap,
   chooseMapProvider,
   setSharePlace,
@@ -44,6 +45,7 @@ export function PlaceDetails({
   formatDate: (date: string) => string;
   openMaps: (place: Place) => void;
   navigate: (place: Place) => void;
+  followRoute: (record: PlaceRecord) => void;
   expandMap: (record: PlaceRecord) => void;
   chooseMapProvider: (place: Place, provider: "google" | "apple" | "geo") => void;
   setSharePlace: (place: PlaceRecord) => void;
@@ -120,6 +122,18 @@ export function PlaceDetails({
         )}
       </div>
       <PlacePhoto workspace={workspace} id={record.value.photoId} t={t} />
+      {record.kind === "route" && (
+        <button
+          className="button primary"
+          onClick={(event) => {
+            event.currentTarget.focus({ preventScroll: true });
+            followRoute(record);
+          }}
+        >
+          <Route size={20} />
+          {t("followRoute")}
+        </button>
+      )}
       <div className="details-map-actions split-actions">
         <button className="button primary" onClick={() => openMaps(record.value)}>
           <Map size={20} />

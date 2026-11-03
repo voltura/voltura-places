@@ -33,7 +33,7 @@
     "ios": "iPhone: open Places in Safari",
     "android": "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
     "privacyTitle": "Privacy and backups",
-    "privacyText": "No background tracking. Recording requires Places to remain visible. Guest data stays on your device; account libraries sync when online. Back up whenever you want.",
+    "privacyText": "No background tracking. Recording and following require Places to remain visible. Following never saves or uploads your position. Guest data stays on your device; account libraries sync when online. Back up whenever you want.",
     "sourceTitle": "Open source",
     "sourceText": "Voltura Places is freeware with MIT-licensed source. Run it, inspect it, or make it your own. Development and publishing are documented in the public repository.",
     "footer": "Voltura Places",
@@ -84,7 +84,7 @@
       [
         "navigation",
         "Find your way back",
-        "Open a place or navigate to a route start in Google Maps or Apple Maps."
+        "Choose Follow route to see your live position beside a saved path in fullscreen. Re-centre as you walk or show the whole route. No turn instructions or rerouting. Google Maps and Apple Maps can navigate to the start."
       ]
     ],
     "capabilities": [
@@ -181,7 +181,7 @@
     "ios": "iPhone: öppna Places i Safari",
     "android": "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",
     "privacyTitle": "Integritet och säkerhetskopior",
-    "privacyText": "Ingen bakgrundsspårning. Places måste vara synligt vid inspelning. Gästdata stannar på enheten; kontobibliotek synkas online. Säkerhetskopiera när du vill.",
+    "privacyText": "Ingen bakgrundsspårning. Inspelning och ruttföljning kräver att Places är synligt. Ruttföljning sparar eller laddar aldrig upp din position. Gästdata stannar på enheten; kontobibliotek synkas online. Säkerhetskopiera när du vill.",
     "sourceTitle": "Öppen källkod",
     "sourceText": "Voltura Places är freeware med MIT-licensierad källkod. Kör, granska eller anpassa. Utveckling och publicering beskrivs i det publika kodarkivet.",
     "footer": "Voltura Places",
@@ -232,7 +232,7 @@
       [
         "navigation",
         "Hitta tillbaka",
-        "Öppna en plats eller navigera till en ruttstart i Google Maps eller Apple Maps."
+        "Välj Följ rutt för att se din position intill ett sparat spår i helskärm. Centrera medan du går eller visa hela rutten. Inga svänganvisningar eller omrutter. Google Maps och Apple Maps kan navigera till starten."
       ]
     ],
     "capabilities": [

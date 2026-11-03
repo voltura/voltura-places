@@ -14,6 +14,8 @@ export function routeLayers(
   labels: { start: string; end: string },
   recording: boolean,
   provided?: Record<string, RouteGeometry>,
+  autoFit = true,
+  emphasize = false,
 ) {
   const layer = L.layerGroup().addTo(map);
   let generation = 0;
@@ -119,6 +121,15 @@ export function routeLayers(
               points.push(point);
             }
             if (points.length > 1) {
+              if (emphasize) {
+                L.polyline(points, {
+                  color: "#fff",
+                  weight: 9,
+                  opacity: 1,
+                  interactive: false,
+                  className: "follow-route-outline",
+                }).addTo(layer);
+              }
               L.polyline(points, {
                 className: `route-line ${categoryColor(route.value.categoryId)}`,
                 weight: 5,
@@ -137,7 +148,7 @@ export function routeLayers(
             }
             markerFor(route, p, finish, start);
           }
-          if (!fitted && bounds.isValid()) {
+          if (autoFit && !fitted && bounds.isValid()) {
             fitted = true;
             map.fitBounds(bounds, { maxZoom: 16, padding: [36, 36], animate: false });
           }
