@@ -1,5 +1,7 @@
 # UI contract
 
+Family sharing's Open shared places action closes Settings and reveals the chosen group's library, including when that group is already selected.
+
 Standalone Settings actions are content-width and left-aligned above the 700px phone breakpoint. This applies to direct action buttons in stacked sections/forms, installation guidance, disclosures and the name-save row. Phone actions retain their full available width. Existing action heights remain at least 48px. Paired backup actions, selectors and choice lists retain their established layouts. Family sharing starts with the short sharing/private-places explanation; the per-group members/places explanation appears only when managing a group.
 
 Retry and Try again buttons use a decorative 20px clockwise circular arrow (`RotateCw`) before the label, with standard centred button spacing. This includes device transfer, draft recovery, account refresh, GPS and invitation-code retries. Conditional actions show the icon only while offering retry; Skip for now remains text-only.

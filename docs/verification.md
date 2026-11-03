@@ -1,3 +1,9 @@
+# Open shared places, 3 November 2026 (0.1.26)
+
+Reproduced the button leaving Settings open when its group was already selected: the workspace switch correctly skips a redundant transition, which previously also skipped closing Settings. The action now explicitly closes Settings after selecting the group, without changing workspace-transition or persistence behavior.
+
+Formatting, the full static check and all 335 unit/data tests pass. Eight focused Chromium interactions pass on the shared 5173 preview using isolated cached groups and unavailable API responses: current-group opening, switching groups and reopening at 390px/1280px in English, plus current/other-group opening in Swedish at 390px. The rendered result was visually inspected. This is browser emulation; physical-iPhone behavior remains unverified. The publication workflow also requires a production build and isolated authorization/integrity and authentication checks before deployment.
+
 # Login and logout recovery, 3 November 2026 (0.1.25)
 
 Production iPhone requests around 01:22 CET showed `POST /api/account/sign-out` rejected with 403 and `Origin: null`. The app's `no-referrer` response policy caused WebKit to null the Origin on the same-origin-mode POST. Responses now use `same-origin`; strict server origin validation remains intact. Failed pending logout no longer hides public sign-in providers, and new sign-in attempts finish pending logout before creating provider proofs. Settings includes a direct retry after account-discovery failure.

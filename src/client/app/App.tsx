@@ -887,6 +887,7 @@ export function App() {
               onOpen={(groupId) => {
                 if (account.account) {
                   switchLibrary(familyKey(account.account.id, groupId));
+                  setSettings(null);
                 }
               }}
               onSignIn={onSignIn}
