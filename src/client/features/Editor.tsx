@@ -486,7 +486,7 @@ export function Editor({
               <span>{t("category")}</span>
               <span className="preference-value" aria-hidden="true">
                 <CategoryIcon record={selectedCategory} />
-                {selectedCategory ? categoryLabel(selectedCategory) : t("other")}
+                <span>{selectedCategory ? categoryLabel(selectedCategory) : t("other")}</span>
               </span>
               <ChevronDown size={20} aria-hidden="true" />
               <select value={categoryId} onChange={(e) => setCategory(e.target.value)}>
