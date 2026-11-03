@@ -136,7 +136,7 @@ export function useSharing({
     setCopyingToGroup(true);
     try {
       const key = familyKey(operation.account!, groupId);
-      await copyPlaceToWorkspace(operation.workspace, key, id, isCurrent);
+      const { copied } = await copyPlaceToWorkspace(operation.workspace, key, id, isCurrent);
       // Once the destination commit succeeds, its upload belongs to that
       // membership, even if the user starts browsing another source workspace.
       if (destinationCurrent()) {
@@ -147,7 +147,7 @@ export function useSharing({
       }
       setMenu((current) => (current === menu ? null : current));
       setSharePlace((current) => (current === sharePlace ? null : current));
-      notify("copiedToGroup");
+      notify(copied ? "copiedToGroup" : "alreadyInGroup");
     } catch (error) {
       if (isCurrent()) {
         notify(libraryErrorMessage(error), true);

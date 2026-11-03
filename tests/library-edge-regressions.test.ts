@@ -5,6 +5,7 @@ import { beforeEach, afterEach, expect, test, vi } from "vitest";
 import {
   changeWorkspace,
   copyPlaceToWorkspace,
+  deleteEntity,
   exportBackup,
   finishDevicePlaceTransfer,
   importBackup,
@@ -20,7 +21,7 @@ import { livePlaces, selectPlaces } from "../src/client/foundation/library-selec
 import { synchronize } from "../src/client/foundation/sync";
 import { entityLimits } from "../src/shared/limits";
 import { familyKey } from "../src/shared/families";
-import type { Entity } from "../src/shared/model";
+import { mutationSchema, type Entity, type RecordState } from "../src/shared/model";
 import { visitStatuses } from "../src/shared/visits";
 
 beforeEach(() => vi.stubGlobal("window", new EventTarget()));
@@ -109,8 +110,208 @@ test("group copying prefers the matching localized category when two candidates 
     value: { ...category.value, names: { sv: "Annat" } },
   });
   await saveEntity(target, { ...category, id: "matching" });
-  const after = await copyPlaceToWorkspace(source, target, original.id);
+  const { workspace: after } = await copyPlaceToWorkspace(source, target, original.id);
   expect(livePlaces(after)[0].value.categoryId).toBe("matching");
+});
+
+test("repeated and concurrent group copies retain one independently editable destination", async () => {
+  const source = familyKey(crypto.randomUUID(), crypto.randomUUID());
+  const target = familyKey(crypto.randomUUID(), crypto.randomUUID());
+  const original = place();
+  await saveEntity(source, original);
+  const results = await Promise.all([
+    copyPlaceToWorkspace(source, target, original.id),
+    copyPlaceToWorkspace(source, target, original.id),
+  ]);
+  expect(results.map((result) => result.copied).sort()).toEqual([false, true]);
+  const copied = livePlaces(await readWorkspace(target))[0];
+  await saveEntity(target, { ...copied, value: { ...copied.value, name: "Destination edit" } });
+  await saveEntity(source, {
+    ...original,
+    value: { ...original.value, name: "Source edit", photoId: crypto.randomUUID() },
+  });
+  const before = await readWorkspace(target);
+  expect((await copyPlaceToWorkspace(source, target, original.id)).copied).toBe(false);
+  expect(await readWorkspace(target)).toEqual(before);
+  expect(livePlaces(before)).toHaveLength(1);
+  expect(livePlaces(before)[0].value.name).toBe("Destination edit");
+});
+
+test("group copies converge through sync across members and devices without sharing private partitions", async () => {
+  const group = crypto.randomUUID();
+  const first = familyKey(crypto.randomUUID(), group);
+  const second = familyKey(crypto.randomUUID(), group);
+  const targetGroup = crypto.randomUUID();
+  const firstTarget = familyKey(crypto.randomUUID(), targetGroup);
+  const secondTarget = familyKey(crypto.randomUUID(), targetGroup);
+  const original = place();
+  const category: Entity = {
+    id: crypto.randomUUID(),
+    kind: "category",
+    value: { name: "Lookouts", names: { sv: "Utsikter" }, color: "blue", icon: "binoculars" },
+  };
+  original.value.categoryId = category.id;
+  await saveEntity(first, category);
+  await saveEntity(second, category);
+  await saveEntity(first, original);
+  await saveEntity(second, original);
+  vi.useFakeTimers({ toFake: ["Date"] });
+  let a;
+  let b;
+  try {
+    vi.setSystemTime(new Date("2026-11-03T10:00:00Z"));
+    a = await copyPlaceToWorkspace(first, firstTarget, original.id);
+    vi.setSystemTime(new Date("2026-11-03T11:00:00Z"));
+    b = await copyPlaceToWorkspace(second, secondTarget, original.id);
+  } finally {
+    vi.useRealTimers();
+  }
+  expect(livePlaces(a.workspace)[0].id).toBe(livePlaces(b.workspace)[0].id);
+  expect(livePlaces(a.workspace)[0].value).toEqual(livePlaces(b.workspace)[0].value);
+  expect(livePlaces(a.workspace)[0].value.updatedAt).toBe(original.value.updatedAt);
+  expect(livePlaces(a.workspace)[0].id).not.toBe(original.id);
+  const cloud = new Map<string, RecordState>();
+  let conflicts = 0;
+  vi.stubGlobal("navigator", { onLine: true });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      const accountId = familyKey(
+        headers.get("X-Places-Account")!,
+        headers.get("X-Places-Family")!,
+      );
+      if (init?.method === "POST") {
+        const mutation = mutationSchema.parse(JSON.parse(init.body as string));
+        const previous = cloud.get(mutation.entity.id);
+        if (previous && previous.revision !== mutation.baseRevision) {
+          conflicts++;
+
+          return Response.json({ accountId, record: previous }, { status: 409 });
+        }
+        const record = {
+          ...mutation.entity,
+          deleted: mutation.deleted,
+          revision: mutation.baseRevision + 1,
+        };
+        cloud.set(record.id, record);
+
+        return Response.json({ accountId, record });
+      }
+
+      return Response.json({ version: 1, accountId, records: [...cloud.values()] });
+    }),
+  );
+  for (const key of [firstTarget, secondTarget, firstTarget]) {
+    const statuses: string[] = [];
+    await synchronize(key, (status) => statuses.push(status));
+    expect(statuses.at(-1)).toBe("synced");
+    const workspace = await readWorkspace(key);
+    expect(livePlaces(workspace)).toHaveLength(1);
+    expect(workspace.records.some((record) => record.dirty || record.conflict)).toBe(false);
+  }
+  expect(conflicts).toBe(2);
+  expect(cloud.size).toBe(2);
+  const privateSource = crypto.randomUUID();
+  await saveEntity(privateSource, original);
+  const privateCopy = await copyPlaceToWorkspace(privateSource, crypto.randomUUID(), original.id);
+  expect(livePlaces(privateCopy.workspace)[0].id).not.toBe(livePlaces(a.workspace)[0].id);
+});
+
+test("later copies reuse renamed copied categories and preserve their deletion markers", async () => {
+  const source = crypto.randomUUID();
+  const target = crypto.randomUUID();
+  const category: Entity = {
+    id: crypto.randomUUID(),
+    kind: "category",
+    value: { name: "Lookouts", color: "blue" },
+  };
+  await saveEntity(source, category);
+  const originals = Array.from({ length: 3 }, (_, index) => {
+    const original = place();
+    original.value.name += index;
+    original.value.categoryId = category.id;
+
+    return original;
+  });
+  for (const original of originals) {
+    await saveEntity(source, original);
+  }
+  const first = await copyPlaceToWorkspace(source, target, originals[0].id);
+  const categoryId = livePlaces(first.workspace)[0].value.categoryId;
+  await saveEntity(target, {
+    ...category,
+    id: categoryId,
+    value: { name: "Renamed", color: "rose" },
+  });
+  const second = await copyPlaceToWorkspace(source, target, originals[1].id);
+  expect(livePlaces(second.workspace).map((record) => record.value.categoryId)).toEqual([
+    categoryId,
+    categoryId,
+  ]);
+  expect(second.workspace.records.find((record) => record.id === categoryId)?.value).toEqual({
+    name: "Renamed",
+    color: "rose",
+  });
+  await deleteEntity(target, categoryId);
+  const third = await copyPlaceToWorkspace(source, target, originals[2].id);
+  expect(livePlaces(third.workspace).map((record) => record.value.categoryId)).toEqual([
+    "other",
+    "other",
+    "other",
+  ]);
+  expect(third.workspace.records.find((record) => record.id === categoryId)?.deleted).toBe(true);
+});
+
+test("unchanged legacy copies are recognized without merging distinct posts at the same position", async () => {
+  const source = crypto.randomUUID();
+  const target = crypto.randomUUID();
+  const original = place();
+  await saveEntity(source, original);
+  const legacy = {
+    ...original,
+    id: crypto.randomUUID(),
+    value: { ...original.value, categoryId: "parking", updatedAt: "2026-11-02T00:00:00Z" },
+  };
+  await saveEntity(target, legacy);
+  const before = await readWorkspace(target);
+  expect((await copyPlaceToWorkspace(source, target, original.id)).copied).toBe(false);
+  expect(await readWorkspace(target)).toEqual(before);
+  const different = {
+    ...original,
+    id: crypto.randomUUID(),
+    value: {
+      ...original.value,
+      capturedAt: "2026-11-03T00:00:00Z",
+    },
+  };
+  await saveEntity(source, different);
+  expect((await copyPlaceToWorkspace(source, target, different.id)).copied).toBe(true);
+  expect(livePlaces(await readWorkspace(target))).toHaveLength(2);
+});
+
+test("a repeated group copy respects tombstones, cancellation and full destination capacity", async () => {
+  const source = crypto.randomUUID();
+  const target = crypto.randomUUID();
+  const original = place();
+  await saveEntity(source, original);
+  const first = await copyPlaceToWorkspace(source, target, original.id);
+  const before = await readWorkspace(target);
+  await expect(copyPlaceToWorkspace(source, target, original.id, () => false)).rejects.toThrow(
+    "accountChanged",
+  );
+  expect(await readWorkspace(target)).toEqual(before);
+  const limit = entityLimits.place;
+  try {
+    Object.defineProperty(entityLimits, "place", { value: 1 });
+    expect((await copyPlaceToWorkspace(source, target, original.id)).copied).toBe(false);
+  } finally {
+    Object.defineProperty(entityLimits, "place", { value: limit });
+  }
+  await deleteEntity(target, livePlaces(first.workspace)[0].id);
+  const deleted = await readWorkspace(target);
+  await expect(copyPlaceToWorkspace(source, target, original.id)).rejects.toThrow("placeChanged");
+  expect(await readWorkspace(target)).toEqual(deleted);
 });
 
 test("reading an old preset revision cannot recreate a concurrently removed private workspace", async () => {

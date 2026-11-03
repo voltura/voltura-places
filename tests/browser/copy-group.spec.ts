@@ -117,6 +117,13 @@ test("copy destination is explicit and only the chosen group receives a copy", a
     expect(destinationPlaces).toHaveLength(1);
     expect(destinationPlaces[0].id).not.toBe(sourcePlaces[0].id);
     expect(destinationPlaces[0].value.name).toBe("Svampstället");
+    // Repeat the group-to-group action after its first completion.
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    await sharing.getByRole("button", { name: "Share with a group", exact: true }).click();
+    await sharePicker.getByRole("button", { name: "Familjen", exact: true }).click();
+    await expect(page.locator(".toast[role=status]")).toContainText("Already in this group");
+    expect(await records(first)).toEqual(destinationPlaces);
+
     // Review the live checkout on its single shared preview, in Swedish.
     await create("Vännerna");
     await page.goto("http://127.0.0.1:5173/?lang=sv");

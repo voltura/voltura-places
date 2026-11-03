@@ -137,6 +137,7 @@ export const en = {
   shareLink: "Share link…",
   copyToGroupBody: "Choose a group. The original stays. Each copy is edited separately.",
   copiedToGroup: "Copied to the selected group",
+  alreadyInGroup: "Already in this group",
   familyReadonly: "This is a local copy. Shared access has ended; you can view and export it.",
   checkUpdates: "Check for updates",
   placePhoto: "Place photo",
@@ -701,6 +702,7 @@ export const sv: Record<Message, string> = {
   shareLink: "Dela länk…",
   copyToGroupBody: "Välj grupp. Originalet ligger kvar. Kopiorna ändras var för sig.",
   copiedToGroup: "Kopierad till den valda gruppen",
+  alreadyInGroup: "Finns redan i den här gruppen",
   familyReadonly:
     "Detta är en lokal kopia. Delad åtkomst har upphört; du kan visa och exportera den.",
   checkUpdates: "Sök efter uppdateringar",

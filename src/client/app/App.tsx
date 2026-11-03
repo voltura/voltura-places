@@ -417,10 +417,7 @@ export function App() {
       const clearance = reveal
         ? reveal.getBoundingClientRect().height + parseFloat(getComputedStyle(reveal).bottom)
         : dock.getBoundingClientRect().height;
-      document.documentElement.style.setProperty(
-        "--save-dock-height",
-        `${reveal ? 0 : clearance}px`,
-      );
+      document.documentElement.style.setProperty("--save-dock-height", `${clearance}px`);
       document.documentElement.style.setProperty(
         "--floating-controls-clearance",
         `${reveal ? clearance + 8 : 0}px`,

@@ -190,7 +190,7 @@ test.each(["private", "group"])(
         updatedAt: new Date().toISOString(),
       },
     });
-    const copy = await copyPlaceToWorkspace(source, key, id);
+    const { workspace: copy } = await copyPlaceToWorkspace(source, key, id);
     expect(copy.reconciled).toBe(true);
     const place = copy.records.find((r) => r.kind === "place")!;
     expect(place.id).not.toBe(id);

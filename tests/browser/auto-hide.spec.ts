@@ -113,6 +113,17 @@ for (const engine of [chromium, webkit]) {
         });
         await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
         await expect(reveal).toBeVisible();
+        await expect
+          .poll(async () => {
+            const card = (await page.locator(".place-card").last().boundingBox())!;
+            const pill = (await reveal.boundingBox())!;
+
+            return card.y + card.height <= pill.y;
+          })
+          .toBe(true);
+        await page.screenshot({
+          path: `.artifacts/auto-hide-last-card-${engine.name()}-${desktop ? "desktop" : "phone"}.png`,
+        });
         // iPhone Safari reports scrollY past the bottom during rubber-banding.
         // Emulate those values because desktop WebKit has no native iOS bounce.
         const stayedHidden = await page.evaluate(async () => {
@@ -230,9 +241,14 @@ for (const engine of [chromium, webkit]) {
             .last()
             .getByRole("button", { name: "Edit place: Place 19", exact: true }),
         ).toBeInViewport();
-        expect(
-          await page.locator("main").evaluate((element) => getComputedStyle(element).paddingBottom),
-        ).toBe("24px");
+        await expect
+          .poll(async () => {
+            const card = (await page.locator(".place-card").last().boundingBox())!;
+            const pill = (await reveal.boundingBox())!;
+
+            return card.y + card.height <= pill.y;
+          })
+          .toBe(true);
         await page.screenshot({
           path: `.artifacts/auto-hide-floating-${engine.name()}-${desktop ? "desktop" : "phone"}.png`,
         });

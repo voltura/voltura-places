@@ -371,6 +371,28 @@ export async function copyPlaceToWorkspace(
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
+  const identity = workspaceIdentity(from);
+  const sourceLibrary = identity.family ? `family:${identity.family}` : from;
+  const newId = "copy-" + (await digest(JSON.stringify([sourceLibrary, id])));
+
+  // A known copy needs no source attachment download. Recheck inside the
+  // transaction so cancellation, source edits and destination deletion still win.
+  if ((await readWorkspace(to)).records.some((record) => record.id === newId)) {
+    const workspace = await changeWorkspace(
+      to,
+      (w) => {
+        const previous = w.records.find((record) => record.id === newId);
+        if (!previous || previous.deleted || previous.kind !== "place") {
+          throw new Error("placeChanged");
+        }
+
+        return false;
+      },
+      { isCurrent, requirePlace: { workspace: from, id, original: place } },
+    );
+
+    return { workspace, copied: false };
+  }
   if (place.value.photoId) {
     await loadPhoto(from, place.value.photoId, isCurrent);
   }
@@ -380,18 +402,56 @@ export async function copyPlaceToWorkspace(
   const category = source.records.find(
     (r) => r.id === place.value.categoryId && r.kind === "category" && !r.deleted,
   );
-  const newId = crypto.randomUUID();
+  const copiedCategoryId = category
+    ? "copy-" + (await digest(JSON.stringify([sourceLibrary, category.id])))
+    : "other";
+  let copied = false;
 
-  return changeWorkspace(
+  const workspace = await changeWorkspace(
     to,
     (w) => {
       if (!isCurrent()) {
         throw new Error("accountChanged");
       }
+      const previous = w.records.find((record) => record.id === newId);
+      if (previous) {
+        if (previous.deleted || previous.kind !== "place") {
+          throw new Error("placeChanged");
+        }
+
+        return false;
+      }
+
+      // Older copies used random IDs. Ignore category and edit timestamps when
+      // recognizing their otherwise unchanged content; never merge by name alone.
+      const content = (value: Place) => ({
+        ...value,
+        categoryId: "other",
+        updatedAt: "",
+        photoId: value.photoId ?? null,
+      });
+
+      const expected = content({
+        ...place.value,
+        ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
+      });
+      if (
+        w.records.some(
+          (record) =>
+            record.kind === "place" &&
+            !record.deleted &&
+            sameValue(content(record.value), expected),
+        )
+      ) {
+        return false;
+      }
       let categoryId = "other";
       if (category?.kind === "category") {
-        let same: LocalRecord | undefined;
-        for (const candidate of w.records) {
+        let same = w.records.find(
+          (record) =>
+            record.id === copiedCategoryId && record.kind === "category" && !record.deleted,
+        );
+        for (const candidate of same ? [] : w.records) {
           if (
             candidate.kind !== "category" ||
             candidate.deleted ||
@@ -405,8 +465,9 @@ export async function copyPlaceToWorkspace(
             break;
           }
         }
-        categoryId = same?.id ?? crypto.randomUUID();
-        if (!same) {
+        const reserved = w.records.some((record) => record.id === copiedCategoryId);
+        categoryId = same?.id ?? (reserved ? "other" : copiedCategoryId);
+        if (!same && !reserved) {
           write(w, { ...category, id: categoryId });
         }
       }
@@ -417,12 +478,14 @@ export async function copyPlaceToWorkspace(
           ...place.value,
           ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
           categoryId,
-          updatedAt: new Date().toISOString(),
         },
       });
+      copied = true;
     },
     { isCurrent, requirePlace: { workspace: from, id, original: place } },
   );
+
+  return { workspace, copied };
 }
 
 export async function deleteEntity(key: string, id: string, isCurrent = () => true) {
