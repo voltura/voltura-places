@@ -2,6 +2,8 @@
 
 The Swedish library search placeholder and accessible label use the compact wording Sök platser.
 
+Both Clear search actions clear the query and blur the search input without focusing it, so clearing does not open or retain the phone keyboard. The no-results action also resets category and visit-status filters.
+
 The library selector shows the selected library name followed by its live place count before the chevron. With a non-empty search, category filter or visit-status filter, it shows matching / total, including zero matches and filters matching every place. List and Map share the same filtered count; switching libraries resets browsing filters through the existing workspace transition. The count describes only the selected library, including Private places, and has an English/Swedish accessible description. On phones (700px and narrower), signed-in libraries retain their heading for screen readers and omit its visible duplicate name/count. On non-empty phone libraries, Add place is a separate 48px button immediately to the right of the flexible library selector. Group Members sits on its own row below, separating place creation from membership management; empty groups retain Members. Private libraries omit that members row. Desktop and guest Add place actions retain their existing heading position. The redundant writable-group sharing hint is omitted on phones; read-only warnings remain visible. Guest headings and desktop header actions retain their existing layout.
 
 Family sharing's Show group places action closes Settings and reveals the chosen group's library, including when that group is already selected.

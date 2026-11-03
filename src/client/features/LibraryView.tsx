@@ -208,7 +208,7 @@ export function LibraryView({
                     onClick={() => {
                       setSearch("");
                       onClearMapFocus();
-                      searchField.current?.focus();
+                      searchField.current?.blur();
                     }}
                   >
                     <X size={18} />
@@ -297,7 +297,7 @@ export function LibraryView({
                 setFilter("all");
                 setVisitFilter("all");
                 onClearMapFocus();
-                searchField.current?.focus();
+                searchField.current?.blur();
               }}
             >
               {t("clearSearch")}
