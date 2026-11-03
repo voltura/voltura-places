@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { readFile, readdir } from "node:fs/promises";
 import { test, expect } from "vitest";
 import { startupDevices, startupName } from "../scripts/startup-images.mjs";
+import { skins } from "../src/client/foundation/appearance";
 
 const dimensions = (bytes: Buffer) => {
   expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
@@ -16,6 +17,18 @@ test("localized promo screenshots are PNGs that can be embedded in generated soc
   }
   for (const suffix of ["", "-sv"]) {
     expect(dimensions(await readFile(`site/assets/app-desktop${suffix}.png`))).toEqual([1000, 871]);
+  }
+});
+test("every theme has localized iPhone-sized promo captures", async () => {
+  for (const language of ["en", "sv"]) {
+    for (const skin of skins) {
+      for (const mode of ["dark", "light"]) {
+        const metadata = await sharp(
+          `site/assets/themes/${language}-${skin}-${mode}.webp`,
+        ).metadata();
+        expect([metadata.format, metadata.width, metadata.height]).toEqual(["webp", 1206, 2622]);
+      }
+    }
   }
 });
 test("icons and localized social cards have usable dimensions and dedicated maskable assets", async () => {

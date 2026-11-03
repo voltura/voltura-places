@@ -1,8 +1,13 @@
 import { readdir, readFile, lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
+import { skins } from "../src/client/foundation/appearance.ts";
 
 export const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+const themeAsset = new RegExp(
+  `^places/assets/theme-(?:${skins.join("|")})-(?:en|sv)-(?:dark|light)\\.[a-f0-9]{16}\\.webp$`,
+);
 
 export async function verifyPromoPayload(
   entry,
@@ -44,9 +49,10 @@ export async function verifyPromoPayload(
 export function assertDestination(path) {
   if (
     typeof path !== "string" ||
-    !/^places\/(?:(?:index|stats)\.html|sv\/(?:index|stats)\.html|assets\/(?:site\.[a-f0-9]{16}\.css|usage\.[a-f0-9]{16}\.js|(?:app|desktop|social)-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg))$/.test(
+    (!/^places\/(?:(?:index|stats)\.html|sv\/(?:index|stats)\.html|assets\/(?:site\.[a-f0-9]{16}\.css|usage\.[a-f0-9]{16}\.js|(?:app|desktop|social)-(?:en|sv)\.[a-f0-9]{16}\.png|icon\.svg))$/.test(
       path,
-    )
+    ) &&
+      !themeAsset.test(path))
   ) {
     throw new Error("Destination outside isolated Places allowlist.");
   }
@@ -92,9 +98,14 @@ export async function promoManifest(base = resolve(".artifacts/promo")) {
   }
 
   await collect();
-  if (entries.length !== 13) {
+  const themeSlots = skins.flatMap((skin) =>
+    ["en", "sv"].flatMap((language) =>
+      ["dark", "light"].map((mode) => `places/assets/theme-${skin}-${language}-${mode}.webp`),
+    ),
+  );
+  if (entries.length !== 13 + themeSlots.length || themeSlots.some((slot) => !slots.has(slot))) {
     throw new Error(
-      "Expected two promo pages, two statistics pages, four screenshots, two social cards, one stylesheet, one usage script and one icon.",
+      "Expected the complete Places promo payload, including both localized appearances per theme.",
     );
   }
 

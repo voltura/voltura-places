@@ -5,6 +5,8 @@ import { readFile, writeFile, mkdir, cp, rm, lstat, realpath } from "node:fs/pro
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { socialImage } from "./branding.mjs";
+import { skins } from "../src/client/foundation/appearance.ts";
+import { en, sv } from "../src/client/foundation/i18n.ts";
 
 const themeScript = await readFile("site/theme.js", "utf8");
 const statistics = await collectStatistics();
@@ -60,6 +62,18 @@ for (const [language, c] of Object.entries(content)) {
   const desktop = await readFile(`site/assets/app-desktop${language === "sv" ? "-sv" : ""}.png`);
   const desktopName = `desktop-${language}.${createHash("sha256").update(desktop).digest("hex").slice(0, 16)}.png`;
   await writeFile(`.artifacts/promo/assets/${desktopName}`, desktop);
+  const labels = language === "sv" ? sv : en;
+  const themeImages = [];
+  for (const skin of skins) {
+    const names = {};
+    for (const mode of ["dark", "light"]) {
+      const image = await readFile(`site/assets/themes/${language}-${skin}-${mode}.webp`);
+      const name = `theme-${skin}-${language}-${mode}.${createHash("sha256").update(image).digest("hex").slice(0, 16)}.webp`;
+      await writeFile(`.artifacts/promo/assets/${name}`, image);
+      names[mode] = name;
+    }
+    themeImages.push({ darkName: names.dark, lightName: names.light, label: labels[skin] });
+  }
   const html = renderPromo({
     language,
     c,
@@ -70,6 +84,7 @@ for (const [language, c] of Object.entries(content)) {
     imageAlt,
     screenshotName,
     desktopName,
+    themeImages,
     cssName: `site.${hash}.css`,
     themeScript,
   });

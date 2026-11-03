@@ -9,9 +9,18 @@
       mode = saved.theme;
     }
     if (
-      ["forest", "retro-wood", "modern-metallic", "modern-black", "midnight", "matrix"].includes(
-        saved?.skin,
-      )
+      [
+        "forest",
+        "retro-wood",
+        "modern-metallic",
+        "modern-black",
+        "midnight",
+        "matrix",
+        "blood-red",
+        "burnt-orange",
+        "golden-god",
+        "pink-panther",
+      ].includes(saved?.skin)
     ) {
       skin = saved.skin;
     }

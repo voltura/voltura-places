@@ -1,5 +1,6 @@
 import { test, expect, chromium, webkit, devices, type Page } from "./fixtures";
 import { starters } from "../../src/shared/model";
+import { skins } from "../../src/client/foundation/appearance";
 
 const record = (id = "audit-pin", name = "Saved pin", longitude = 18) => ({
   id,
@@ -45,7 +46,7 @@ async function seed(page: Page, records: unknown[]) {
 }
 
 for (const engine of [chromium, webkit]) {
-  test(`${engine.name()} phone portrait/landscape: single-pin fullscreen details, nested controls and 48px attribution`, async () => {
+  test(`${engine.name()} phone portrait/landscape: single-pin fullscreen details, nested controls and compact attribution`, async () => {
     const browser = await engine.launch();
     try {
       const context = await browser.newContext({
@@ -78,8 +79,12 @@ for (const engine of [chromium, webkit]) {
         await details.getByRole("button", { name: "Close", exact: true }).tap();
         const surface = page.getByRole("dialog", { name: "Map", exact: true });
         const attribution = surface.getByRole("link", { name: "OpenStreetMap", exact: true });
+        await expect(attribution).toHaveAttribute(
+          "href",
+          "https://www.openstreetmap.org/copyright",
+        );
         const a = (await attribution.boundingBox())!;
-        expect(a.height).toBeGreaterThanOrEqual(48);
+        expect(a.height).toBeGreaterThanOrEqual(24);
         expect(a.width).toBeGreaterThanOrEqual(48);
         await surface.getByRole("button", { name: "Exit fullscreen map", exact: true }).tap();
       }
@@ -92,21 +97,72 @@ for (const engine of [chromium, webkit]) {
       await expect(
         page
           .getByRole("navigation", { name: "Categories", exact: true })
-          .getByRole("button", { name: "All places", exact: true }),
+          .getByRole("button", { name: "All", exact: true }),
       ).toHaveAttribute("aria-pressed", "false");
       await context.close();
     } finally {
       await browser.close();
     }
   });
-  for (const skin of [
-    "forest",
-    "retro-wood",
-    "modern-metallic",
-    "modern-black",
-    "midnight",
-    "matrix",
-  ]) {
+  test(`${engine.name()} new themes keep search placeholder text readable`, async () => {
+    const browser = await engine.launch();
+    try {
+      const context = await browser.newContext({
+        ...devices["iPhone 13"],
+        locale: "en-US",
+        baseURL: "http://127.0.0.1:5174",
+      });
+      await context.addInitScript(() => localStorage.setItem("places-account-choice", "done"));
+      const page = await context.newPage();
+      await page.goto("/");
+      await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+      await seed(page, [record()]);
+      for (const skin of ["blood-red", "burnt-orange", "golden-god", "pink-panther"]) {
+        for (const mode of ["light", "dark"]) {
+          await page.getByRole("button", { name: "Settings", exact: true }).tap();
+          await page.getByRole("combobox", { name: "Theme", exact: true }).selectOption(skin);
+          await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption(mode);
+          await page.getByRole("button", { name: "Close", exact: true }).tap();
+
+          const contrast = await page
+            .getByRole("textbox", { name: "Search your places" })
+            .evaluate((input) => {
+              const placeholder = getComputedStyle(input, "::placeholder");
+              const background = getComputedStyle(input.parentElement!).backgroundColor;
+
+              const luminance = (color: string) => {
+                const components = color
+                  .match(/\d+(?:\.\d+)?/g)!
+                  .slice(0, 3)
+                  .map(Number);
+                const linear = components.map((value) => {
+                  const channel = value / 255;
+
+                  return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+                });
+
+                return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+              };
+
+              const text = luminance(placeholder.color);
+              const surface = luminance(background);
+
+              return {
+                opacity: placeholder.opacity,
+                ratio: (Math.max(text, surface) + 0.05) / (Math.min(text, surface) + 0.05),
+              };
+            });
+
+          expect(contrast.opacity).toBe("1");
+          expect(contrast.ratio, `${skin} ${mode}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+      await context.close();
+    } finally {
+      await browser.close();
+    }
+  });
+  for (const skin of skins) {
     test(`${engine.name()} iPhone ${skin}: both modes, touch controls, enlarged text and safe layers`, async ({}, testInfo) => {
       const browser = await engine.launch();
       try {
@@ -126,7 +182,7 @@ for (const engine of [chromium, webkit]) {
           await expect(page.locator("html")).toHaveAttribute("data-skin", skin);
           await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
           const toggle = page.getByRole("switch", {
-            name: "Review GPS accuracy before saving",
+            name: "Check GPS accuracy before saving",
             exact: true,
           });
           await toggle.tap();

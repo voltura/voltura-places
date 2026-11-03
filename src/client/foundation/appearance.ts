@@ -5,6 +5,10 @@ export const skins = [
   "modern-black",
   "midnight",
   "matrix",
+  "blood-red",
+  "burnt-orange",
+  "golden-god",
+  "pink-panther",
 ] as const;
 export type Skin = (typeof skins)[number];
 

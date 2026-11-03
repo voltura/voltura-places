@@ -81,6 +81,11 @@ input,
 select {
   font: inherit;
 }
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 button,
 a,
 input,

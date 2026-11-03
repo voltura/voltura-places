@@ -101,28 +101,74 @@ for (const skin of skins) {
   }
 }
 
-test("legacy and invalid skins preserve mode; System follows OS", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (!sessionStorage.getItem("seeded")) {
-      localStorage.setItem(
-        "places-preferences",
-        JSON.stringify({ language: "en", provider: "apple", theme: "system", skin: "unknown" }),
-      );
-      sessionStorage.setItem("seeded", "yes");
-    }
+for (const { skin, swedish } of [
+  { skin: "blood-red", swedish: "Blodröd" },
+  { skin: "burnt-orange", swedish: "Bränd Orange" },
+  { skin: "golden-god", swedish: "Gyllene Gud" },
+  { skin: "pink-panther", swedish: "Rosa Pantern" },
+]) {
+  test(`legacy and invalid skins preserve mode; System follows OS with ${skin}`, async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("seeded")) {
+        localStorage.setItem(
+          "places-preferences",
+          JSON.stringify({ language: "en", provider: "apple", theme: "system", skin: "unknown" }),
+        );
+        sessionStorage.setItem("seeded", "yes");
+      }
+    });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-skin", "forest");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("combobox", { name: "Theme", exact: true }).selectOption(skin);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-skin", skin);
+    await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
+    await expect(page.getByRole("combobox", { name: "Tema", exact: true })).toHaveValue(skin);
+    await expect(page.getByRole("option", { name: swedish, exact: true })).toBeAttached();
+    await expect(page.getByRole("combobox", { name: "Färgläge", exact: true })).toHaveValue(
+      "system",
+    );
   });
-  await page.emulateMedia({ colorScheme: "light" });
+}
+
+test("theme names capitalize each word in English and Swedish", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("data-skin", "forest");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("combobox", { name: "Theme", exact: true }).selectOption("midnight");
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator("html")).toHaveAttribute("data-skin", "midnight");
+  await expect(
+    page.getByRole("combobox", { name: "Theme", exact: true }).locator("option"),
+  ).toHaveText([
+    "Forest",
+    "Retro Wood",
+    "Modern Metallic",
+    "Modern Black",
+    "Midnight",
+    "Matrix",
+    "Blood Red",
+    "Burnt Orange",
+    "Golden God",
+    "Pink Panther",
+  ]);
   await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
-  await expect(page.getByRole("combobox", { name: "Tema", exact: true })).toHaveValue("midnight");
-  await expect(page.getByRole("combobox", { name: "Färgläge", exact: true })).toHaveValue("system");
+  await expect(
+    page.getByRole("combobox", { name: "Tema", exact: true }).locator("option"),
+  ).toHaveText([
+    "Skog",
+    "Retroträ",
+    "Modern Metall",
+    "Modern Svart",
+    "Midnatt",
+    "Matrix",
+    "Blodröd",
+    "Bränd Orange",
+    "Gyllene Gud",
+    "Rosa Pantern",
+  ]);
 });
 
 for (const skin of skins) {

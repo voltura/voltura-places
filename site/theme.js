@@ -53,5 +53,21 @@
       } catch {}
       apply();
     });
+    const showcase = document.querySelector(".themes-section");
+    const modeButtons = showcase?.querySelectorAll("[data-deck-mode]") ?? [];
+    for (const button of modeButtons) {
+      button.addEventListener("click", () => {
+        const mode = button.dataset.deckMode;
+        if (mode !== "light" && mode !== "dark") {
+          return;
+        }
+        for (const control of modeButtons) {
+          control.setAttribute("aria-pressed", String(control === button));
+        }
+        for (const image of showcase.querySelectorAll(".theme-phone img")) {
+          image.src = mode === "light" ? image.dataset.lightSrc : image.dataset.darkSrc;
+        }
+      });
+    }
   });
 })();

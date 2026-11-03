@@ -6,6 +6,7 @@ import {
   verifyPromoPayload,
   rollbackPayload,
 } from "../scripts/promo-manifest.mjs";
+import { skins } from "../src/client/foundation/appearance";
 
 test("public verification respects bounded throttling and still verifies the final bytes", async () => {
   const entry = { path: "places/sv/stats.html", sha256: digest("expected") };
@@ -78,6 +79,11 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
     "places/stats.php",
     "places/assets/usage.js",
     "places/assets/other.0123456789abcdef.js",
+    "places/assets/theme-unknown-en-dark.0123456789abcdef.webp",
+    "places/assets/theme-forest-fr-dark.0123456789abcdef.webp",
+    "places/assets/theme-forest-en-dark.webp",
+    "places/assets/theme-forest-en-dark.0123456789abcdef.png",
+    "places/assets/theme-forest-en-system.0123456789abcdef.webp",
   ]) {
     expect(() => assertDestination(path)).toThrow();
   }
@@ -93,6 +99,15 @@ test("promo destination allowlist excludes Air, root configuration, traversal an
     expect(assertDestination(`places/assets/desktop-${language}.0123456789abcdef.png`)).toContain(
       "places/assets/",
     );
+    for (const skin of skins) {
+      for (const mode of ["dark", "light"]) {
+        expect(
+          assertDestination(
+            `places/assets/theme-${skin}-${language}-${mode}.0123456789abcdef.webp`,
+          ),
+        ).toContain("places/assets/");
+      }
+    }
   }
 });
 
