@@ -327,10 +327,10 @@ for (const populated of [false, true]) {
     await page
       .getByRole("combobox", { name: "Settings", exact: true })
       .selectOption("familySharing");
-    await page.locator("summary").filter({ hasText: "Delete family library" }).click();
-    await page.getByRole("button", { name: "Delete family library", exact: true }).click();
-    const confirmation = page.getByRole("dialog", { name: "Delete family library", exact: true });
-    await confirmation.getByRole("button", { name: "Delete family library", exact: true }).click();
+    await page.locator("summary").filter({ hasText: "Delete group" }).click();
+    await page.getByRole("button", { name: "Delete group", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Delete group", exact: true });
+    await confirmation.getByRole("button", { name: "Delete group", exact: true }).click();
     await expect(
       page.locator(".library-selector-label > span:not(.library-selector-count)"),
     ).toHaveText("Private places");

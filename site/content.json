@@ -45,7 +45,7 @@
       [
         "01",
         "Create or join a group",
-        "Sign in and create a group from the library menu or Settings → Family sharing. You can belong to up to 20 groups, with up to 10 people in each."
+        "Sign in and create a group from the library menu or Settings → Groups. You can belong to up to 20 groups, with up to 10 people in each."
       ],
       [
         "02",
@@ -94,7 +94,7 @@
       ["users", "Share with groups"]
     ],
     "productLabel": "THE APP",
-    "sharingLabel": "SHARED LIBRARIES",
+    "sharingLabel": "GROUPS",
     "offlineLabel": "OFFLINE & SYNC",
     "installLabel": "GET STARTED",
     "libraryLabel": "Libraries",
@@ -193,7 +193,7 @@
       [
         "01",
         "Skapa eller gå med i en grupp",
-        "Logga in och skapa en grupp från biblioteksmenyn eller Inställningar → Familjedelning. Du kan vara med i upp till 20 grupper med upp till 10 personer i varje."
+        "Logga in och skapa en grupp från biblioteksmenyn eller Inställningar → Grupper. Du kan vara med i upp till 20 grupper med upp till 10 personer i varje."
       ],
       [
         "02",
@@ -242,7 +242,7 @@
       ["users", "Dela med grupper"]
     ],
     "productLabel": "APPEN",
-    "sharingLabel": "DELADE BIBLIOTEK",
+    "sharingLabel": "GRUPPER",
     "offlineLabel": "OFFLINE OCH SYNKRONISERING",
     "installLabel": "KOM IGÅNG",
     "libraryLabel": "Bibliotek",

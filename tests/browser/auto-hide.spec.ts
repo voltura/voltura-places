@@ -196,9 +196,12 @@ for (const engine of [chromium, webkit]) {
             const attribution = (await page
               .locator(".places-map-section:not(.places-map-preview) .leaflet-control-attribution")
               .boundingBox())!;
-            const pill = (await reveal.boundingBox())!;
+            const map = (await page.locator(".places-map").boundingBox())!;
 
-            return attribution.y + attribution.height <= pill.y;
+            return (
+              Math.abs(attribution.y + attribution.height - map.y - map.height) <= 1 &&
+              Math.abs(attribution.x + attribution.width - map.x - map.width) <= 1
+            );
           })
           .toBe(true);
         await reveal.click();

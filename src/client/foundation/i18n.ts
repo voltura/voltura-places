@@ -28,7 +28,7 @@ export const en = {
   routeElapsed: "Elapsed",
   mapBackground: "Map background",
   openStreetMap: "OpenStreetMap",
-  naturkartan: "Naturkartan (Sweden)",
+  naturkartan: "Naturkartan",
   sharedRouteTitle: "Shared route",
   routeStartMarker: "Route start",
   routeEndMarker: "Route finish",
@@ -101,18 +101,22 @@ export const en = {
   familyInvitationCode: "Invitation code",
   familyCopyCode: "Copy invitation code",
   familyCodeExpired: "This code has expired. Create a new one.",
-  familyCodeNotice: "They enter it in Family sharing. You approve.",
+  familyCodeNotice: "They enter it in Settings → Groups. You approve.",
   familyShareCode: "Share code",
   familyCopyInvitation: "Copy invitation",
   familyShareMessage:
-    "Join my group in Voltura Places. Enter code {code} in Family sharing, then I’ll approve your request.",
+    "Join my group in Voltura Places. Enter code {code} in Settings → Groups, then I’ll approve your request.",
   familyShareFailed: "Couldn’t share the invitation.",
   familyEnterCode: "Have an invitation code?",
   familyEnterCodeHint:
-    "Open Places from your Home Screen, sign in and enter the four-digit code here. The family owner must approve your request before any shared places become visible.",
+    "Enter the four-digit invitation code to request to join. The group owner must approve your request before you can see the group’s places.",
   familyRequestJoin: "Request to join",
+  familyRequestSentTitle: "Request sent",
+  familyRequestNameHint: "A display name helps the group owner recognize you.",
+  setDisplayName: "Set display name",
+  changeDisplayName: "Change display name",
   familyRequestSent:
-    "Request sent. The group owner will be notified in Places and can approve you. Keep this screen open; it updates automatically.",
+    "Request sent. The group owner will be notified in Places and can approve you. You can keep using Places while you wait.",
   familyRequests: "Join requests",
   familyWantsToJoin: "{person} wants to join {group}.",
   familyApproveNotice:
@@ -123,8 +127,8 @@ export const en = {
   familyCodeLimited: "Too many attempts. Wait 15 minutes before trying again.",
   familyCodeChanged:
     "The request expired, changed or cannot be approved. Refresh and ask for a new request.",
-  familySharing: "Family sharing",
-  familyLibrary: "Family places",
+  familySharing: "Groups",
+  familyLibrary: "Group places",
   familyLibraryHint: "Shared with this group",
   groupMember: "{count} member",
   groupMembers: "{count} members",
@@ -135,7 +139,7 @@ export const en = {
   addWithDetails: "Save with details",
   saveOptions: "Save options",
   libraryChoice: "Choose group",
-  familyIntro: "Share places with family or groups. Your private places stay private.",
+  familyIntro: "Create or join a group to share places. Your private places stay private.",
   familySignIn: "Sign in to share",
   familySharedNotice:
     "Each group has its own members and places. Members can add, edit and delete shared places and photos.",
@@ -151,29 +155,29 @@ export const en = {
   openFamilyLibrary: "Show group places",
   familyCopyFailed: "Couldn’t copy the code.",
   familyRevokeInvite: "Cancel invitation",
-  familyMakeOwner: "Make owner",
+  familyMakeOwner: "Transfer ownership",
   familyTransferConfirm:
-    "Transfer control of this family library to this member? They will manage invitations, membership and deletion.",
+    "Transfer control of this group to this member? They will manage invitations, membership and deletion.",
   familyRemoveMember: "Remove member",
   familyRemoveConfirm:
     "Remove this person's access to future shared updates? Copies already on their devices cannot be recalled.",
-  familyLeave: "Leave family",
+  familyLeave: "Leave group",
   familyLeaveConfirm:
-    "Leave this shared library? Your private places are unchanged. Export a backup first if you need a separate copy of the shared places.",
-  familyDelete: "Delete family library",
+    "Leave this group? Your private places are unchanged. Export a backup first if you need a separate copy of the shared places.",
+  familyDelete: "Delete group",
   familyRemoveLocal: "Remove local copy",
   familyRemoveLocalConfirm:
     "Remove this group’s downloaded places and photos from this device? This cannot be undone. Other devices and access to other groups are unchanged.",
   familyDeleteConfirm:
-    "Delete this entire shared library and its photos for all members? This cannot be undone. Your local copy is also removed. Private libraries and copies on other devices are not deleted.",
+    "Delete this group and all its shared places and photos for all members? This cannot be undone. Your local copy is also removed. Private libraries and copies on other devices are not deleted.",
   familyTransferFirst:
-    "Transfer family ownership to another member, or delete the family library, before leaving or deleting your account.",
+    "Transfer group ownership to another member, or delete the group, before leaving or deleting your account.",
   familyAlreadyJoined: "You already belong to this group.",
-  familyFull: "This family is full (10 members).",
-  familyOwnerOnly: "Only the family owner can manage membership and invitations.",
+  familyFull: "This group is full (10 members).",
+  familyOwnerOnly: "Only the group owner can manage membership and invitations.",
   familyAccessEnded:
     "Shared access has ended. Previously downloaded places stay on this device; new changes cannot sync.",
-  invalidFamilyAction: "Could not complete this family action. Refresh and try again.",
+  invalidFamilyAction: "Could not complete this group action. Refresh and try again.",
   familyLocalCopy: "Open local shared copy",
   familyLocalCopyLabel: "Local copy",
   familyExportLocal: "Export local shared backup",
@@ -431,7 +435,7 @@ export const en = {
   actionRequired: "Sync failed",
   syncGroupLocalOnly: "Local group copy · no sync",
   familySwitchedPrivate:
-    "Group access ended. Switched to Private places. The local copy is in Groups.",
+    "Group access ended. Switched to Private places. The local copy is in Settings → Groups.",
   syncGroupLocalDetail:
     "Shared access to this group has ended. This local copy cannot sync. Your private data still syncs. Switch to Private places to continue.",
   syncPrivateComplete: "Private data synced. This group is a local copy.",
@@ -622,7 +626,7 @@ export const sv: Record<Message, string> = {
   routeElapsed: "Förfluten tid",
   mapBackground: "Kartbakgrund",
   openStreetMap: "OpenStreetMap",
-  naturkartan: "Naturkartan (Sverige)",
+  naturkartan: "Naturkartan",
   sharedRouteTitle: "Delad rutt",
   routeStartMarker: "Ruttens start",
   routeEndMarker: "Ruttens slut",
@@ -711,18 +715,22 @@ export const sv: Record<Message, string> = {
   familyInvitationCode: "Inbjudningskod",
   familyCopyCode: "Kopiera inbjudningskod",
   familyCodeExpired: "Koden har gått ut. Skapa en ny.",
-  familyCodeNotice: "Personen anger koden i Familjedelning. Du godkänner.",
+  familyCodeNotice: "Personen anger koden i Inställningar → Grupper. Du godkänner.",
   familyShareCode: "Dela kod",
   familyCopyInvitation: "Kopiera inbjudan",
   familyShareMessage:
-    "Gå med i min grupp i Voltura Places. Ange koden {code} i Familjedelning, så godkänner jag din förfrågan.",
+    "Gå med i min grupp i Voltura Places. Ange koden {code} i Inställningar → Grupper, så godkänner jag din förfrågan.",
   familyShareFailed: "Kunde inte dela inbjudan.",
   familyEnterCode: "Har du en inbjudningskod?",
   familyEnterCodeHint:
-    "Öppna Places från hemskärmen, logga in och skriv in den fyrsiffriga koden här. Familjens ägare måste godkänna din förfrågan innan några gemensamma platser visas.",
+    "Ange den fyrsiffriga inbjudningskoden för att be om att få gå med. Gruppens ägare måste godkänna din förfrågan innan du kan se gruppens platser.",
   familyRequestJoin: "Be om att få gå med",
+  familyRequestSentTitle: "Förfrågan skickad",
+  familyRequestNameHint: "Ett visningsnamn hjälper gruppens ägare att känna igen dig.",
+  setDisplayName: "Ange visningsnamn",
+  changeDisplayName: "Ändra visningsnamn",
   familyRequestSent:
-    "Förfrågan skickad. Gruppens ägare får ett meddelande i Places och kan godkänna dig. Låt sidan vara öppen så uppdateras den automatiskt.",
+    "Förfrågan skickad. Gruppens ägare får ett meddelande i Places och kan godkänna dig. Du kan fortsätta använda Places medan du väntar.",
   familyRequests: "Förfrågningar om att gå med",
   familyWantsToJoin: "{person} vill gå med i {group}.",
   familyApproveNotice:
@@ -733,8 +741,8 @@ export const sv: Record<Message, string> = {
   familyCodeLimited: "För många försök. Vänta 15 minuter innan du försöker igen.",
   familyCodeChanged:
     "Förfrågan har gått ut, ändrats eller kan inte godkännas. Uppdatera och be om en ny förfrågan.",
-  familySharing: "Familjedelning",
-  familyLibrary: "Familjens platser",
+  familySharing: "Grupper",
+  familyLibrary: "Gruppens platser",
   familyLibraryHint: "Delas med den här gruppen",
   groupMember: "{count} medlem",
   groupMembers: "{count} medlemmar",
@@ -745,14 +753,15 @@ export const sv: Record<Message, string> = {
   addWithDetails: "Spara med detaljer",
   saveOptions: "Sparalternativ",
   libraryChoice: "Välj grupp",
-  familyIntro: "Dela platser med familjen eller grupper. Dina privata platser förblir privata.",
+  familyIntro:
+    "Skapa eller gå med i en grupp för att dela platser. Dina privata platser förblir privata.",
   familySignIn: "Logga in för att dela",
   familySharedNotice:
     "Varje grupp har sina egna medlemmar och platser. Medlemmar kan lägga till, ändra och ta bort delade platser och foton.",
   familyOwner: "Ägare",
   familyParticipants: "Medlemmar",
   familyYou: "Du",
-  familyName: "Gruppens namn",
+  familyName: "Gruppnamn",
   familyCreate: "Skapa grupp",
   familyCreateNew: "Skapa ny grupp…",
   familyJoinWithCode: "Gå med i grupp med kod…",
@@ -761,26 +770,26 @@ export const sv: Record<Message, string> = {
   openFamilyLibrary: "Visa gruppens platser",
   familyCopyFailed: "Kunde inte kopiera koden.",
   familyRevokeInvite: "Återkalla inbjudan",
-  familyMakeOwner: "Gör till ägare",
+  familyMakeOwner: "Överlåt ägarskap",
   familyTransferConfirm:
-    "Överlåta kontrollen av familjebiblioteket till denna medlem? Personen får hantera inbjudningar, medlemmar och borttagning.",
+    "Överlåta kontrollen av gruppen till denna medlem? Personen får hantera inbjudningar, medlemmar och borttagning.",
   familyRemoveMember: "Ta bort medlem",
   familyRemoveConfirm:
     "Ta bort personens tillgång till framtida gemensamma uppdateringar? Kopior som redan finns på personens enheter kan inte återkallas.",
-  familyLeave: "Lämna familjen",
+  familyLeave: "Lämna grupp",
   familyLeaveConfirm:
-    "Lämna det gemensamma biblioteket? Dina privata platser påverkas inte. Exportera först en säkerhetskopia om du behöver en egen kopia av de gemensamma platserna.",
-  familyDelete: "Ta bort familjebibliotek",
+    "Lämna den här gruppen? Dina privata platser påverkas inte. Exportera först en säkerhetskopia om du behöver en egen kopia av de gemensamma platserna.",
+  familyDelete: "Ta bort grupp",
   familyRemoveLocal: "Ta bort lokal kopia",
   familyRemoveLocalConfirm:
     "Ta bort gruppens nedladdade platser och foton från den här enheten? Det går inte att ångra. Andra enheter och åtkomst till andra grupper påverkas inte.",
   familyDeleteConfirm:
-    "Ta bort hela det gemensamma biblioteket och dess foton för alla medlemmar? Det går inte att ångra. Din lokala kopia tas också bort. Privata bibliotek och kopior på andra enheter tas inte bort.",
+    "Ta bort gruppen och alla dess delade platser och foton för alla medlemmar? Det går inte att ångra. Din lokala kopia tas också bort. Privata bibliotek och kopior på andra enheter tas inte bort.",
   familyTransferFirst:
-    "Överlåt ägarskapet till en annan medlem eller ta bort familjebiblioteket innan du lämnar eller tar bort ditt konto.",
+    "Överlåt ägarskapet till en annan medlem eller ta bort gruppen innan du lämnar eller tar bort ditt konto.",
   familyAlreadyJoined: "Du tillhör redan den här gruppen.",
-  familyFull: "Familjen är full (10 medlemmar).",
-  familyOwnerOnly: "Endast familjens ägare kan hantera medlemmar och inbjudningar.",
+  familyFull: "Gruppen är full (10 medlemmar).",
+  familyOwnerOnly: "Endast gruppens ägare kan hantera medlemmar och inbjudningar.",
   familyAccessEnded:
     "Delad åtkomst har upphört. Tidigare nedladdade platser finns kvar på enheten, men nya ändringar kan inte synkas.",
   invalidFamilyAction: "Kunde inte slutföra åtgärden. Uppdatera och försök igen.",
@@ -1045,7 +1054,7 @@ export const sv: Record<Message, string> = {
   actionRequired: "Synkroniseringen misslyckades",
   syncGroupLocalOnly: "Lokal gruppkopia · synkas inte",
   familySwitchedPrivate:
-    "Gruppåtkomsten har upphört. Bytte till Privata platser. Den lokala kopian finns i Grupper.",
+    "Gruppåtkomsten har upphört. Bytte till Privata platser. Den lokala kopian finns i Inställningar → Grupper.",
   syncGroupLocalDetail:
     "Gruppåtkomsten har upphört. Den lokala kopian kan inte synkas. Dina privata uppgifter synkas fortfarande. Byt till Privata platser för att fortsätta.",
   syncPrivateComplete: "Privata uppgifter synkade. Gruppen är en lokal kopia.",

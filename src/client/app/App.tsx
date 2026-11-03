@@ -42,6 +42,8 @@ import {
   Save,
   Trash2,
   RefreshCw,
+  Route,
+  FilePenLine,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
@@ -930,8 +932,14 @@ export function App() {
                       <option value="" disabled hidden>
                         {t("saveOptions")}
                       </option>
-                      <option value="details">{t("addWithDetails")}</option>
-                      <option value="route">{t("trackRoute")}</option>
+                      <option value="details">
+                        <FilePenLine size={22} aria-hidden="true" />
+                        <span>{t("addWithDetails")}</span>
+                      </option>
+                      <option value="route">
+                        <Route size={22} aria-hidden="true" />
+                        <span>{t("trackRoute")}</span>
+                      </option>
                     </select>
                     <ChevronDown size={20} aria-hidden="true" />
                   </div>

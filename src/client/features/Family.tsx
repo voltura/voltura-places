@@ -49,7 +49,7 @@ type Props = {
   t: (key: Message) => string;
   onChanged: (families: Family[], deletedGroup?: string) => void;
   onOpen: (id: string) => void;
-  onSignIn: () => void;
+  onSignIn: (focusDisplayName?: boolean) => void;
   onExport: (id: string) => void;
   preferredGroup?: string;
   focusParticipants?: boolean;
@@ -70,6 +70,7 @@ export function FamilyPanel({
   focusCreate = false,
   focusJoin = false,
 }: Props) {
+  const [requestSent, setRequestSent] = useState(false);
   const actionPending = useRef(false);
   const pollVersion = useRef(0);
   const createName = useRef<HTMLInputElement>(null);
@@ -342,6 +343,9 @@ export function FamilyPanel({
       waiting.current = !!result.pendingRequest;
       setPending(result.pendingRequest ?? null);
       setJoinCode("");
+      if ((body as { action: string }).action === "code-request") {
+        setRequestSent(true);
+      }
       if ((body as { action: string }).action === "code-approve") {
         setInviteCode(null);
       }
@@ -424,7 +428,7 @@ export function FamilyPanel({
         </p>
       )}
       <form
-        className="stack"
+        className="stack family-action-panel"
         onSubmit={(e) => {
           e.preventDefault();
           void codeAction({ action: "code-request", code: joinCode });
@@ -434,17 +438,31 @@ export function FamilyPanel({
         <p className="muted small">{t("familyEnterCodeHint")}</p>
         <label>
           {t("familyInvitationCode")}
-          <input
-            ref={invitationCode}
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            inputMode="numeric"
-            autoComplete="off"
-            pattern="[0-9]{4}"
-            minLength={4}
-            maxLength={4}
-            required
-          />
+          <span className="family-code-entry">
+            <input
+              ref={invitationCode}
+              name="invitationCode"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              onPaste={(event) => {
+                event.preventDefault();
+                setJoinCode(event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4));
+              }}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{4}"
+              minLength={4}
+              maxLength={4}
+              required
+            />
+            <span className="family-code-boxes" aria-hidden="true">
+              {[0, 1, 2, 3].map((index) => (
+                <span key={index} data-next={index === Math.min(joinCode.length, 3)}>
+                  {joinCode[index] ?? ""}
+                </span>
+              ))}
+            </span>
+          </span>
         </label>
         <button className="button primary" disabled={busy || joinCode.length !== 4}>
           <UserPlus size={20} aria-hidden="true" />
@@ -452,12 +470,13 @@ export function FamilyPanel({
         </button>
       </form>
       <form
-        className="stack"
+        className="stack family-action-panel"
         onSubmit={(e) => {
           e.preventDefault();
           void action({ action: "create", name });
         }}
       >
+        <h4>{t("familyCreate")}</h4>
         <label>
           {t("familyName")}
           <input
@@ -489,7 +508,7 @@ export function FamilyPanel({
       </div>
       {!family && <p className="muted">{t("familyIntro")}</p>}
       {!account ? (
-        <button className="button primary" onClick={onSignIn}>
+        <button className="button primary" onClick={() => onSignIn()}>
           {t("familySignIn")}
         </button>
       ) : family ? (
@@ -863,6 +882,37 @@ export function FamilyPanel({
           <summary>{t("familyAnotherGroup")}</summary>
           {joinForms}
         </details>
+      )}
+      {requestSent && account && (
+        <Sheet
+          title={t("familyRequestSentTitle")}
+          closeLabel={t("close")}
+          onClose={() => setRequestSent(false)}
+        >
+          <div className="stack">
+            <p>{t("familyRequestSent")}</p>
+            <p>{t("familyRequestNameHint")}</p>
+            <div className="action-pair">
+              <button
+                className="button outline"
+                data-initial-focus
+                onClick={() => setRequestSent(false)}
+              >
+                {t("done")}
+              </button>
+              <button
+                className="button primary"
+                onClick={() => {
+                  setRequestSent(false);
+                  onSignIn(true);
+                }}
+              >
+                <Pencil size={20} aria-hidden="true" />
+                {t(account.displayName ? "changeDisplayName" : "setDisplayName")}
+              </button>
+            </div>
+          </div>
+        </Sheet>
       )}
       {confirmationTarget && confirmation && (
         <Sheet

@@ -67,8 +67,8 @@ for (const engine of [chromium, webkit]) {
         await chooseSection("familySharing");
         await expect(sheet.locator(".family-panel > p")).toHaveText(
           language === "sv"
-            ? "Dela platser med familjen eller grupper. Dina privata platser förblir privata."
-            : "Share places with family or groups. Your private places stay private.",
+            ? "Skapa eller gå med i en grupp för att dela platser. Dina privata platser förblir privata."
+            : "Create or join a group to share places. Your private places stay private.",
         );
         await checkAction(t("familySignIn"));
         await page.screenshot({ path: testInfo.outputPath("family-sharing.png") });

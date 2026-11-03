@@ -1,6 +1,7 @@
 import type { Preferences } from "../foundation/preferences";
 import { skins, type Skin } from "../foundation/appearance";
 import { activityEnabled, setActivityEnabled } from "../foundation/activity";
+import { MapAppIcon } from "./MapAppIcon";
 import { CategoryIcon } from "./CategoryAppearance";
 import { mapProviders } from "../foundation/map-providers";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -83,9 +84,10 @@ export function Settings({
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
   initial?: string;
-  familyPanel: (onSignIn: () => void) => ReactNode;
+  familyPanel: (onSignIn: (focusDisplayName?: boolean) => void) => ReactNode;
 }) {
   const [tab, setTab] = useState(initial);
+  const [focusDisplayName, setFocusDisplayName] = useState(false);
   const [reportActivity, setReportActivity] = useState(activityEnabled);
   useEffect(() => {
     const refresh = () => setReportActivity(activityEnabled());
@@ -111,6 +113,17 @@ export function Settings({
   }, []);
   const navigation = useRef<HTMLDivElement>(null);
   const tabs = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (tab !== "account" || !focusDisplayName) {
+      return;
+    }
+    const input = navigation.current?.parentElement?.querySelector<HTMLInputElement>(
+      'input[name="displayName"]',
+    );
+    input?.focus();
+    input?.scrollIntoView({ block: "nearest" });
+    setFocusDisplayName(false);
+  }, [tab, focusDisplayName]);
   const [compactNavigation, setCompactNavigation] = useState(true);
   const sections = ["preferences", "categories", "backup", "account", "familySharing"] as const;
   const activeSection = sections.includes(tab as Section) ? (tab as Section) : "preferences";
@@ -184,7 +197,11 @@ export function Settings({
           ))}
         </nav>
       </div>
-      {tab === "familySharing" && familyPanel(() => setTab("account"))}
+      {tab === "familySharing" &&
+        familyPanel((focusName = false) => {
+          setFocusDisplayName(focusName);
+          setTab("account");
+        })}
       {tab === "preferences" && (
         <div className="stack preferences-panel">
           <h3>{t("preferences")}</h3>
@@ -269,12 +286,24 @@ export function Settings({
             </label>
             <label className="preference-row">
               <span>{t("mapBackground")}</span>
-              <span className="preference-value" aria-hidden="true">
-                {t(preferences.mapBackground === "naturkartan" ? "naturkartan" : "openStreetMap")}
+              <span className="preference-value language-value" aria-hidden="true">
+                {preferences.mapBackground === "naturkartan" && (
+                  <img
+                    className="language-flag"
+                    src="/flags/se.svg"
+                    width="24"
+                    height="18"
+                    alt=""
+                  />
+                )}
+                <span>
+                  {t(preferences.mapBackground === "naturkartan" ? "naturkartan" : "openStreetMap")}
+                </span>
               </span>
               <ChevronRight size={20} aria-hidden="true" />
               <select
                 aria-label={t("mapBackground")}
+                className="language-select"
                 name="map-background"
                 value={preferences.mapBackground}
                 onChange={(e) =>
@@ -285,18 +314,34 @@ export function Settings({
                 }
               >
                 <option value="osm">{t("openStreetMap")}</option>
-                <option value="naturkartan">{t("naturkartan")}</option>
+                <option value="naturkartan">
+                  <img
+                    className="language-flag"
+                    src="/flags/se.svg"
+                    width="24"
+                    height="18"
+                    alt=""
+                  />
+                  {t("naturkartan")}
+                </option>
               </select>
             </label>
             <label className="preference-row">
               <span>{t("mapsPreference")}</span>
-              <span className="preference-value" aria-hidden="true">
-                {preferences.provider && mapProviders().includes(preferences.provider)
-                  ? t(preferences.provider)
-                  : t("chooseMaps")}
+              <span className="preference-value map-provider-value" aria-hidden="true">
+                {preferences.provider && mapProviders().includes(preferences.provider) ? (
+                  <>
+                    <MapAppIcon provider={preferences.provider} size={24} />
+                    <span>{t(preferences.provider)}</span>
+                  </>
+                ) : (
+                  t("chooseMaps")
+                )}
               </span>
               <ChevronRight size={20} aria-hidden="true" />
               <select
+                name="map-provider"
+                className="language-select"
                 value={
                   preferences.provider && mapProviders().includes(preferences.provider)
                     ? preferences.provider
@@ -312,6 +357,7 @@ export function Settings({
                 <option value="">{t("chooseMaps")}</option>
                 {mapProviders().map((k) => (
                   <option key={k} value={k}>
+                    <MapAppIcon provider={k} size={24} />
                     {t(k)}
                   </option>
                 ))}

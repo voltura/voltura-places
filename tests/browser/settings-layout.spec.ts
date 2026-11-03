@@ -1,6 +1,6 @@
 import { test, expect } from "./fixtures";
 
-test("first Settings and Family sharing opens are immediate and retain the selected section", async ({
+test("first Settings and Groups opens are immediate and retain the selected section", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -53,13 +53,11 @@ for (const [width, height, scale] of [
     if (await selector.isVisible()) {
       await selector.selectOption("familySharing");
     } else {
-      await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+      await page.getByRole("button", { name: "Groups", exact: true }).click();
     }
     const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
     await expect(
-      dialog.getByText(
-        "Share places with family or other groups. Each group has its own members and places. Your private places stay private.",
-      ),
+      dialog.getByText("Create or join a group to share places. Your private places stay private."),
     ).toBeVisible();
 
     const geometry = await dialog.evaluate((el) => {
@@ -116,7 +114,7 @@ for (const [width, height, scale] of [
       if (await selector.isVisible()) {
         await selector.selectOption("familySharing");
       } else {
-        await page.getByRole("button", { name: "Family sharing", exact: true }).click();
+        await page.getByRole("button", { name: "Groups", exact: true }).click();
       }
       await action.click();
       await expect(dialog.getByText("Not signed in", { exact: true })).toBeVisible();
@@ -147,9 +145,7 @@ test("backup actions adapt and the section selector uses the app theme", async (
   expect(second.x - first.x - first.width).toBeCloseTo(12);
   expect(first.y).toBe(second.y);
   await expect(page.getByText("Backup files are not encrypted.", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Keep data on this device", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Protect local data", exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 640 });
   await expect(selector).toBeVisible();
   expect((await actions.nth(1).boundingBox())!.y).toBeGreaterThan(
@@ -232,16 +228,19 @@ test("Preferences switch, disclosures and footer stay usable with enlarged text"
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   const toggle = page.getByRole("switch", {
-    name: "Review GPS accuracy before saving",
+    name: "Check GPS accuracy before saving",
     exact: true,
   });
   await expect(toggle).not.toBeChecked();
   await toggle.check();
   await expect(toggle).toBeChecked();
   await expect(
-    page.getByText("Refine the position before confirming. Turn off to save immediately.", {
-      exact: true,
-    }),
+    page.getByText(
+      "Wait or move around for better accuracy, then confirm. Turn off to save immediately.",
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible();
   for (const name of ["Install Places", "Privacy"]) {
     const row = page.locator("summary").filter({ hasText: name });
@@ -269,7 +268,7 @@ test("Preferences switch, disclosures and footer stay usable with enlarged text"
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
   await expect(
-    page.getByRole("switch", { name: "Review GPS accuracy before saving", exact: true }),
+    page.getByRole("switch", { name: "Check GPS accuracy before saving", exact: true }),
   ).toBeChecked();
 });
 
@@ -280,18 +279,18 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Settings", exact: true })).toBeVisible();
-  const rows = page.locator(".preference-row");
-  await expect(rows).toHaveCount(5);
+  const rows = page.locator(".preferences-options .preference-row");
+  await expect(rows).toHaveCount(6);
   await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("light");
   await expect(rows.nth(0).locator(".preference-value")).toHaveText("Light");
   await page
     .getByRole("combobox", { name: "Preferred map app", exact: true })
     .selectOption("apple");
-  await expect(rows.nth(3).locator(".preference-value")).toHaveText("Apple Maps");
+  await expect(rows.nth(4).locator(".preference-value")).toHaveText("Apple Maps");
   await page
     .getByRole("combobox", { name: "Distance units", exact: true })
     .selectOption("imperial");
-  await expect(rows.nth(4).locator(".preference-value")).toHaveText("Feet (ft)");
+  await expect(rows.nth(5).locator(".preference-value")).toHaveText("Feet (ft)");
   await page.getByRole("combobox", { name: "Color mode", exact: true }).selectOption("dark");
   await page.screenshot({ path: testInfo.outputPath("preference-rows-phone.png") });
   await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("sv");
@@ -311,8 +310,8 @@ test("grouped preference rows wrap and keep native selections in sync", async ({
   await page.reload();
   await page.getByRole("button", { name: "Inställningar", exact: true }).click();
   await expect(rows.nth(2).locator(".preference-value")).toHaveText("Svenska");
-  await expect(rows.nth(3).locator("select")).toHaveValue("apple");
-  await expect(rows.nth(4).locator("select")).toHaveValue("imperial");
+  await expect(rows.nth(4).locator("select")).toHaveValue("apple");
+  await expect(rows.nth(5).locator("select")).toHaveValue("imperial");
 });
 
 test.describe("mouse preference dropdowns", () => {
@@ -378,7 +377,7 @@ for (const [width, scale] of [
       ["categories", "Categories", "tag"],
       ["backup", "Backup & restore", "archive"],
       ["account", "Account & sync", "user"],
-      ["familySharing", "Family sharing", "users"],
+      ["familySharing", "Groups", "users"],
     ];
     for (const [key, label, icon] of sections) {
       await selector.selectOption(key);
@@ -427,7 +426,7 @@ test("tab navigation keeps a separate section heading", async ({ page }) => {
     "Categories",
     "Backup & restore",
     "Account & sync",
-    "Family sharing",
+    "Groups",
   ]) {
     await page
       .getByRole("navigation", { name: "Settings", exact: true })

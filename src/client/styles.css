@@ -1113,7 +1113,6 @@ hr {
   }
 }
 .onboarding-language select {
-  appearance: auto;
   min-height: 44px;
   min-width: 0;
   max-width: 100%;
@@ -2380,6 +2379,56 @@ details p {
 .family-invitation {
   gap: 12px;
 }
+.family-action-panel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--raised) 55%, var(--surface));
+}
+.family-action-panel > h4 {
+  margin: 0;
+}
+.family-code-entry {
+  position: relative;
+  display: block;
+  width: min(100%, 272px);
+  border-radius: 10px;
+}
+.family-code-entry input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: text;
+}
+.family-code-boxes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  pointer-events: none;
+}
+.family-code-boxes > span {
+  display: grid;
+  place-items: center;
+  min-height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.family-code-entry:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.family-code-entry:focus-within .family-code-boxes > [data-next="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
 
 /* Settings keeps its existing top anchor while only its body scrolls. */
 .sheet.settings-sheet {
@@ -3161,6 +3210,24 @@ details p {
     position-area: top span-left;
     margin-top: 0;
     margin-bottom: 6px;
+  }
+}
+.save-picker option svg {
+  display: none;
+}
+@supports (appearance: base-select) {
+  .save-picker option svg {
+    display: block;
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 700px) {
+  .save-picker option {
+    min-height: 60px;
+    padding: 16px 20px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.5;
   }
 }
 .split-picker:has(select:disabled) {
@@ -3960,12 +4027,6 @@ select option .category-icon {
     right: max(16px, env(safe-area-inset-right));
   }
 }
-.show-controls
-  ~ .app-main
-  .places-map-section:not(.places-map-preview)
-  .leaflet-bottom.leaflet-right {
-  bottom: var(--floating-controls-clearance, 64px);
-}
 @media (prefers-reduced-motion: reduce) {
   .auto-hide-dock,
   .auto-hide-dock.controls-hidden {
@@ -4394,4 +4455,14 @@ select option .category-icon {
 
 .save-controls[hidden] {
   display: none;
+}
+
+.map-provider-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.map-provider-value svg,
+select[name="map-provider"] option svg {
+  flex-shrink: 0;
 }

@@ -159,7 +159,7 @@ test("two signed-in family members share photos and offline saves while private 
     );
     await expect(invitation.getByRole("button", { name: "Copy code", exact: true })).toHaveCount(0);
     await expect(invitation.locator(".family-invitation > p")).toHaveText(
-      "They enter it in Family sharing. You approve.",
+      "They enter it in Settings → Groups. You approve.",
     );
     await a.page.evaluate(() => {
       const state = window as unknown as {
@@ -200,7 +200,7 @@ test("two signed-in family members share photos and offline saves while private 
     const beforeCopy = await invitation.boundingBox();
     const codeBeforeCopy = await codeBox.boundingBox();
     await codeBox.click();
-    await expect(invitation.getByRole("status")).toHaveText("Copied");
+    await expect(invitation.locator(".sr-only[role=status]")).toHaveText("Copied");
     await expect(codeBox.locator(".family-code-feedback")).toHaveText("Copied");
     await expect(codeBox.locator(".family-code-digits")).toBeHidden();
     expect(await codeBox.boundingBox()).toEqual(codeBeforeCopy);
@@ -209,10 +209,10 @@ test("two signed-in family members share photos and offline saves while private 
     expect(await a.page.evaluate(() => (window as unknown as { copied: string[] }).copied)).toEqual(
       [code],
     );
-    await expect(invitation.getByRole("status")).toBeEmpty({ timeout: 4000 });
+    await expect(invitation.locator(".sr-only[role=status]")).toBeEmpty({ timeout: 4000 });
     await expect(codeBox.locator(".family-code-digits")).toBeVisible();
     expect(await invitation.boundingBox()).toEqual(beforeCopy);
-    const message = `Join my group in Voltura Places. Enter code ${code} in Family sharing, then I’ll approve your request.`;
+    const message = `Join my group in Voltura Places. Enter code ${code} in Settings → Groups, then I’ll approve your request.`;
     // Desktop support uses the same native path as phones.
     await a.page.setViewportSize({ width: 1280, height: 900 });
     await invitation.getByRole("button", { name: "Share code", exact: true }).click();
@@ -238,7 +238,7 @@ test("two signed-in family members share photos and offline saves while private 
     expect(await a.page.evaluate(() => (window as unknown as { copied: string[] }).copied)).toEqual(
       [code, message],
     );
-    await expect(invitation.getByRole("status")).toBeEmpty({ timeout: 4000 });
+    await expect(invitation.locator(".sr-only[role=status]")).toBeEmpty({ timeout: 4000 });
     await a.page.evaluate(() => {
       (window as unknown as { shareSupport: boolean; sharing: string }).shareSupport = true;
       (window as unknown as { sharing: string }).sharing = "success";
@@ -271,7 +271,7 @@ test("two signed-in family members share photos and offline saves while private 
       document.documentElement.style.fontSize = "100%";
     });
     await a.page.setViewportSize({ width: 390, height: 844 });
-    await expect(invitation.getByRole("status")).toBeEmpty({ timeout: 4000 });
+    await expect(invitation.locator(".sr-only[role=status]")).toBeEmpty({ timeout: 4000 });
     await a.page.screenshot({ path: testInfo.outputPath("family-code.png") });
     await a.page
       .getByRole("dialog", { name: "Invite member", exact: true })
@@ -313,6 +313,9 @@ test("two signed-in family members share photos and offline saves while private 
     );
     await b.page.getByRole("textbox", { name: "Invitation code", exact: true }).fill(code);
     await b.page.getByRole("button", { name: "Request to join", exact: true }).click();
+    const sentRequest = b.page.getByRole("dialog", { name: "Request sent", exact: true });
+    await expect(sentRequest).toBeVisible();
+    await sentRequest.getByRole("button", { name: "Done", exact: true }).click();
     await expect(b.page.locator(".family-panel").getByRole("status")).toContainText("Request sent");
     await b.page.screenshot({ path: testInfo.outputPath("family-code-request.png") });
     await expect(

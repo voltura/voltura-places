@@ -108,7 +108,7 @@ for (const engine of [chromium, webkit]) {
   });
 }
 
-test("guest Family sharing retains the sign-in requirement", async ({ page }) => {
+test("guest Groups retains the sign-in requirement", async ({ page }) => {
   await page.route("**/api/**", (route) => route.abort());
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();

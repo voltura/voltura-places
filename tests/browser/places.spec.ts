@@ -390,7 +390,7 @@ for (const [width, height, textScale] of [
       "Kategorier",
       "Säkerhetskopiering",
       "Konto och synkronisering",
-      "Familjedelning",
+      "Grupper",
       "Utseende och språk",
     ]) {
       await page
