@@ -1024,7 +1024,6 @@ hr {
 .language-value {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
 }
 @supports (appearance: base-select) {
