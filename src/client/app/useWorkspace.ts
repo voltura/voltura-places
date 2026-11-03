@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cachedFamily, fetchFamily, storeFamilies } from "../foundation/family";
-import { channel, readWorkspace, type Workspace } from "../foundation/library";
+import { channel, readWorkspace, removeWorkspace, type Workspace } from "../foundation/library";
 import type { AccountState } from "../foundation/account-contract";
 import { visitOwner } from "../../shared/visits";
-import { workspaceIdentity, type Family } from "../../shared/families";
+import { familyKey, workspaceIdentity, type Family } from "../../shared/families";
 import type { Session } from "./useSession";
 
 // Older tabs send an unscoped notification. They must still refresh every subscriber.
@@ -48,13 +48,13 @@ export function useWorkspace(
   const callbacks = useRef({ onTransition, onStorageError });
   callbacks.current = { onTransition, onStorageError };
   const updateFamilies = useCallback(
-    (families: Family[]) => {
+    (families: Family[], discardedGroup?: string) => {
       const id = operations.account;
       if (!id) {
         return;
       }
       familyRequest.current++;
-      const next = storeFamilies(id, families, cache.current);
+      const next = storeFamilies(id, families, cache.current, discardedGroup);
       if (next === cache.current) {
         return;
       }
@@ -264,9 +264,24 @@ export function useWorkspace(
     refresh,
     changeAccount,
     switchLibrary,
-    familyChanged: (families: Family[]) => {
+    familyChanged: (families: Family[], deletedGroup?: string) => {
       if (renderedAccount.isCurrent()) {
-        updateFamilies(families);
+        const account = operations.account;
+        const discardedGroup =
+          deletedGroup && !families.some((group) => group.id === deletedGroup)
+            ? deletedGroup
+            : undefined;
+        updateFamilies(families, discardedGroup);
+        if (account && discardedGroup) {
+          if (workspaceIdentity(operations.workspace).family === discardedGroup) {
+            switchLibrary(account);
+          }
+          void removeWorkspace(familyKey(account, discardedGroup)).catch(() => {
+            if (renderedAccount.isCurrent()) {
+              callbacks.current.onStorageError();
+            }
+          });
+        }
       }
     },
     membershipAction: (pending: boolean) => {

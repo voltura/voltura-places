@@ -32,6 +32,8 @@ type Props = {
   workspace: string;
   canWrite: boolean;
   title?: string;
+  compactHeader?: boolean;
+  headerActions?: ReactNode;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -73,6 +75,8 @@ export function LibraryView({
   workspace,
   canWrite,
   title,
+  compactHeader,
+  headerActions,
   t,
   places,
   filtered,
@@ -146,22 +150,28 @@ export function LibraryView({
       className={`app-main${current ? "" : " library-only"}${view === "map" ? " map-view" : ""}`}
     >
       <section className="library-pane">
-        {places.length > 0 && (
+        {compactHeader && places.length > 0 && <h1 className="sr-only">{title ?? t("library")}</h1>}
+        {((places.length > 0 && !compactHeader) || headerActions) && (
           <div className="library-title">
-            <h1>
-              {title ?? t("library")}
-              <span className="count">{places.length}</span>
-            </h1>
-            <Tooltip text={t("manual")}>
-              <button
-                className="icon-button add-manual"
-                disabled={!canWrite}
-                onClick={() => setEditor({})}
-                aria-label={t("manual")}
-              >
-                <Plus />
-              </button>
-            </Tooltip>
+            {places.length > 0 && !compactHeader && (
+              <h1>
+                {title ?? t("library")}
+                <span className="count">{places.length}</span>
+              </h1>
+            )}
+            {headerActions}
+            {places.length > 0 && !compactHeader && (
+              <Tooltip text={t("manual")}>
+                <button
+                  className="icon-button add-manual"
+                  disabled={!canWrite}
+                  onClick={() => setEditor({})}
+                  aria-label={t("manual")}
+                >
+                  <Plus />
+                </button>
+              </Tooltip>
+            )}
           </div>
         )}
         {places.length > 0 && (

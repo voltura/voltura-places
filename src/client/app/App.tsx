@@ -30,6 +30,7 @@ import {
   UserRound,
   CircleArrowUp,
   PanelBottomOpen,
+  Plus,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
@@ -586,12 +587,26 @@ export function App() {
         </div>
       </header>
       {account.account && (
-        <div className="library-switcher">
+        <div
+          className={`library-switcher${mobile && places.length > 0 ? " library-switcher-with-add" : ""}`}
+        >
           <LibrarySelector
             value={scope}
             privateValue={account.account.id}
             privateLabel={t("privateLibrary")}
             label={t("libraryChoice")}
+            count={
+              search.trim() || filter !== "all" || visitFilter !== "all"
+                ? `${filtered.length} / ${places.length}`
+                : `${places.length}`
+            }
+            countLabel={
+              search.trim() || filter !== "all" || visitFilter !== "all"
+                ? t("matchingPlacesCount")
+                    .replace("{matching}", `${filtered.length}`)
+                    .replace("{total}", `${places.length}`)
+                : t("placesCount").replace("{total}", `${places.length}`)
+            }
             open={!!libraryOpen}
             placement={libraryOpen === "dock" ? "dock" : "selector"}
             onOpenChange={changeLibraryOpen}
@@ -602,15 +617,34 @@ export function App() {
             joinGroupLabel={t("familyJoinWithCode")}
             onJoinGroup={() => setSettings("joinGroup")}
           />
+          {mobile && places.length > 0 && (
+            <Tooltip text={t("manual")}>
+              <button
+                className="icon-button add-manual"
+                disabled={!canWrite}
+                onClick={() => {
+                  if (canWrite) {
+                    setEditor({});
+                  }
+                }}
+                aria-label={t("manual")}
+              >
+                <Plus aria-hidden="true" />
+              </button>
+            </Tooltip>
+          )}
         </div>
       )}
-      {selectedFamily && (
+      {selectedFamily && (!mobile || !canWrite) && (
         <div className="shared-library-notice">
           <p>{t(canWrite ? "familyLibraryHint" : "familyReadonly")}</p>
           {canWrite && selectedGroup && (
             <button className="button outline" onClick={() => setSettings("participants")}>
               <Users size={20} />
-              {t("groupMembers")} · {selectedGroup.members.length}
+              {t(selectedGroup.members.length === 1 ? "groupMember" : "groupMembers").replace(
+                "{count}",
+                `${selectedGroup.members.length}`,
+              )}
             </button>
           )}
         </div>
@@ -620,6 +654,21 @@ export function App() {
         onAdded={(text) => setNotice({ text })}
       />
       <LibraryView
+        compactHeader={mobile && !!account.account}
+        headerActions={
+          mobile && canWrite && selectedGroup ? (
+            <button
+              className="button outline library-members"
+              onClick={() => setSettings("participants")}
+            >
+              <Users size={20} aria-hidden="true" />
+              {t(selectedGroup.members.length === 1 ? "groupMember" : "groupMembers").replace(
+                "{count}",
+                `${selectedGroup.members.length}`,
+              )}
+            </button>
+          ) : undefined
+        }
         onBrowse={controls.browse}
         view={libraryView}
         setView={setLibraryView}

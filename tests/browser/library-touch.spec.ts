@@ -45,11 +45,12 @@ for (const engine of [chromium, webkit]) {
         await expect(menu).toBeVisible();
         await menu.getByRole("button", { name: destination, exact: true }).tap();
         await expect(menu).toBeHidden();
-        await expect(selector).toHaveText(destination);
+        await expect(selector.locator("span").first()).toHaveText(destination);
+        await expect(selector.locator(".library-selector-count")).toHaveText("0");
         await expect(page.locator(".save-destination")).toHaveText(destination);
       }
       await page.reload();
-      await expect(selector).toHaveText("Private places");
+      await expect(selector.locator("span").first()).toHaveText("Private places");
       await expect(page.locator(".save-destination")).toHaveText("Private places");
     } finally {
       if (familyId) {

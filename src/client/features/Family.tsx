@@ -47,7 +47,7 @@ type Props = {
   account: Account | null;
   cache: FamilyCache;
   t: (key: Message) => string;
-  onChanged: (families: Family[]) => void;
+  onChanged: (families: Family[], deletedGroup?: string) => void;
   onOpen: (id: string) => void;
   onSignIn: () => void;
   onExport: (id: string) => void;
@@ -103,6 +103,11 @@ export function FamilyPanel({
   const [copied, setCopied] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [renameName, setRenameName] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    familyId: string;
+    memberId?: string;
+    action: "remove" | "transfer" | "delete" | "discard";
+  } | null>(null);
   const [renamed, setRenamed] = useState(false);
   const [inviteCode, setInviteCode] = useState<{
     code: string;
@@ -180,6 +185,37 @@ export function FamilyPanel({
 
   const [selectedGroup, setSelectedGroup] = useState(preferredGroup ?? cache.families[0]?.id ?? "");
   const family = cache.families.find((f) => f.id === selectedGroup) ?? cache.families[0] ?? null;
+  const confirmationTarget =
+    confirmation?.action === "discard"
+      ? account && !cache.families.some((group) => group.id === confirmation.familyId)
+        ? cache.inactive.find((group) => group.id === confirmation.familyId) && {
+            id: confirmation.familyId,
+            label: cache.inactive.find((group) => group.id === confirmation.familyId)!.name,
+          }
+        : undefined
+      : account && family?.ownerId === account.id && confirmation?.familyId === family.id
+        ? confirmation.action === "delete"
+          ? { id: family.id, label: family.name }
+          : family.members.find(
+              (member) => member.id === confirmation.memberId && member.id !== account.id,
+            )
+        : undefined;
+  const confirmationTitle: Message =
+    confirmation?.action === "discard"
+      ? "familyRemoveLocal"
+      : confirmation?.action === "delete"
+        ? "familyDelete"
+        : confirmation?.action === "remove"
+          ? "familyRemoveMember"
+          : "familyMakeOwner";
+  const confirmationBody: Message =
+    confirmation?.action === "discard"
+      ? "familyRemoveLocalConfirm"
+      : confirmation?.action === "delete"
+        ? "familyDeleteConfirm"
+        : confirmation?.action === "remove"
+          ? "familyRemoveConfirm"
+          : "familyTransferConfirm";
   const selectedGroupRef = useRef(family?.id);
   selectedGroupRef.current = family?.id;
   const waiting = useRef(false);
@@ -207,9 +243,10 @@ export function FamilyPanel({
     setInviteOpen(false);
     setCopied(false);
     setRenameName(null);
+    setConfirmation(null);
     setError(null);
     setRenamed(false);
-  }, [family?.id]);
+  }, [family?.id, account?.id]);
   useEffect(() => {
     if (!focusParticipants) {
       return;
@@ -356,7 +393,12 @@ export function FamilyPanel({
     setError(null);
     try {
       const response = familyStateSchema.parse(await api("/api/family", scoped(body), account.id));
-      onChanged(response.families);
+      const deletedGroup =
+        (body as { action: string }).action === "delete" ? family?.id : undefined;
+      if (deletedGroup && response.families.some((group) => group.id === deletedGroup)) {
+        throw new Error("serviceUnavailable");
+      }
+      onChanged(response.families, deletedGroup);
       if ((body as { action: string }).action === "create" && response.familyId) {
         setSelectedGroup(response.familyId);
         setName("");
@@ -544,6 +586,25 @@ export function FamilyPanel({
           <h4 id="family-participants" ref={participantsHeading} tabIndex={-1}>
             {t("familyParticipants")} · {family.members.length}/10
           </h4>
+          {family.ownerId === account.id && (
+            <button
+              className="button outline"
+              disabled={busy || family.members.length >= 10}
+              onClick={() => {
+                setError(null);
+                setInviteOpen(true);
+                if (
+                  !inviteCode ||
+                  (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())
+                ) {
+                  void createCode();
+                }
+              }}
+            >
+              <UserPlus size={20} />
+              {t("familyCreateCode")}
+            </button>
+          )}
           <ul className="family-members" aria-labelledby="family-participants">
             {family.members.map((member) => (
               <li key={member.id}>
@@ -567,9 +628,12 @@ export function FamilyPanel({
                       aria-label={`${t("familyMakeOwner")} · ${member.label}`}
                       disabled={busy}
                       onClick={() => {
-                        if (confirm(`${member.label}\n\n${t("familyTransferConfirm")}`)) {
-                          void action({ action: "transfer", member: member.id });
-                        }
+                        setError(null);
+                        setConfirmation({
+                          familyId: family.id,
+                          memberId: member.id,
+                          action: "transfer",
+                        });
                       }}
                     >
                       <KeyRound size={20} aria-hidden="true" />
@@ -580,9 +644,12 @@ export function FamilyPanel({
                       disabled={busy}
                       aria-label={`${t("familyRemoveMember")} · ${member.label}`}
                       onClick={() => {
-                        if (confirm(`${member.label}\n\n${t("familyRemoveConfirm")}`)) {
-                          void action({ action: "remove", member: member.id });
-                        }
+                        setError(null);
+                        setConfirmation({
+                          familyId: family.id,
+                          memberId: member.id,
+                          action: "remove",
+                        });
                       }}
                     >
                       <UserMinus size={20} aria-hidden="true" />
@@ -628,23 +695,6 @@ export function FamilyPanel({
                   ))}
                 </div>
               )}
-              <button
-                className="button outline"
-                disabled={busy || family.members.length >= 10}
-                onClick={() => {
-                  setError(null);
-                  setInviteOpen(true);
-                  if (
-                    !inviteCode ||
-                    (inviteCode.expiresAt !== 0 && inviteCode.expiresAt <= Date.now())
-                  ) {
-                    void createCode();
-                  }
-                }}
-              >
-                <UserPlus size={20} />
-                {t("familyCreateCode")}
-              </button>
               {inviteOpen && (
                 <Sheet
                   title={t("familyCreateCode")}
@@ -747,9 +797,8 @@ export function FamilyPanel({
                   className="button danger"
                   disabled={busy}
                   onClick={() => {
-                    if (confirm(t("familyDeleteConfirm"))) {
-                      void action({ action: "delete" });
-                    }
+                    setError(null);
+                    setConfirmation({ familyId: family.id, action: "delete" });
                   }}
                 >
                   <Trash2 size={20} aria-hidden="true" />
@@ -787,6 +836,17 @@ export function FamilyPanel({
               <Download size={20} aria-hidden="true" />
               {t("familyExportLocal")}
             </button>
+            <button
+              className="button danger"
+              disabled={busy}
+              onClick={() => {
+                setError(null);
+                setConfirmation({ familyId: group.id, action: "discard" });
+              }}
+            >
+              <Trash2 size={20} aria-hidden="true" />
+              {t("familyRemoveLocal")}
+            </button>
           </div>
         ))}
       {account && family && (
@@ -804,7 +864,84 @@ export function FamilyPanel({
           {joinForms}
         </details>
       )}
-      {error && !inviteOpen && renameName === null && (
+      {confirmationTarget && confirmation && (
+        <Sheet
+          title={t(confirmationTitle)}
+          closeLabel={t("close")}
+          onClose={() => {
+            if (!busy) {
+              setConfirmation(null);
+              setError(null);
+            }
+          }}
+        >
+          <div className="stack">
+            <p>
+              <strong>{confirmationTarget.label}</strong>
+            </p>
+            <p>{t(confirmationBody)}</p>
+            {error && (
+              <p className="error" role="alert">
+                {t(error)}
+              </p>
+            )}
+            <div className="action-pair">
+              <button
+                className="button outline subdued"
+                data-initial-focus
+                disabled={busy}
+                onClick={() => {
+                  setConfirmation(null);
+                  setError(null);
+                }}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                className={
+                  confirmation.action === "transfer" ? "button primary" : "button danger confirm"
+                }
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    actionPending.current ||
+                    (confirmation.action !== "discard" &&
+                      selectedGroupRef.current !== confirmation.familyId)
+                  ) {
+                    return;
+                  }
+                  if (confirmation.action === "discard") {
+                    onChanged(cache.families, confirmation.familyId);
+                    setConfirmation(null);
+
+                    return;
+                  }
+                  if (
+                    await action({
+                      action: confirmation.action,
+                      ...(confirmation.action !== "delete"
+                        ? { member: confirmationTarget.id }
+                        : {}),
+                    })
+                  ) {
+                    setConfirmation(null);
+                  }
+                }}
+              >
+                {confirmation.action === "delete" || confirmation.action === "discard" ? (
+                  <Trash2 size={20} aria-hidden="true" />
+                ) : confirmation.action === "remove" ? (
+                  <UserMinus size={20} aria-hidden="true" />
+                ) : (
+                  <KeyRound size={20} aria-hidden="true" />
+                )}
+                {t(busy ? "working" : confirmationTitle)}
+              </button>
+            </div>
+          </div>
+        </Sheet>
+      )}
+      {error && !inviteOpen && !confirmationTarget && renameName === null && (
         <p role="alert" className="error">
           {t(error)}
         </p>

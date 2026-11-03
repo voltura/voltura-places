@@ -46,6 +46,7 @@ export function Sheet({
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }}
       onPointerDownCapture={(e) => {

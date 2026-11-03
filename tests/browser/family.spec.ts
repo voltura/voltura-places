@@ -74,12 +74,15 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page.getByRole("textbox", { name: "Group name", exact: true }).fill("Forest family");
     await a.page.getByRole("button", { name: "Create group", exact: true }).click();
     await expect(
-      a.page.getByRole("button", { name: "Open shared places", exact: true }),
+      a.page.getByRole("button", { name: "Show group places", exact: true }),
     ).toBeVisible();
     await expect(
-      a.page.getByText("Members can add, edit and delete shared places and photos.", {
-        exact: true,
-      }),
+      a.page.getByText(
+        "Each group has its own members and places. Members can add, edit and delete shared places and photos.",
+        {
+          exact: true,
+        },
+      ),
     ).toBeVisible();
     await expect(
       a.page.getByText("Share places with family or other groups.", { exact: false }),
@@ -294,7 +297,7 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("button", { name: "Forest family", exact: true })
       .click();
     await expect(
-      a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
+      a.page.locator(".library-selector-label").filter({ hasText: /Forest family\s*1/ }),
     ).toBeVisible();
     await b.page.goto("/");
     await expect(b.page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();
@@ -323,9 +326,9 @@ test("two signed-in family members share photos and offline saves while private 
     await joinPrompt.getByRole("button", { name: "Approve", exact: true }).click();
     await expect(joinPrompt).toBeHidden();
     await b.page.clock.fastForward(5000);
-    await b.page.getByRole("button", { name: "Open shared places", exact: true }).click();
+    await b.page.getByRole("button", { name: "Show group places", exact: true }).click();
     await expect(
-      b.page.getByRole("heading", { name: "Forest family 1", exact: true }),
+      b.page.locator(".library-selector-label").filter({ hasText: /Forest family\s*1/ }),
     ).toBeVisible();
     await b.page
       .getByRole("button", { name: "Edit place: Private chanterelles", exact: true })
@@ -364,7 +367,7 @@ test("two signed-in family members share photos and offline saves while private 
     await a.context.setOffline(true);
     await a.page.reload();
     await expect(
-      a.page.getByRole("heading", { name: "Forest family 1", exact: true }),
+      a.page.locator(".library-selector-label").filter({ hasText: /Forest family\s*1/ }),
     ).toBeVisible();
     // Refresh the emulated provider after the lengthy sharing sequence. This
     // fixture checks offline durability rather than real GPS acquisition.
@@ -376,7 +379,7 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
     await a.page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await expect(
-      a.page.getByRole("heading", { name: "Forest family 2", exact: true }),
+      a.page.locator(".library-selector-label").filter({ hasText: /Forest family\s*2/ }),
     ).toBeVisible();
     await a.context.setOffline(false);
     await expect(a.page.getByRole("button", { name: "Account & sync", exact: true })).toContainText(
@@ -466,13 +469,13 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("group", { name: "Choose group", exact: true })
       .getByRole("button", { name: "Forest family", exact: true })
       .click();
-    await b.page.getByRole("button", { name: "Members · 2", exact: true }).click();
+    await b.page.getByRole("button", { name: "2 members", exact: true }).click();
     await expect(
       b.page.getByRole("list", { name: "Members · 2/10" }).getByRole("listitem"),
     ).toHaveCount(2);
     await expect(b.page.getByRole("button", { name: /Remove member/ })).toHaveCount(0);
     await b.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
-    await a.page.getByRole("button", { name: "Members · 2", exact: true }).click();
+    await a.page.getByRole("button", { name: "2 members", exact: true }).click();
     const participants = a.page.getByRole("list", { name: "Members · 2/10" });
     await expect(participants.getByText("Owner · You", { exact: true })).toBeVisible();
     for (const [width, scale] of [
@@ -507,14 +510,13 @@ test("two signed-in family members share photos and offline saves while private 
       name: /^Remove member/,
       exact: true,
     });
-    a.page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("family-1@example.invalid");
-      await dialog.dismiss();
-    });
     await remove.click();
+    const removeConfirmation = a.page.getByRole("dialog", { name: "Remove member", exact: true });
+    await expect(removeConfirmation).toContainText("family-1@example.invalid");
+    await removeConfirmation.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(participants.getByRole("listitem")).toHaveCount(2);
-    a.page.once("dialog", (dialog) => dialog.accept());
     await remove.click();
+    await removeConfirmation.getByRole("button", { name: "Remove member", exact: true }).click();
     await expect(
       a.page.getByRole("list", { name: "Members · 1/10" }).getByRole("listitem"),
     ).toHaveCount(1);
@@ -527,9 +529,11 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("group", { name: "Choose group", exact: true })
       .getByRole("button", { name: "Mother and family", exact: true })
       .click();
-    await a.page.getByRole("button", { name: "Members · 2", exact: true }).click();
+    await a.page.getByRole("button", { name: "2 members", exact: true }).click();
     await expect(
-      a.page.getByRole("heading", { name: "Mother and family", exact: true }),
+      a.page
+        .getByRole("dialog", { name: "Settings", exact: true })
+        .getByRole("heading", { name: "Mother and family", exact: true }),
     ).toBeVisible();
     await expect(
       a.page.getByRole("list", { name: "Members · 2/10" }).getByRole("listitem"),

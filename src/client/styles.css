@@ -1301,8 +1301,10 @@ details p {
   border-radius: 13px;
 }
 .account-summary > div {
-  display: grid;
-  gap: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 12px;
   min-width: 0;
 }
 .account-summary strong {
@@ -2203,9 +2205,17 @@ details p {
   gap: 16px;
 }
 .family-members li {
-  padding: 8px 0;
+  padding: 12px 8px;
+  min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface-bottom) 85%);
+  box-shadow:
+    inset 0 1px 0 var(--edge-light),
+    0 3px 10px var(--elevation);
   overflow-wrap: anywhere;
 }
 .family-group-name {
@@ -2845,6 +2855,12 @@ details p {
   position: relative;
   min-width: 0;
 }
+.library-switcher-with-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+}
 .library-selector-label {
   width: 100%;
   color: var(--text);
@@ -2852,7 +2868,7 @@ details p {
   cursor: pointer;
   line-height: 1.4;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 20px;
+  grid-template-columns: 22px minmax(0, 1fr) auto 20px;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
@@ -2874,6 +2890,21 @@ details p {
 .library-selector-label:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -3px;
+}
+.library-selector-label .library-selector-count {
+  display: block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.library-members {
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+.library-title > .tooltip-trigger {
+  margin-inline-start: auto;
 }
 .library-selector-label > svg,
 .library-option > svg {

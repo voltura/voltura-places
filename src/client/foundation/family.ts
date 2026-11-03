@@ -9,6 +9,7 @@ import { api } from "./http";
 export type FamilyCache = {
   families: Family[];
   inactive: Family[];
+  discarded?: string[];
 };
 
 const empty = (): FamilyCache => ({ families: [], inactive: [] });
@@ -41,13 +42,23 @@ function decodeFamily(raw: string | null): FamilyCache {
     }
     const value = JSON.parse(raw);
     if (Array.isArray(value.families)) {
+      const discarded = Array.isArray(value.discarded)
+        ? value.discarded.filter(
+            (id: unknown): id is string => familySchema.shape.id.safeParse(id).success,
+          )
+        : [];
       const seen = new Set<string>();
-      const families = readGroups(value.families, seen);
-      const inactive = readGroups(value.inactive, seen).map(archivedFamily);
+      const families = readGroups(value.families, seen).filter(
+        (group) => !discarded.includes(group.id),
+      );
+      const inactive = readGroups(value.inactive, seen)
+        .filter((group) => !discarded.includes(group.id))
+        .map(archivedFamily);
 
       return {
         families,
         inactive,
+        ...(discarded.length ? { discarded } : {}),
       };
     }
     const family = familySchema.nullable().parse(value.family);
@@ -73,6 +84,7 @@ export function storeFamilies(
   account: string,
   families: Family[],
   previous = cachedFamily(account),
+  discardedGroup?: string,
 ) {
   const serialized = JSON.stringify(families);
   const saved = savedFamilies.get(previous);
@@ -81,21 +93,28 @@ export function storeFamilies(
   try {
     raw = localStorage.getItem(key);
   } catch {}
-  if (saved?.active === serialized && saved.encoded === raw) {
+  if (!discardedGroup && saved?.active === serialized && saved.encoded === raw) {
     return previous;
   }
   const disk = raw && raw !== saved?.encoded ? decodeFamily(raw) : empty();
+  const discarded = new Set([
+    ...(previous.discarded ?? []),
+    ...(disk.discarded ?? []),
+    ...(discardedGroup ? [discardedGroup] : []),
+  ]);
+  families = families.filter((group) => !discarded.has(group.id));
   const ids = new Set(families.map((f) => f.id));
   const inactive = [
     ...previous.inactive,
     ...disk.inactive,
     ...disk.families,
     ...previous.families,
-  ].filter((f) => !ids.has(f.id));
+  ].filter((f) => !ids.has(f.id) && !discarded.has(f.id));
   const unique = [...new Map(inactive.map((f) => [f.id, f])).values()].map(archivedFamily);
   const value: FamilyCache = {
     families,
     inactive: unique,
+    ...(discarded.size ? { discarded: [...discarded] } : {}),
   };
   try {
     const encoded = JSON.stringify(value);

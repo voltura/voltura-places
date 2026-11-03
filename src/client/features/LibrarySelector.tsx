@@ -6,6 +6,8 @@ export function LibrarySelector({
   privateValue,
   privateLabel,
   label,
+  count,
+  countLabel,
   groups,
   onChange,
   open,
@@ -20,6 +22,8 @@ export function LibrarySelector({
   privateValue: string;
   privateLabel: string;
   label: string;
+  count: string;
+  countLabel: string;
   groups: { value: string; label: string }[];
   onChange: (value: string) => void;
   open: boolean;
@@ -140,7 +144,7 @@ export function LibrarySelector({
         ref={trigger}
         className="library-selector-label"
         aria-label={label}
-        aria-description={selected}
+        aria-description={`${selected} · ${countLabel}`}
         aria-controls={open ? menuId : undefined}
         aria-expanded={open && placement === "selector"}
         onClick={() => onOpenChange(!open)}
@@ -153,6 +157,9 @@ export function LibrarySelector({
       >
         <Icon size={22} aria-hidden="true" />
         <span>{selected}</span>
+        <span className="library-selector-count" aria-hidden="true">
+          {count}
+        </span>
         <ChevronDown size={20} aria-hidden="true" />
       </button>
       {open && (

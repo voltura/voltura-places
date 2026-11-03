@@ -8,6 +8,7 @@ import {
   copyPlaceToWorkspace,
   readWorkspace,
   removeAccountWorkspaces,
+  removeWorkspace,
   setDraft,
   getDraft,
   flushDrafts,
@@ -245,6 +246,91 @@ test("archiving a group removes cached participant and applicant identities whil
     expect(raw).not.toContain("former-owner");
     expect(raw).not.toContain("invitationVersion");
     expect(cachedFamily("member").inactive[0]).toMatchObject({ id: group.id, name: "Library" });
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("deliberately deleted groups stay discarded across stale caches without hiding other recovery copies", () => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  });
+  const account = crypto.randomUUID();
+  const deleted = {
+    id: crypto.randomUUID(),
+    name: "Deleted",
+    ownerId: account,
+    members: [],
+    requests: [],
+  };
+  const retained = { ...deleted, id: crypto.randomUUID(), name: "Retained" };
+  try {
+    const stale = storeFamilies(account, [deleted, retained]);
+    const after = storeFamilies(account, [retained], stale, deleted.id);
+    expect(after.inactive).toEqual([]);
+    expect(after.discarded).toEqual([deleted.id]);
+    const later = storeFamilies(account, [], stale);
+    expect(later.inactive.map((group) => group.id)).toEqual([retained.id]);
+    expect(later.discarded).toEqual([deleted.id]);
+    const staleResponse = storeFamilies(account, [deleted, retained], stale);
+    expect(staleResponse.families.map((group) => group.id)).toEqual([retained.id]);
+    expect(cachedFamily(account).inactive).toEqual([]);
+    values.set(`places-workspace:${account}`, familyKey(account, deleted.id));
+    expect(initialWorkspace(account)).toBe(account);
+    expect(cachedFamily(crypto.randomUUID()).discarded).toBeUndefined();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("deleting one local group copy removes its records, draft and photos while preserving other partitions", async () => {
+  vi.stubGlobal("window", new EventTarget());
+  const account = crypto.randomUUID();
+  const group = crypto.randomUUID();
+  const key = familyKey(account, group);
+  const sibling = familyKey(account, crypto.randomUUID());
+  const otherAccount = familyKey(crypto.randomUUID(), group);
+  const photoId = crypto.randomUUID();
+  const place = {
+    id: crypto.randomUUID(),
+    kind: "place" as const,
+    value: {
+      name: "Fixture",
+      categoryId: "other",
+      latitude: 0,
+      longitude: 0,
+      accuracy: null,
+      capturedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+  try {
+    for (const workspace of [key, sibling, otherAccount, account]) {
+      await saveEntity(workspace, place);
+      await setDraft(workspace, { name: "Fixture draft" });
+      await putPhotos([
+        await makeStoredPhoto(
+          workspace,
+          photoId,
+          new Blob([await readFile("tests/fixtures/photo.jpg")]),
+        ),
+      ]);
+    }
+    await removeWorkspace(key);
+    expect((await readWorkspace(key)).records.some((record) => record.kind === "place")).toBe(
+      false,
+    );
+    expect(await getDraft(key)).toBeUndefined();
+    expect(await getPhoto(key, photoId)).toBeUndefined();
+    for (const workspace of [sibling, otherAccount, account]) {
+      expect(
+        (await readWorkspace(workspace)).records.some((record) => record.id === place.id),
+      ).toBe(true);
+      expect(await getDraft(workspace)).toBeDefined();
+      expect(await getPhoto(workspace, photoId)).toBeDefined();
+    }
   } finally {
     vi.unstubAllGlobals();
   }
