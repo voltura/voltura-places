@@ -1,3 +1,9 @@
+# Save-bar bottom bounce, 3 November 2026 (0.1.28)
+
+The user reported the auto-hidden save bar reappearing and bouncing the list near its end on an iPhone 17 Pro Max. Scroll tracking now clamps both edges to the document's scroll range and rebases when that range changes. Returning from elastic overscroll and document-end clamping no longer count as upward browsing. The existing upward-scroll and explicit pill restoration remain available.
+
+An isolated shared-preview check reproduced restoration with unbounded direction handling and kept the bar hidden after the fix through repeated simulated bottom bounces in Chromium and WebKit. The rendered final card and floating pill were visually inspected on the shared 5173 preview using isolated guest data. All four focused Chromium/WebKit phone/desktop browser scenarios pass, covering repeated bottom bounce, real upward restoration, pill activation, blocked hiding, map gestures and the final card at enlarged text. Formatting, the static check, all 337 unit/data tests and the production build pass. Browser checks simulate elastic scroll coordinates; they do not establish physical-iPhone or installed-PWA behavior. Physical-iPhone confirmation remains open. The owner requested production publication to test on the affected iPhone; the exact validated clean-main commit is published through the Sites app publisher.
+
 # Release 0.1.27, 3 November 2026
 
 This release includes all pending group confirmation, local-copy cleanup, member panel and compact phone library/count changes recorded below. The owner requested immediate publication of all local changes. The release supersedes the local/unpublished status of its included historical entries.

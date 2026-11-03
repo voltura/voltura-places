@@ -111,6 +111,40 @@ for (const engine of [chromium, webkit]) {
         await page.screenshot({
           path: `.artifacts/auto-hide-${engine.name()}-${desktop ? "desktop" : "phone"}.png`,
         });
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        await expect(reveal).toBeVisible();
+        // iPhone Safari reports scrollY past the bottom during rubber-banding.
+        // Emulate those values because desktop WebKit has no native iOS bounce.
+        const stayedHidden = await page.evaluate(async () => {
+          const bottom = window.scrollY;
+          const descriptor = Object.getOwnPropertyDescriptor(window, "scrollY")!;
+          const states: boolean[] = [];
+          try {
+            for (const offset of [80, 50, 20, 0, 70, 35, 0]) {
+              Object.defineProperty(window, "scrollY", {
+                configurable: true,
+                value: bottom + offset,
+              });
+              window.dispatchEvent(new Event("scroll"));
+              await new Promise(requestAnimationFrame);
+              states.push(!!document.querySelector(".show-controls"));
+            }
+          } finally {
+            Object.defineProperty(window, "scrollY", descriptor);
+          }
+
+          return states.every(Boolean);
+        });
+        expect(stayedHidden).toBe(true);
+        await page.evaluate(() => window.scrollBy(0, -30));
+        await expect(reveal).toHaveCount(0);
+        await expect(page.locator(".save-dock")).toHaveCSS("opacity", "1");
+        await page.evaluate(async () => {
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        });
+        await page.evaluate(() => window.scrollBy(0, 100));
+        await expect(reveal).toBeVisible();
         await reveal.focus();
         await reveal.press("Enter");
         await expect(

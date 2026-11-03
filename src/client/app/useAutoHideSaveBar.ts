@@ -1,12 +1,18 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+const scrollPosition = () => {
+  const end = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+
+  return { y: Math.min(end, Math.max(0, window.scrollY)), end };
+};
+
 // Presentation-only state; saved places and capture never depend on visibility.
 export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey: string) {
   const [hidden, setHidden] = useState(false);
-  const scroll = useRef({ y: 0, distance: 0, direction: 0 });
+  const scroll = useRef({ y: 0, end: 0, distance: 0, direction: 0 });
 
   const resetScroll = () => {
-    scroll.current = { y: Math.max(0, window.scrollY), distance: 0, direction: 0 };
+    scroll.current = { ...scrollPosition(), distance: 0, direction: 0 };
   };
 
   const reveal = () => {
@@ -34,8 +40,14 @@ export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey:
   }, [enabled, blocked, resetKey]);
   const isHidden = enabled && !blocked && hidden;
   const onScroll = useEffectEvent(() => {
-    const y = Math.max(0, window.scrollY);
-    const delta = y - scroll.current.y;
+    const { y, end } = scrollPosition();
+    // Safari's elastic overscroll can exceed either edge. Returning from that
+    // bounce, or clamping after the dock/viewport resizes, is not browsing up.
+    const previousY = Math.min(end, scroll.current.y);
+    const delta = y - previousY;
+    if (end !== scroll.current.end) {
+      scroll.current = { y: previousY, end, distance: 0, direction: 0 };
+    }
     if (!delta) {
       return;
     }
@@ -44,7 +56,7 @@ export function useAutoHideSaveBar(enabled: boolean, blocked: boolean, resetKey:
       direction === scroll.current.direction
         ? scroll.current.distance + Math.abs(delta)
         : Math.abs(delta);
-    scroll.current = { y, direction, distance };
+    scroll.current = { y, end, direction, distance };
     if (direction < 0 && distance >= 24) {
       reveal();
     } else if (direction > 0 && distance >= 48) {
