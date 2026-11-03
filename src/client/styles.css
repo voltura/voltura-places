@@ -4369,12 +4369,20 @@ select option .category-icon {
   stroke: var(--marker, #339977);
 }
 .route-endpoint {
-  display: block;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
   background: var(--surface);
   border: 2px solid currentColor;
   border-radius: 4px;
-  text-align: center;
-  font-size: 18px;
+  line-height: 0;
+}
+.route-endpoint svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 .route-endpoint.route-current {
   border-radius: 50%;

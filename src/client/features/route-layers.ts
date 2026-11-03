@@ -27,7 +27,20 @@ export function routeLayers(
     start: number,
   ) => {
     const label = document.createElement("span");
-    label.textContent = finish ? (recording ? "●" : "■") : "▶";
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    const shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    shape.setAttribute(
+      "d",
+      finish
+        ? recording
+          ? "M12 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12"
+          : "M5 5h14v14H5z"
+        : "M7 5l12 7-12 7z",
+    );
+    icon.appendChild(shape);
+    label.appendChild(icon);
     label.className = `route-endpoint ${recording && finish ? "route-current" : ""} ${categoryColor(route.value.categoryId)}`;
     const name = `${finish ? labels.end : labels.start}${route.value.name ? `: ${route.value.name}` : ""}`;
     const marker = L.marker(
