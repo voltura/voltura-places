@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useOverlayScrollLock } from "./useOverlayScrollLock";
 import { X } from "lucide-react";
 
 function outside(element: HTMLElement, x: number, y: number) {
@@ -29,6 +30,7 @@ export function Sheet({
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  useOverlayScrollLock(ref);
   const backdropPress = useRef(false);
   useLayoutEffect(() => {
     const dialog = ref.current!;

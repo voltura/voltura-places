@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 test.use({ serviceWorkers: "block" });
 
@@ -6,7 +6,7 @@ test("a failed draft read cannot overwrite the draft and write failures are visi
   page,
 }) => {
   await page.goto("/");
-  const options = page.getByRole("combobox", { name: "Save options", exact: true });
+  const options = page.getByRole("button", { name: "Save options", exact: true });
   await expect(options).toBeEnabled();
   await page.evaluate(() => {
     const get = IDBObjectStore.prototype.get;
@@ -32,7 +32,7 @@ test("a failed draft read cannot overwrite the draft and write failures are visi
       return put.apply(this, args);
     };
   });
-  await options.selectOption("details");
+  await chooseSaveOption(page, "details");
   const editor = page.getByRole("dialog", { name: "Add place", exact: true });
   await expect(editor.getByRole("alert")).toContainText("Could not read the saved draft");
   await expect(editor.getByRole("textbox", { name: "Name", exact: true })).toBeDisabled();

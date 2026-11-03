@@ -1,4 +1,6 @@
-import { test as base, type BrowserContext } from "@playwright/test";
+import { test as base, type Page, type BrowserContext } from "@playwright/test";
+
+import { messages } from "../../src/client/foundation/i18n";
 
 export * from "@playwright/test";
 
@@ -22,3 +24,15 @@ export const test = base.extend({
     await use(context);
   },
 });
+
+export async function chooseSaveOption(page: Page, value: "details" | "route") {
+  const t = messages((await page.locator("html").getAttribute("lang")) === "sv" ? "sv" : "en");
+  await page.getByRole("button", { name: t("saveOptions"), exact: true }).click();
+  await page
+    .getByRole("group", { name: t("saveOptions"), exact: true })
+    .getByRole("button", {
+      name: t(value === "details" ? "addWithDetails" : "trackRoute"),
+      exact: true,
+    })
+    .click();
+}

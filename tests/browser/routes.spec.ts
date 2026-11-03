@@ -1,3 +1,4 @@
+import { chooseSaveOption } from "./fixtures";
 import { test, expect, type Page } from "./fixtures";
 import { canonicalGeometry } from "../../src/shared/routes";
 
@@ -122,7 +123,7 @@ test("terrain preference persists and failed terrain tiles fall back", async ({ 
 
     return route.abort();
   });
-  await page.locator(".save-split select").selectOption("route");
+  await chooseSaveOption(page, "route");
   await expect(page.locator(".recording-view")).toBeVisible();
   await fix(page, 59.33);
   await expect(
@@ -157,7 +158,7 @@ for (const language of ["en", "sv"]) {
     await page.goto("/");
     await page.clock.install();
     const sv = language === "sv";
-    await page.locator(".save-split select").selectOption("route");
+    await chooseSaveOption(page, "route");
     const recording = page.locator(".recording-view");
     await expect(recording).toBeVisible();
     await expect(

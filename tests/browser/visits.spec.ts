@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 test.use({ serviceWorkers: "block" });
 
@@ -53,7 +53,7 @@ for (const width of [390, 1280]) {
         .click();
     }
     const statusFilter = page.getByRole("combobox", {
-      name: "Filter by my visit status",
+      name: "Filter content",
       exact: true,
     });
     const row = await page.locator(".search-row").boundingBox();
@@ -117,7 +117,7 @@ test("description drafts recover after reload and manual places start without a 
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   let editor = page.getByRole("dialog", { name: "Add place", exact: true });
   await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Draft clearing");
   await editor.getByRole("button", { name: "Add description", exact: true }).click();

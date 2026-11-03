@@ -1,3 +1,4 @@
+import { chooseSaveOption } from "./fixtures";
 import { test, expect, chromium, webkit, devices, mockMapTiles } from "./fixtures";
 import { skins } from "../../src/client/foundation/appearance";
 
@@ -43,9 +44,7 @@ for (const engine of [chromium, webkit]) {
       const page = await context.newPage();
       try {
         await page.goto("/");
-        await page
-          .getByRole("combobox", { name: "Save options", exact: true })
-          .selectOption("details");
+        await chooseSaveOption(page, "details");
         const add = page.getByRole("dialog", { name: "Add place", exact: true });
         const cancel = add.getByRole("button", { name: "Cancel", exact: true });
         await expect(cancel).toHaveClass("button outline subdued");

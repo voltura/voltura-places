@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 for (const language of ["en", "sv"] as const) {
   test(`manual sync reports progress, success, failure and offline in ${language}`, async ({
@@ -202,21 +202,15 @@ for (const reason of ["deleted", "member removed"] as const) {
       return route.fulfill({ json: { version: 1, accountId: account, records: [] } });
     });
     await page.goto("/");
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText(group.name);
+    await expect(page.locator(".library-selector-name")).toHaveText(group.name);
     await expect(page.locator("#account-sync-status")).toHaveText("Synced");
     access = false;
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText("Private places");
+    await expect(page.locator(".library-selector-name")).toHaveText("Private places");
     await expect(page.locator("#account-sync-status")).toHaveText("Synced");
     await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
     await page.reload();
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText("Private places");
+    await expect(page.locator(".library-selector-name")).toHaveText("Private places");
     await expect(page.locator("#account-sync-status")).toHaveText("Synced");
     await page.getByRole("button", { name: "Choose group", exact: true }).click();
     await page
@@ -319,9 +313,7 @@ for (const populated of [false, true]) {
       });
     });
     await page.goto("/");
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText(group.name);
+    await expect(page.locator(".library-selector-name")).toHaveText(group.name);
     await expect(page.locator("#account-sync-status")).toHaveText("Synced");
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page
@@ -331,9 +323,7 @@ for (const populated of [false, true]) {
     await page.getByRole("button", { name: "Delete group", exact: true }).click();
     const confirmation = page.getByRole("dialog", { name: "Delete group", exact: true });
     await confirmation.getByRole("button", { name: "Delete group", exact: true }).click();
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText("Private places");
+    await expect(page.locator(".library-selector-name")).toHaveText("Private places");
     expect(deleted).toBe(true);
     await expect
       .poll(() =>
@@ -368,9 +358,7 @@ for (const populated of [false, true]) {
       ),
     ).toContain(group.id);
     await page.reload();
-    await expect(
-      page.locator(".library-selector-label > span:not(.library-selector-count)"),
-    ).toHaveText("Private places");
+    await expect(page.locator(".library-selector-name")).toHaveText("Private places");
     await page.getByRole("button", { name: "Choose group", exact: true }).click();
     await expect(page.getByRole("button", { name: /Group to delete/ })).toHaveCount(0);
   });
@@ -428,7 +416,7 @@ test("foreground events share a pull and a committed edit retries the exact lost
   await expect.poll(() => !!release).toBe(true);
   expect(identities - before.identities).toBe(1);
   expect(pulls - before.pulls).toBe(1);
-  await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const editor = page.getByRole("dialog", { name: "Add place" });
   await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Park");
   await editor.getByRole("button", { name: "Enter coordinates manually" }).click();
@@ -467,7 +455,7 @@ for (const status of [401, 403, 503]) {
     await page.goto("/");
     const feedback = page.locator("#account-sync-status");
     await expect(feedback).toHaveText("Synced");
-    await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+    await chooseSaveOption(page, "details");
     const editor = page.getByRole("dialog", { name: "Add place" });
     await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
     await editor.getByRole("button", { name: "Enter coordinates manually" }).click();

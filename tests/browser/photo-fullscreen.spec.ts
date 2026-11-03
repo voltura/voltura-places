@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 test.use({ serviceWorkers: "block" });
 
@@ -9,7 +9,7 @@ for (const width of [390, 1440]) {
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+    await chooseSaveOption(page, "details");
     const name = page.getByRole("textbox", { name: "Name", exact: true });
     await name.fill("Fullscreen photo fixture");
     await page.getByRole("button", { name: "Enter coordinates manually", exact: true }).click();

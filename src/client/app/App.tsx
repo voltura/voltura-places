@@ -16,6 +16,7 @@ import { openMapLink } from "../foundation/map-links";
 import { useBackups } from "./useBackups";
 import { useLibraryQueries } from "./useLibraryQueries";
 import { Settings } from "../features/Settings";
+import { SaveOptions } from "../features/SaveOptions";
 import { FamilyPanel } from "../features/Family";
 import { visitOwner } from "../../shared/visits";
 import { usePreferences } from "./usePreferences";
@@ -27,7 +28,6 @@ import { categoryAppearance } from "../features/CategoryAppearance";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LocateFixed,
-  ChevronDown,
   Users,
   Settings2,
   X,
@@ -42,8 +42,6 @@ import {
   Save,
   Trash2,
   RefreshCw,
-  Route,
-  FilePenLine,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
@@ -214,6 +212,7 @@ export function App() {
     sync();
   });
   const renderedOperation = operations.capture();
+  const [saveOptionsOpen, setSaveOptionsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState<false | "selector" | "dock">(false);
   const changeLibraryOpen = useCallback(
     (open: boolean) => setLibraryOpen(open ? "selector" : false),
@@ -423,6 +422,7 @@ export function App() {
     [categoryFor],
   );
 
+  useEffect(() => setSaveOptionsOpen(false), [scope, locating, canWrite, reconciling]);
   const mapFullscreen = fullscreenScope === scope && libraryView === "map" && filtered.length > 0;
   const controls = useAutoHideSaveBar(
     prefs.autoHideControls,
@@ -432,6 +432,7 @@ export function App() {
       recording.active ||
       reconciling ||
       libraryOpen ||
+      saveOptionsOpen ||
       editor ||
       settings ||
       maps ||
@@ -625,9 +626,7 @@ export function App() {
         </div>
       </header>
       {account.account && (
-        <div
-          className={`library-switcher${mobile && places.length > 0 ? " library-switcher-with-add" : ""}`}
-        >
+        <div className={`library-switcher${places.length > 0 ? " library-switcher-with-add" : ""}`}>
           <LibrarySelector
             value={scope}
             privateValue={account.account.id}
@@ -645,6 +644,18 @@ export function App() {
                     .replace("{total}", `${places.length}`)
                 : t("placesCount").replace("{total}", `${places.length}`)
             }
+            memberLabel={
+              canWrite && selectedGroup
+                ? t(selectedGroup.members.length === 1 ? "groupMember" : "groupMembers").replace(
+                    "{count}",
+                    `${selectedGroup.members.length}`,
+                  )
+                : undefined
+            }
+            manageGroupLabel={t("manageGroup")}
+            onManageGroup={
+              canWrite && selectedGroup ? () => setSettings("participants") : undefined
+            }
             open={!!libraryOpen}
             placement={libraryOpen === "dock" ? "dock" : "selector"}
             onOpenChange={changeLibraryOpen}
@@ -655,7 +666,7 @@ export function App() {
             joinGroupLabel={t("familyJoinWithCode")}
             onJoinGroup={() => setSettings("joinGroup")}
           />
-          {mobile && places.length > 0 && (
+          {places.length > 0 && (
             <Tooltip text={t("manual")}>
               <button
                 className="icon-button add-manual"
@@ -673,18 +684,9 @@ export function App() {
           )}
         </div>
       )}
-      {selectedFamily && (!mobile || !canWrite) && (
+      {selectedFamily && !canWrite && (
         <div className="shared-library-notice">
-          <p>{t(canWrite ? "familyLibraryHint" : "familyReadonly")}</p>
-          {canWrite && selectedGroup && (
-            <button className="button outline" onClick={() => setSettings("participants")}>
-              <Users size={20} />
-              {t(selectedGroup.members.length === 1 ? "groupMember" : "groupMembers").replace(
-                "{count}",
-                `${selectedGroup.members.length}`,
-              )}
-            </button>
-          )}
+          <p>{t("familyReadonly")}</p>
         </div>
       )}
       <BackupDialogs
@@ -692,21 +694,7 @@ export function App() {
         onAdded={(text) => setNotice({ text })}
       />
       <LibraryView
-        compactHeader={mobile && !!account.account}
-        headerActions={
-          mobile && canWrite && selectedGroup ? (
-            <button
-              className="button outline library-members"
-              onClick={() => setSettings("participants")}
-            >
-              <Users size={20} aria-hidden="true" />
-              {t(selectedGroup.members.length === 1 ? "groupMember" : "groupMembers").replace(
-                "{count}",
-                `${selectedGroup.members.length}`,
-              )}
-            </button>
-          ) : undefined
-        }
+        compactHeader={!!account.account}
         onBrowse={controls.browse}
         view={libraryView}
         setView={setLibraryView}
@@ -914,35 +902,14 @@ export function App() {
                   {t(locating ? "locating" : "saveHere")}
                 </button>
                 {!locating && (
-                  <div className="split-picker save-picker">
-                    <select
-                      name="saveOptions"
-                      aria-label={t("saveOptions")}
-                      value=""
-                      disabled={locating || !workspace || reconciling || !canWrite}
-                      onChange={(event) => {
-                        if (event.target.value === "route") {
-                          void recording.start();
-                        }
-                        if (event.target.value === "details") {
-                          setEditor({});
-                        }
-                      }}
-                    >
-                      <option value="" disabled hidden>
-                        {t("saveOptions")}
-                      </option>
-                      <option value="details">
-                        <FilePenLine size={22} aria-hidden="true" />
-                        <span>{t("addWithDetails")}</span>
-                      </option>
-                      <option value="route">
-                        <Route size={22} aria-hidden="true" />
-                        <span>{t("trackRoute")}</span>
-                      </option>
-                    </select>
-                    <ChevronDown size={20} aria-hidden="true" />
-                  </div>
+                  <SaveOptions
+                    open={saveOptionsOpen}
+                    onOpenChange={setSaveOptionsOpen}
+                    disabled={locating || !workspace || reconciling || !canWrite}
+                    onDetails={() => setEditor({})}
+                    onRoute={() => void recording.start()}
+                    t={t}
+                  />
                 )}
               </div>
               {locating && (

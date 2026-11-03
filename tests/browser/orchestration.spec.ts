@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 test.use({ serviceWorkers: "block", baseURL: "http://127.0.0.1:5173" });
 
@@ -216,15 +216,23 @@ test("revoking group access closes its editor and rejoining restores its draft",
     }),
   );
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const name = page.getByRole("dialog").getByRole("textbox", { name: "Name", exact: true });
   await name.fill("Retained draft");
   member = false;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.locator(".shared-library-notice")).toContainText("Shared access has ended");
+  await expect(page.locator(".toast[role=status]")).toContainText(
+    "Group access ended. Switched to Private places.",
+  );
+  await expect(page.locator(".library-selector-name")).toHaveText("Private places");
   await expect(name).toHaveCount(0);
   member = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.getByRole("button", { name: "Choose group", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Choose group", exact: true })
+    .getByRole("button", { name: group.name, exact: true })
+    .click();
   await expect(name).toHaveValue("Retained draft");
 });
 
@@ -337,7 +345,7 @@ test("skip after an unavailable first account snapshot permits a durable manual 
   );
   await page.goto("/");
   await page.getByRole("button", { name: "Skip for now", exact: true }).click();
-  await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const editor = page.getByRole("dialog", { name: "Add place" });
   await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Deferred manual");
   await editor.getByRole("button", { name: "Enter coordinates manually" }).click();

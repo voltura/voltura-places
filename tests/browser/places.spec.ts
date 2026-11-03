@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 for (const provider of ["Google Maps", "Apple Maps"]) {
   test(`${provider} opens separately from the picker and remembered provider`, async ({
@@ -518,7 +518,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const toggle = page.getByRole("switch", {
-    name: "Review GPS accuracy before saving",
+    name: "Check GPS accuracy before saving",
     exact: false,
   });
   await expect(toggle).not.toBeChecked();
@@ -544,7 +544,7 @@ test("optional accuracy review refines GPS and commits only the confirmed fix", 
   await page.getByRole("button", { name: /^(Cancel|Done)$/, exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Keep my draft");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await expect(review).toBeVisible();
@@ -659,7 +659,7 @@ test("camera and library inputs support a durable offline photo and removable dr
   context,
 }, testInfo) => {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Photo fixture");
   await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toBeHidden();
   await expect(page.locator(".photo-picker legend")).toHaveText("Photo (optional)");
@@ -745,7 +745,7 @@ test("GPS denial leaves the library intact and offers recovery", async ({ page }
 });
 test("an unfinished manual draft reopens after reload", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Unfinished draft");
   await page.waitForFunction(
     () =>
@@ -796,7 +796,7 @@ test("GPS quick save commits before naming and survives offline reload", async (
   await expect(page.locator(".save-dock .dock-hint")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your places 1" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("offline-save-dock.png") });
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Offline clearing");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
@@ -809,7 +809,7 @@ test("GPS quick save commits before naming and survives offline reload", async (
 });
 test("location is required and GPS places search and edit", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Trailhead");
   await expect(page.getByRole("textbox", { name: "Latitude", exact: true })).toBeHidden();
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
@@ -900,7 +900,7 @@ test("copy feedback stays above an open map dialog and follows it back to the pa
   );
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Copy example");
   await page.getByRole("button", { name: "Use current location", exact: true }).click();
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();

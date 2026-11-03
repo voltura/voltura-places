@@ -142,7 +142,7 @@ export function SharingDialogs({
               onCancel={() => setCopyGroupPicker(false)}
             />
           ) : (
-            <div className="stack">
+            <div className="stack popup-actions">
               {account.account && canWrite && copyDestinations.length > 0 && (
                 <button
                   className="button primary"

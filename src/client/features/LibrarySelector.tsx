@@ -1,5 +1,7 @@
-import { useId, useLayoutEffect, useRef } from "react";
-import { Check, ChevronDown, LockKeyhole, Users, Plus, UserPlus } from "lucide-react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { dismissPopup } from "../ui/dismissPopup";
+import { useOverlayScrollLock } from "../ui/useOverlayScrollLock";
+import { Check, ChevronDown, LockKeyhole, Users, Plus, UserPlus, Settings2 } from "lucide-react";
 
 export function LibrarySelector({
   value,
@@ -8,6 +10,9 @@ export function LibrarySelector({
   label,
   count,
   countLabel,
+  memberLabel,
+  manageGroupLabel,
+  onManageGroup,
   groups,
   onChange,
   open,
@@ -24,6 +29,9 @@ export function LibrarySelector({
   label: string;
   count: string;
   countLabel: string;
+  memberLabel?: string;
+  manageGroupLabel: string;
+  onManageGroup?: () => void;
   groups: { value: string; label: string }[];
   onChange: (value: string) => void;
   open: boolean;
@@ -38,6 +46,9 @@ export function LibrarySelector({
   const trigger = useRef<HTMLButtonElement>(null);
   const options = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const text = useRef<HTMLSpanElement>(null);
+  const probe = useRef<HTMLSpanElement>(null);
+  const [inlineMembers, setInlineMembers] = useState(false);
   useLayoutEffect(() => {
     if (!open) {
       return;
@@ -85,7 +96,10 @@ export function LibrarySelector({
         !root.current?.contains(event.target) &&
         !event.target.closest("button.save-destination")
       ) {
-        onOpenChange(false);
+        dismissPopup(event, () => {
+          onOpenChange(false);
+          button.focus({ preventScroll: true });
+        });
       }
     };
 
@@ -97,18 +111,20 @@ export function LibrarySelector({
       }
     };
 
-    document.addEventListener("pointerdown", outside);
+    document.addEventListener("pointerdown", outside, true);
     document.addEventListener("keydown", escape);
     window.addEventListener("resize", sizeMenu);
     window.addEventListener("scroll", sizeMenu, { passive: true });
 
     return () => {
-      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("pointerdown", outside, true);
       document.removeEventListener("keydown", escape);
       window.removeEventListener("resize", sizeMenu);
       window.removeEventListener("scroll", sizeMenu);
     };
   }, [open, placement, onOpenChange]);
+
+  useOverlayScrollLock(options, open);
 
   const focusTrigger = () => {
     const button =
@@ -120,6 +136,26 @@ export function LibrarySelector({
 
   const selected = groups.find((group) => group.value === value)?.label ?? privateLabel;
   const Icon = value !== privateValue ? Users : LockKeyhole;
+  useLayoutEffect(() => {
+    if (!memberLabel) {
+      setInlineMembers(false);
+
+      return;
+    }
+
+    const measure = () => {
+      if (text.current && probe.current) {
+        setInlineMembers(probe.current.getBoundingClientRect().width <= text.current.clientWidth);
+      }
+    };
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(text.current!);
+    observer.observe(probe.current!);
+    measure();
+
+    return () => observer.disconnect();
+  }, [selected, memberLabel]);
 
   return (
     <div
@@ -144,7 +180,7 @@ export function LibrarySelector({
         ref={trigger}
         className="library-selector-label"
         aria-label={label}
-        aria-description={`${selected} · ${countLabel}`}
+        aria-description={[selected, countLabel, memberLabel].filter(Boolean).join(" · ")}
         aria-controls={open ? menuId : undefined}
         aria-expanded={open && placement === "selector"}
         onClick={() => onOpenChange(!open)}
@@ -156,7 +192,23 @@ export function LibrarySelector({
         }}
       >
         <Icon size={22} aria-hidden="true" />
-        <span>{selected}</span>
+        <span ref={text} className="library-selector-text" data-members-inline={inlineMembers}>
+          <span className="library-selector-name">{selected}</span>
+          {memberLabel && (
+            <>
+              <small className="library-selector-members">
+                <span className="library-member-separator" aria-hidden="true">
+                  ·{" "}
+                </span>
+                {memberLabel}
+              </small>
+              <span ref={probe} className="library-selector-probe" aria-hidden="true">
+                {selected}
+                <small>· {memberLabel}</small>
+              </span>
+            </>
+          )}
+        </span>
         <span className="library-selector-count" aria-hidden="true">
           {count}
         </span>
@@ -208,6 +260,19 @@ export function LibrarySelector({
               </button>
             );
           })}
+          {onManageGroup && (
+            <button
+              className="library-option"
+              onClick={() => {
+                focusTrigger();
+                onOpenChange(false);
+                onManageGroup();
+              }}
+            >
+              <Settings2 size={22} aria-hidden="true" />
+              <span>{manageGroupLabel}</span>
+            </button>
+          )}
           <button
             className="library-option"
             onClick={() => {

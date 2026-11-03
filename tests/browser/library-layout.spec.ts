@@ -1,5 +1,5 @@
 import { mockMapTiles } from "./fixtures";
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 for (const [width, scale] of [
   [320, 1],
@@ -25,7 +25,7 @@ for (const [width, scale] of [
     );
     await expect(page.getByRole("heading", { name: "Your places", exact: true })).toHaveCount(0);
     await expect(page.locator(".count, .search-row, .category-chips")).toHaveCount(0);
-    await expect(page.getByRole("combobox", { name: "Save options", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save options", exact: true })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
@@ -61,10 +61,12 @@ for (const [width, scale] of [
     await expect(page.locator(".account-indicator > svg")).toBeVisible();
     await expect(page.locator(".account-indicator .status-dot")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("library-empty.png") });
-    const picker = page.getByRole("combobox", { name: "Save options", exact: true });
+    const picker = page.getByRole("button", { name: "Save options", exact: true });
     await picker.focus();
     await picker.press("Space");
-    const detailsOption = picker.getByRole("option", { name: "Save with details", exact: true });
+    const detailsOption = page
+      .getByRole("group", { name: "Save options", exact: true })
+      .getByRole("button", { name: "Save with details", exact: true });
     await expect(detailsOption).toBeVisible();
     const optionBounds = (await detailsOption.boundingBox())!;
     const dockBounds = (await page.locator(".save-dock").boundingBox())!;
@@ -77,7 +79,7 @@ for (const [width, scale] of [
     await picker.press("Escape");
     await expect(detailsOption).toBeHidden();
     await expect(picker).toBeFocused();
-    await picker.selectOption("details");
+    await chooseSaveOption(page, "details");
     const editor = page.getByRole("dialog", { name: "Add place", exact: true });
     await expect(editor).toBeVisible();
     await expect(editor.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("");
@@ -206,6 +208,7 @@ test("library selector keeps long group destinations explicit and private places
       ids.push((await created.json()).familyId);
     }
     const page = await context.newPage();
+    page.setDefaultTimeout(10000);
     await page.goto("/");
     const selector = page.getByRole("button", { name: "Choose group", exact: true });
     const menu = page.getByRole("group", { name: "Choose group", exact: true });
@@ -226,7 +229,9 @@ test("library selector keeps long group destinations explicit and private places
       page.getByText("Save your current location to get started.", { exact: true }),
     ).toBeVisible();
     await expect(selector.locator(".library-selector-count")).toHaveText("0");
-    const members = page.getByRole("button", { name: "1 member", exact: true });
+    const members = selector.locator(".library-selector-members");
+    await expect(members).toContainText("1 member");
+    await expect(page.locator(".library-members")).toHaveCount(0);
     for (const [width, scale] of [
       [390, 1],
       [320, 1],
@@ -240,27 +245,20 @@ test("library selector keeps long group destinations explicit and private places
         (scale) => (document.documentElement.style.fontSize = `${scale * 100}%`),
         scale,
       );
-      if (width <= 700) {
-        await expect(page.locator(".shared-library-notice")).toHaveCount(0);
-      } else {
-        await expect(page.locator(".shared-library-notice p")).toHaveText("Shared with this group");
-      }
-      const button = (await members.boundingBox())!;
-      const metrics = await page
-        .locator(".library-selector-label > span")
-        .first()
-        .evaluate((el) => ({
-          height: el.getBoundingClientRect().height,
-          line: parseFloat(getComputedStyle(el).lineHeight),
-          clamp: getComputedStyle(el).webkitLineClamp,
-        }));
+      await expect(page.locator(".shared-library-notice")).toHaveCount(0);
+      const button = (await selector.boundingBox())!;
+      const metrics = await page.locator(".library-selector-name").evaluate((el) => ({
+        height: el.getBoundingClientRect().height,
+        line: parseFloat(getComputedStyle(el).lineHeight),
+        clamp: getComputedStyle(el).webkitLineClamp,
+      }));
       expect(metrics.clamp).toBe("2");
       const icons = await page
         .locator(".library-selector-label > svg")
         .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
       expect(icons).toEqual([22, 20]);
       expect(await selector.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBe(
-        17 * scale,
+        18 * scale,
       );
       expect(metrics.height).toBeLessThanOrEqual(metrics.line * 2 + 1);
       await expect(page.locator(".save-destination-name")).toHaveText(longName);
@@ -269,6 +267,18 @@ test("library selector keeps long group destinations explicit and private places
           .locator(".save-destination-name")
           .evaluate((el) => el.scrollWidth > el.clientWidth),
       ).toBe(true);
+      const content = await page.locator(".app-main").evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+
+        return {
+          left: rect.left + parseFloat(style.paddingLeft),
+          right: rect.right - parseFloat(style.paddingRight),
+        };
+      });
+      const selectorBounds = (await selector.boundingBox())!;
+      expect(selectorBounds.x).toBeCloseTo(content.left, 0);
+      expect(selectorBounds.x + selectorBounds.width).toBeCloseTo(content.right, 0);
       const beforeDock = (await page.locator(".save-dock").boundingBox())!;
       const beforeSave = (await page.locator(".save-here").boundingBox())!;
       await page.screenshot({
@@ -329,13 +339,19 @@ test("library selector keeps long group destinations explicit and private places
       Math.abs(selectorBounds.y + selectorBounds.height / 2 - addBounds.y - addBounds.height / 2),
     ).toBeLessThanOrEqual(1);
     expect(addBounds.x).toBeGreaterThanOrEqual(selectorBounds.x + selectorBounds.width + 7);
-    expect(membersBounds.y).toBeGreaterThanOrEqual(addBounds.y + addBounds.height);
+    expect(membersBounds.y).toBeGreaterThan(selectorBounds.y);
+    expect(membersBounds.y + membersBounds.height).toBeLessThanOrEqual(
+      selectorBounds.y + selectorBounds.height,
+    );
     expect(addBounds.width).toBeGreaterThanOrEqual(48);
     expect(addBounds.height).toBeGreaterThanOrEqual(48);
     for (const [width, scale] of [
       [320, 1],
       [375, 2],
       [390, 1],
+      [800, 1],
+      [1280, 1],
+      [1920, 1],
     ]) {
       await page.setViewportSize({ width, height: 844 });
       await page.evaluate(
@@ -343,6 +359,17 @@ test("library selector keeps long group destinations explicit and private places
         scale,
       );
       await expect(page.locator(".library-switcher .add-manual")).toBeVisible();
+      await expect(page.locator(".library-pane > h1")).toHaveClass("sr-only");
+      await expect(page.locator(".library-title h1")).toHaveCount(0);
+      await expect(page.locator(".shared-library-notice")).toHaveCount(0);
+      const wrapper = (await page.locator(".library-switcher").boundingBox())!;
+      const add = (await page.locator(".library-switcher .add-manual").boundingBox())!;
+      const selected = (await selector.boundingBox())!;
+      const member = (await members.boundingBox())!;
+      expect(add.x).toBeGreaterThanOrEqual(selected.x + selected.width);
+      expect(member.y).toBeGreaterThan(selected.y);
+      expect(member.y + member.height).toBeLessThanOrEqual(wrapper.y + wrapper.height);
+
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
@@ -354,25 +381,24 @@ test("library selector keeps long group destinations explicit and private places
     await expect(addEditor).toBeHidden();
     await page.locator(".category-chips button").nth(1).click();
     await expect(count).toHaveText("1 / 1");
-    await page.getByRole("button", { name: "All places", exact: true }).click();
+    await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(count).toHaveText("1");
     const search = page.getByRole("textbox", { name: "Search your places", exact: true });
     await search.fill((await page.locator(".card-text strong").textContent())!);
     await expect(count).toHaveText("1 / 1");
     await search.fill("no matching place");
     await expect(count).toHaveText("0 / 1");
-    await expect(selector).toHaveAttribute("aria-description", `${longName} · 0 of 1 places match`);
+    await expect(selector).toHaveAttribute(
+      "aria-description",
+      `${longName} · 0 of 1 places match · 1 member`,
+    );
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await expect(count).toHaveText("0 / 1");
     await search.fill("");
     await expect(count).toHaveText("1");
-    await page
-      .getByRole("combobox", { name: "Filter by my visit status", exact: true })
-      .selectOption("want");
+    await page.getByRole("combobox", { name: "Filter content", exact: true }).selectOption("want");
     await expect(count).toHaveText("0 / 1");
-    await page
-      .getByRole("combobox", { name: "Filter by my visit status", exact: true })
-      .selectOption("all");
+    await page.getByRole("combobox", { name: "Filter content", exact: true }).selectOption("all");
     await expect(count).toHaveText("1");
     await page.getByRole("button", { name: "List", exact: true }).click();
     await selector.click();

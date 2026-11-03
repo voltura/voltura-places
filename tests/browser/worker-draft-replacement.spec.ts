@@ -1,3 +1,4 @@
+import { chooseSaveOption } from "./fixtures";
 import { expect, test, webkit, devices } from "./fixtures";
 
 test("a replacement worker reloads a WebKit editor and restores its unsaved draft", async () => {
@@ -13,7 +14,7 @@ test("a replacement worker reloads a WebKit editor and restores its unsaved draf
     await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
     await page.reload();
     await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
-    await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+    await chooseSaveOption(page, "details");
     const name = page.getByRole("textbox", { name: "Name", exact: true });
     await name.fill("Unsaved upgrade sample");
     await page.getByRole("button", { name: "Add description" }).click();

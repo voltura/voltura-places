@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, chooseSaveOption } from "./fixtures";
 
 test.use({ serviceWorkers: "block" });
 
@@ -6,7 +6,7 @@ test("manual coordinates validate, survive drafts and save without GPS", async (
   page,
 }, testInfo) => {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const editor = page.getByRole("dialog", { name: "Add place", exact: true });
   const save = editor.getByRole("button", { name: "Save", exact: true });
   const toggle = editor.getByRole("button", { name: "Enter coordinates manually", exact: true });
@@ -126,7 +126,7 @@ test("manual entry returns after GPS cancellation or denial and hides after a fi
     });
   });
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Save options", exact: true }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const latitude = page.getByRole("textbox", { name: "Latitude", exact: true });
   const locate = page.getByRole("button", { name: "Use current location", exact: true });
   await page.getByRole("button", { name: "Enter coordinates manually", exact: true }).click();
@@ -160,7 +160,7 @@ test("an uncached map cannot blank the library after an offline save", async ({
   context,
 }) => {
   await page.goto("/?lang=en");
-  await page.getByRole("combobox", { name: "Save options" }).selectOption("details");
+  await chooseSaveOption(page, "details");
   const editor = page.getByRole("dialog", { name: "Add place" });
   await editor.getByRole("textbox", { name: "Name", exact: true }).fill("Offline sample");
   await editor.getByRole("button", { name: "Enter coordinates manually" }).click();
