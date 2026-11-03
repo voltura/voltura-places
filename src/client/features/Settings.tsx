@@ -268,6 +268,27 @@ export function Settings({
               </select>
             </label>
             <label className="preference-row">
+              <span>{t("mapBackground")}</span>
+              <span className="preference-value" aria-hidden="true">
+                {t(preferences.mapBackground === "naturkartan" ? "naturkartan" : "openStreetMap")}
+              </span>
+              <ChevronRight size={20} aria-hidden="true" />
+              <select
+                aria-label={t("mapBackground")}
+                name="map-background"
+                value={preferences.mapBackground}
+                onChange={(e) =>
+                  onPreferences({
+                    ...preferences,
+                    mapBackground: e.target.value as Preferences["mapBackground"],
+                  })
+                }
+              >
+                <option value="osm">{t("openStreetMap")}</option>
+                <option value="naturkartan">{t("naturkartan")}</option>
+              </select>
+            </label>
+            <label className="preference-row">
               <span>{t("mapsPreference")}</span>
               <span className="preference-value" aria-hidden="true">
                 {preferences.provider && mapProviders().includes(preferences.provider)

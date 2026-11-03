@@ -231,7 +231,7 @@ export function PlaceDetails({
             onExpand={() => expandMap(record)}
             places={previewPlaces}
             fitKey={`${record.value.latitude},${record.value.longitude}`}
-            selected={null}
+            selected={record.kind === "route" ? record.id : null}
             onSelect={() => {}}
             categoryColor={categoryColor}
             t={t}

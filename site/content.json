@@ -74,7 +74,7 @@
       [
         "map",
         "See your places on the map",
-        "Clustered place pins and category-coloured routes. Gaps stay separate. Select a route for its full track, or expand the map to fullscreen."
+        "Place pins and route starts. Select a route to see its full path. Choose Naturkartan terrain for Sweden, with contours, forests and wetlands."
       ],
       [
         "palette",
@@ -143,7 +143,7 @@
       ],
       [
         "Maps & navigation",
-        "Opening a map sends the viewed areas and network information to the OpenStreetMap tile provider. Place names, photos and group identities are not included in tile requests."
+        "Opening a map sends the viewed areas and network information to OpenStreetMap or the selected Naturkartan tile provider. Place names, photos and group identities are not included in tile requests."
       ]
     ]
   },
@@ -222,7 +222,7 @@
       [
         "map",
         "Se dina platser på kartan",
-        "Grupperade platsnålar och kategorifärgade rutter. Avbrott hålls åtskilda. Välj en rutt för hela spåret eller öppna kartan i helskärm."
+        "Platsnålar och ruttstarter. Välj en rutt för att se hela spåret. Välj Naturkartans terrängkarta för Sverige med höjdkurvor, skog och våtmarker."
       ],
       [
         "palette",
@@ -291,7 +291,7 @@
       ],
       [
         "Kartor och navigering",
-        "När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMaps kartbildsleverantör. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna."
+        "När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMap eller den valda kartbildsleverantören Naturkartan. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna."
       ]
     ]
   }

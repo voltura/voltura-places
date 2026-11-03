@@ -7,6 +7,7 @@ export type Preferences = {
   theme: "light" | "dark" | "system";
   skin: Skin;
   provider: "google" | "apple" | "geo" | "";
+  mapBackground: "osm" | "naturkartan";
   lastCategory: string;
   reviewGps: boolean;
   autoHideControls: boolean;
@@ -28,6 +29,7 @@ export function parsePreferences(
     theme: "dark",
     skin: "forest",
     provider: "",
+    mapBackground: "osm",
     lastCategory: "other",
     reviewGps: false,
     autoHideControls: false,
@@ -45,6 +47,7 @@ export function parsePreferences(
       (v.language === "en" || v.language === "sv" ? v.language : defaults.language),
     theme: v.theme === "light" || v.theme === "system" ? v.theme : "dark",
     skin: validSkin(v.skin),
+    mapBackground: v.mapBackground === "naturkartan" ? "naturkartan" : "osm",
     provider:
       v.provider === "google" || v.provider === "apple" || v.provider === "geo" ? v.provider : "",
     lastCategory:

@@ -26,6 +26,9 @@ export const en = {
   routeStop: "Stop",
   routeRecovery: "Unfinished route",
   routeElapsed: "Elapsed",
+  mapBackground: "Map background",
+  openStreetMap: "OpenStreetMap",
+  naturkartan: "Naturkartan (Sweden)",
   sharedRouteTitle: "Shared route",
   routeStartMarker: "Route start",
   routeEndMarker: "Route finish",
@@ -536,7 +539,7 @@ export const en = {
     "Guest places stay in this browser. Signed-in libraries are stored through ChatGPT Sites. Shared links and backup files contain location data.",
   privacyMaps: "Maps & navigation",
   privacyMapsText:
-    "Viewing maps, including place previews, loads background tiles from OpenStreetMap, which receives the viewed area, your IP address and the Places origin. Saved names, photos and group identities are not sent to the tile provider. Navigate shares the destination with your chosen map service.",
+    "Viewing maps loads tiles from OpenStreetMap or your chosen Naturkartan background. The provider receives the viewed area, your IP address and the Places origin. Saved names, photos and group identities are not sent to the tile provider. Navigate shares the destination with your chosen map service.",
   recoveryText:
     "Your browser may remove locally saved places. Export a backup or use account sync to help prevent data loss.",
   backupIntro: "Back up your places to protect against browser data loss.",
@@ -614,6 +617,9 @@ export const sv: Record<Message, string> = {
   routeStop: "Stoppa",
   routeRecovery: "Oavslutad rutt",
   routeElapsed: "Förfluten tid",
+  mapBackground: "Kartbakgrund",
+  openStreetMap: "OpenStreetMap",
+  naturkartan: "Naturkartan (Sverige)",
   sharedRouteTitle: "Delad rutt",
   routeStartMarker: "Ruttens start",
   routeEndMarker: "Ruttens slut",
@@ -1151,7 +1157,7 @@ export const sv: Record<Message, string> = {
     "Gästplatser stannar i webbläsaren. Inloggade bibliotek lagras via ChatGPT Sites. Delade länkar och säkerhetskopior innehåller platsdata.",
   privacyMaps: "Kartor och navigering",
   privacyMapsText:
-    "Kartor, även förhandsvisningar av platser, laddar bakgrundskartor från OpenStreetMap, som får information om området du visar, din IP-adress och Places webbursprung. Sparade namn, foton och gruppidentiteter skickas inte till kartleverantören. Navigera delar målet med din valda karttjänst.",
+    "Kartor laddar kartbilder från OpenStreetMap eller din valda Naturkartan-bakgrund. Leverantören får information om området du visar, din IP-adress och Places webbursprung. Sparade namn, foton och gruppidentiteter skickas inte till kartleverantören. Navigera delar målet med din valda karttjänst.",
   recoveryText:
     "Webbläsaren kan ta bort lokalt sparade platser. Exportera en säkerhetskopia eller använd kontosynkronisering för att minska risken att förlora data.",
   backupIntro: "Säkerhetskopiera dina platser för att skydda mot förlust av webbläsardata.",

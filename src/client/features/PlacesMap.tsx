@@ -1,5 +1,7 @@
 import type { RouteGeometry } from "../../shared/routes";
 import { routeLayers } from "./route-layers";
+import { MapBackgroundContext } from "./MapBackgroundContext";
+import { mapBackgroundLayers } from "./map-background-layers";
 import {
   useEffect,
   useEffectEvent,
@@ -7,6 +9,7 @@ import {
   useRef,
   useMemo,
   useState,
+  useContext,
   type ReactNode,
 } from "react";
 import L from "leaflet";
@@ -147,6 +150,7 @@ export default function PlacesMap({
   focusId = null,
   focusRequest = 0,
 }: Props) {
+  const mapBackground = useContext(MapBackgroundContext);
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
@@ -258,48 +262,6 @@ export default function PlacesMap({
       L.control.zoom({ zoomInTitle: t("zoomIn"), zoomOutTitle: t("zoomOut") }).addTo(map);
     }
     map.attributionControl.setPrefix(false);
-    const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-      referrerPolicy: "origin",
-      crossOrigin: false,
-      keepBuffer: 0,
-      updateWhenIdle: true,
-    });
-    const failedTiles = new Set<HTMLElement>();
-    tiles.on("tileerror", (event: L.TileErrorEvent) => {
-      if (surface.contains(event.tile)) {
-        failedTiles.add(event.tile);
-        setTileFailed(true);
-      }
-    });
-
-    const clearFailedTile = (event: L.TileEvent) => {
-      if (failedTiles.delete(event.tile)) {
-        setTileFailed(failedTiles.size !== 0);
-      }
-    };
-
-    tiles.on("tileunload", clearFailedTile);
-    tiles.on("tileload", clearFailedTile);
-
-    const connectivity = () => {
-      setOffline(!navigator.onLine);
-      if (navigator.onLine) {
-        if (!map.hasLayer(tiles)) {
-          tiles.addTo(map);
-        } else {
-          tiles.redraw();
-        }
-      } else {
-        tiles.remove();
-      }
-    };
-
-    connectivity();
-    window.addEventListener("online", connectivity);
-    window.addEventListener("offline", connectivity);
     const group = L.markerClusterGroup({
       animate: false,
       showCoverageOnHover: false,
@@ -345,8 +307,7 @@ export default function PlacesMap({
 
     return () => {
       resize.disconnect();
-      window.removeEventListener("online", connectivity);
-      window.removeEventListener("offline", connectivity);
+
       surface.removeEventListener("keydown", userKey);
       surface.removeEventListener("wheel", userWheel);
       surface.removeEventListener("touchmove", userTouch);
@@ -361,6 +322,12 @@ export default function PlacesMap({
       groupRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      return mapBackgroundLayers(mapRef.current, mapBackground, setOffline, setTileFailed);
+    }
+  }, [mapBackground]);
 
   useEffect(() => {
     if (!mapRef.current) {

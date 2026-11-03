@@ -1,6 +1,7 @@
 import { useRouteRecording } from "./useRouteRecording";
 import { RecordingPreview } from "../features/RecordingPreview";
 import { RecordingView } from "../features/RecordingView";
+import { MapBackgroundContext } from "../features/MapBackgroundContext";
 import { Editor } from "../features/Editor";
 import { BackupDialogs } from "./BackupDialogs";
 import { PlaceEditingDialogs } from "./PlaceEditingDialogs";
@@ -521,7 +522,7 @@ export function App() {
   );
 
   return (
-    <>
+    <MapBackgroundContext value={prefs.mapBackground}>
       {controls.hidden && (
         <button
           className="button outline show-controls"
@@ -1183,6 +1184,6 @@ export function App() {
           </div>
         </Sheet>
       )}
-    </>
+    </MapBackgroundContext>
   );
 }

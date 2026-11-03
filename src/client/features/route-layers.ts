@@ -20,6 +20,34 @@ export function routeLayers(
   let disposed = false;
   let fitted = false;
 
+  const markerFor = (
+    route: PlaceRecord,
+    point: readonly number[],
+    finish: boolean,
+    start: number,
+  ) => {
+    const label = document.createElement("span");
+    label.textContent = finish ? (recording ? "●" : "■") : "▶";
+    label.className = `route-endpoint ${recording && finish ? "route-current" : ""} ${categoryColor(route.value.categoryId)}`;
+    const name = `${finish ? labels.end : labels.start}${route.value.name ? `: ${route.value.name}` : ""}`;
+    const marker = L.marker(
+      [Math.max(-85.05112878, Math.min(85.05112878, point[0])), wrapLongitude(point[1], start)],
+      {
+        title: name,
+        alt: name,
+        icon: L.divIcon({
+          html: label,
+          className: "route-marker",
+          iconSize: [24, 24],
+          iconAnchor: finish ? [-3, 12] : route.id === selected ? [27, 12] : [12, 12],
+        }),
+      },
+    )
+      .on("click", () => onSelect(route.id))
+      .addTo(layer);
+    marker.getElement()?.setAttribute("aria-label", name);
+  };
+
   const render = async () => {
     const version = ++generation;
     layer.clearLayers();
@@ -37,7 +65,6 @@ export function routeLayers(
                   r.value.bounds.west + offset <= view.getEast(),
               )))),
     );
-    let budget = 20000;
     let index = 0;
 
     const current = () => !disposed && generation === version;
@@ -46,6 +73,15 @@ export function routeLayers(
       while (index < routes.length && current()) {
         const route = routes[index++];
         if (route.kind !== "route") {
+          continue;
+        }
+        if (route.id !== selected) {
+          markerFor(
+            route,
+            [route.value.latitude, route.value.longitude],
+            false,
+            map.getCenter().lng - 180,
+          );
           continue;
         }
         try {
@@ -57,17 +93,6 @@ export function routeLayers(
           }
           const all = geometry.segments.flat();
           const start = longitudeArcStart(all.map((p) => p[1]));
-          const active = route.id === selected;
-          const allocation = active
-            ? route.value.pointCount
-            : Math.min(budget, Math.max(2, Math.floor(20000 / Math.max(1, routes.length))));
-          const step = Math.max(
-            1,
-            Math.ceil(
-              route.value.pointCount / Math.max(1, allocation - geometry.segments.length * 2),
-            ),
-          );
-          let used = 0;
           const bounds = L.latLngBounds([]);
           for (const segment of geometry.segments) {
             const points: L.LatLngTuple[] = [];
@@ -78,23 +103,17 @@ export function routeLayers(
                 wrapLongitude(p[1], start),
               ];
               bounds.extend(point);
-              if (active || (used < allocation && (i % step === 0 || i === segment.length - 1))) {
-                points.push(point);
-                used++;
-              }
+              points.push(point);
             }
             if (points.length > 1) {
               L.polyline(points, {
                 className: `route-line ${categoryColor(route.value.categoryId)}`,
-                weight: active ? 5 : 3,
-                opacity: active ? 1 : 0.7,
+                weight: 5,
+                opacity: 1,
               })
                 .on("click", () => onSelect(route.id))
                 .addTo(layer);
             }
-          }
-          if (!active) {
-            budget -= used;
           }
           for (const [finish, p] of [
             [false, all[0]],
@@ -103,29 +122,21 @@ export function routeLayers(
             if (recording && finish && all.length === 1) {
               continue;
             }
-            const label = document.createElement("span");
-            label.textContent = finish ? (recording ? "●" : "■") : "▶";
-            label.className = `route-endpoint ${recording && finish ? "route-current" : ""} ${categoryColor(route.value.categoryId)}`;
-            const marker = L.marker([p[0], wrapLongitude(p[1], start)], {
-              title: `${finish ? labels.end : labels.start}${route.value.name ? `: ${route.value.name}` : ""}`,
-              alt: finish ? labels.end : labels.start,
-              icon: L.divIcon({
-                html: label,
-                className: "route-marker",
-                iconSize: [24, 24],
-                iconAnchor: finish ? [-3, 12] : [27, 12],
-              }),
-            })
-              .on("click", () => onSelect(route.id))
-              .addTo(layer);
-            marker.getElement()?.setAttribute("aria-label", finish ? labels.end : labels.start);
+            markerFor(route, p, finish, start);
           }
-          if (active && !fitted && bounds.isValid()) {
+          if (!fitted && bounds.isValid()) {
             fitted = true;
             map.fitBounds(bounds, { maxZoom: 16, padding: [36, 36], animate: false });
           }
         } catch {
-          /* Missing attachments remain retryable when the map is moved or reopened. */
+          if (current()) {
+            markerFor(
+              route,
+              [route.value.latitude, route.value.longitude],
+              false,
+              map.getCenter().lng - 180,
+            );
+          }
         }
       }
     };

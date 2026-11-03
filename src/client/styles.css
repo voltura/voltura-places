@@ -3691,18 +3691,21 @@ select option .category-icon {
 }
 
 .places-map.leaflet-container .leaflet-control-attribution {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
   color: var(--text);
   font-size: 12px;
   white-space: nowrap;
-  padding: 4px 8px;
+  padding: 0 4px;
 }
 .places-map.leaflet-container .leaflet-control-attribution a {
   display: inline-flex;
   align-items: center;
-  min-height: 48px;
-  padding-inline: 4px;
+  min-height: 24px;
+  padding-inline: 2px;
   color: var(--accent);
+}
+.places-map.leaflet-container .leaflet-control-attribution:empty {
+  display: none;
 }
 .places-map .places-map-pin {
   display: grid;

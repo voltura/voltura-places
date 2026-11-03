@@ -32,7 +32,10 @@ test("anonymous route preview consumes its token and saves offline", async ({ pa
   };
   await page.addInitScript(() => {
     localStorage.setItem("places-account-choice", "done");
-    localStorage.setItem("places-preferences", JSON.stringify({ language: "en" }));
+    localStorage.setItem(
+      "places-preferences",
+      JSON.stringify({ language: "en", mapBackground: "naturkartan" }),
+    );
   });
   let bearer = false;
   await page.route("**/api/v1/route-share", async (route) => {
@@ -45,10 +48,20 @@ test("anonymous route preview consumes its token and saves offline", async ({ pa
   expect(bearer).toBe(true);
   expect(new URL(page.url()).hash).toBe("");
   await expect(incoming.locator(".route-line")).toBeVisible();
+  await expect(
+    incoming.locator('img.leaflet-tile[src*="naturkartan-cdn.se"]').first(),
+  ).toBeVisible();
+  await expect(incoming.locator(".leaflet-control-attribution")).toBeEmpty();
   await context.setOffline(true);
   await page.getByLabel("Save route to", { exact: true }).selectOption("guest");
   await expect(incoming).toHaveCount(0);
   await expect(page.getByText("Shared trail", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Map", exact: true }).click();
+  await expect(page.locator(".route-marker")).toHaveCount(1);
+  await expect(page.locator(".route-line")).toHaveCount(0);
+  await page.getByRole("button", { name: "Route start: Shared trail", exact: true }).click();
+  await expect(page.locator(".route-line").first()).toBeVisible();
+  await expect(page.locator(".details-map-preview .route-line")).toBeVisible();
 });
 
 async function fix(page: Page, latitude: number, accuracy = 5) {
@@ -62,6 +75,56 @@ async function fix(page: Page, latitude: number, accuracy = 5) {
     { latitude, accuracy },
   );
 }
+
+test("terrain preference persists and failed terrain tiles fall back", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("places-account-choice", "done");
+    if (!localStorage.getItem("places-preferences")) {
+      localStorage.setItem(
+        "places-preferences",
+        JSON.stringify({ language: "en", provider: "google" }),
+      );
+    }
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        watchPosition: (success: PositionCallback) => {
+          Object.assign(window, { routeFix: success });
+
+          return 1;
+        },
+        clearWatch: () => {},
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByLabel("Map background", { exact: true })).toHaveValue("osm");
+  await page.getByLabel("Map background", { exact: true }).selectOption("naturkartan");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByLabel("Map background", { exact: true })).toHaveValue("naturkartan");
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("places-preferences")!).provider),
+  ).toBe("google");
+  await page
+    .getByRole("dialog", { name: "Settings", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  let terrainRequests = 0;
+  await page.route("https://new-maptiles.naturkartan-cdn.se/**", (route) => {
+    terrainRequests++;
+
+    return route.abort();
+  });
+  await page.locator(".save-split select").selectOption("route");
+  await expect(page.locator(".recording-view")).toBeVisible();
+  await fix(page, 59.33);
+  await expect(
+    page.locator(".recording-view").getByRole("link", { name: "OpenStreetMap", exact: true }),
+  ).toBeVisible();
+  expect(terrainRequests).toBeGreaterThan(0);
+  await expect(page.locator(".recording-view .route-marker")).toHaveCount(1);
+});
 
 for (const language of ["en", "sv"]) {
   test(`live recording stays focused, stable and updates fullscreen: ${language}`, async ({
