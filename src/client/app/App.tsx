@@ -109,6 +109,7 @@ export function App() {
       }
     },
     () => notify("storageFailure", true),
+    () => notify("familySwitchedPrivate"),
   );
   const {
     scope,
@@ -138,7 +139,7 @@ export function App() {
       })),
       ...familyCache.inactive.map((group) => ({
         value: familyKey(accountId, group.id),
-        label: group.name + " � " + t("familyLocalCopy"),
+        label: group.name + " · " + t("familyLocalCopyLabel"),
       })),
     ];
   }, [accountId, familyCache, t]);
@@ -779,6 +780,7 @@ export function App() {
                 {!locating && (
                   <div className="split-picker save-picker">
                     <select
+                      name="saveOptions"
                       aria-label={t("saveOptions")}
                       value=""
                       disabled={locating || !workspace || reconciling || !canWrite}
@@ -826,6 +828,7 @@ export function App() {
                 alt=""
               />
               <select
+                name="language"
                 aria-label={t("language")}
                 value={prefs.language}
                 onChange={(e) => {
@@ -875,6 +878,7 @@ export function App() {
         ref={fileRef}
         hidden
         type="file"
+        name="backupFile"
         accept=".json,application/json"
         onChange={(e) => {
           if (!importSelection.current || importSelection.current()) {

@@ -9,6 +9,10 @@ const bytes = Uint8Array.from({ length: 1024 }, (_, index) => index % 256);
 const worker = createWorker(
   {
     "/assets/fixture.bin": ["application/octet-stream", Buffer.from(bytes).toString("base64")],
+    "/index.html": [
+      "text/html; charset=utf-8",
+      Buffer.from('<script src="/app.js"></script>').toString("base64"),
+    ],
   },
   "asset-fixture",
 );
@@ -71,4 +75,31 @@ test("health, unavailable sync and unknown routes return the appropriate method,
   expect(unavailable.headers.get("X-Content-Type-Options")).toBe("nosniff");
   const missing = await worker.fetch(new Request(origin + "/api/unknown"), env);
   expect(missing.status).toBe(404);
+});
+
+test("HTML issues fresh CSP nonces for Cloudflare injection without allowing arbitrary inline scripts or reusing validators", async () => {
+  const policies: string[] = [];
+  for (const method of ["GET", "GET", "HEAD"]) {
+    const response = await worker.fetch(
+      new Request("https://fixture.invalid/", {
+        method,
+        headers: { "If-None-Match": "*" },
+      }),
+      {} as Environment,
+    );
+    expect(response.status).toBe(200);
+    const policy = response.headers.get("Content-Security-Policy")!;
+    expect(policy).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/]{24}'/);
+    expect(policy).not.toContain("unsafe-inline");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.has("ETag")).toBe(false);
+    policies.push(policy);
+    expect(await response.text()).toBe(method === "HEAD" ? "" : '<script src="/app.js"></script>');
+  }
+  expect(new Set(policies).size).toBe(3);
+  const api = await worker.fetch(
+    new Request("https://fixture.invalid/api/health"),
+    {} as Environment,
+  );
+  expect(api.headers.get("Content-Security-Policy")).not.toContain("nonce-");
 });

@@ -17,7 +17,8 @@ import { displayNameSchema } from "../../shared/display-name";
 import { type Account, type AccountState } from "../foundation/account-contract";
 import type { Message } from "../foundation/i18n";
 import { Toast } from "../ui/Toast";
-import { SyncStatusIcon, syncStatusWarning } from "./SyncStatus";
+import { SyncStatusIcon, syncStatusWarning, syncStatusDetail } from "./SyncStatus";
+import type { SyncStatus } from "../foundation/sync";
 
 function ProfileName({
   account,
@@ -110,7 +111,8 @@ function ProfileName({
           <input
             id={inputId}
             ref={input}
-            autoComplete="nickname"
+            name="displayName"
+            autoComplete="off"
             placeholder={defaultName}
             value={value}
             disabled={busy}
@@ -183,7 +185,7 @@ export function AccountPanel({
   t: (k: Message) => string;
   onRefresh: () => Promise<void>;
   onSignOut: () => Promise<void>;
-  onSync: () => void;
+  onSync: () => Promise<SyncStatus | undefined>;
   syncStatus: Message;
   onDelete: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
@@ -196,7 +198,9 @@ export function AccountPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<{ key: Message } | null>(null);
-  const manualSyncPending = useRef(false);
+  const [manualSyncBusy, setManualSyncBusy] = useState(false);
+  const [manualSyncFailed, setManualSyncFailed] = useState(false);
+  const syncDetail = syncStatusDetail(syncStatus);
   const accountName = state.account?.methods.find((method) => method.label)?.label ?? t("signedIn");
   useEffect(() => {
     if (!success) {
@@ -206,15 +210,24 @@ export function AccountPanel({
 
     return () => clearTimeout(timer);
   }, [success]);
-  useEffect(() => {
-    if (!manualSyncPending.current || syncStatus === "syncing" || syncStatus === "pending") {
-      return;
+
+  const synchronizeNow = async () => {
+    setManualSyncBusy(true);
+    setManualSyncFailed(false);
+    setSuccess(null);
+    try {
+      const result = await onSync();
+      if (result === "synced") {
+        setSuccess({ key: "syncComplete" });
+      } else if (result === "syncGroupLocalOnly") {
+        setSuccess({ key: "syncPrivateComplete" });
+      } else if (result) {
+        setManualSyncFailed(true);
+      }
+    } finally {
+      setManualSyncBusy(false);
     }
-    manualSyncPending.current = false;
-    if (syncStatus === "synced") {
-      setSuccess({ key: "syncComplete" });
-    }
-  }, [syncStatus]);
+  };
 
   const execute = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -460,18 +473,27 @@ export function AccountPanel({
               <span>{t(syncStatus)}</span>
             </p>
           </div>
+          {syncDetail && (
+            <p
+              key={`${syncStatus}:${manualSyncFailed}`}
+              id="settings-sync-detail"
+              className="muted small"
+              role={manualSyncFailed ? "alert" : undefined}
+            >
+              {t(syncDetail)}
+            </p>
+          )}
           <div className="account-actions">
             <button
               className="button outline"
-              onClick={() => {
-                manualSyncPending.current = true;
-                onSync();
-              }}
-              disabled={busy || syncStatus === "syncing"}
-              aria-describedby="settings-sync-status"
+              onClick={() => void synchronizeNow()}
+              disabled={busy || manualSyncBusy || syncStatus === "syncing"}
+              aria-describedby={
+                syncDetail ? "settings-sync-status settings-sync-detail" : "settings-sync-status"
+              }
             >
               <RefreshCw size={20} aria-hidden="true" />
-              {t(syncStatus === "syncing" ? "syncing" : "syncNow")}
+              {t(manualSyncBusy || syncStatus === "syncing" ? "syncing" : "syncNow")}
             </button>
             <button
               className="button outline"

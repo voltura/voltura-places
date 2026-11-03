@@ -39,6 +39,8 @@ Editing/GPS, backup/device reconciliation, sharing/group copying and browsing ea
 
 Browser `foundation/http.ts` owns general JSON transport and `ApiError`, independently of synchronization. `account-contract.ts` owns account response validation and schema-derived types. Account/group features import these owners directly; specialized photo byte transport remains separate. No new state-management dependency, endpoint, persisted format or migration is introduced.
 
+Sync failure classification stays in browser foundation; the shared SyncStatus feature maps states to localized explanations independently of account presentation. Manual sync awaits a complete pass and returns its final state only while the originating operation remains current. A manual request during an active pass queues another pass. Selected active-group membership loss transitions through the same workspace switch as deliberate navigation, cancelling stale work and persisting Private places. Intentionally reopening an archived group remains possible and synchronizes private visit data without treating the read-only group as a failed cloud request.
+
 Settings, group management and both editors are part of the initial app bundle. Core interactions never wait for another feature module or loading dialog. The existing optional Leaflet map and photo GPS parser retain their established lazy-loading/offline-precache behavior.
 
 Capacity validation counts live entities in one pass without filtered arrays; single-record replacement retains order/revision semantics without rebuilding the entire records array. Shared digest helpers preserve the existing UTF-8 SHA-256 identities and photo/receipt hashes.

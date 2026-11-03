@@ -129,6 +129,7 @@ export const en = {
     "Shared access has ended. Previously downloaded places stay on this device; new changes cannot sync.",
   invalidFamilyAction: "Could not complete this family action. Refresh and try again.",
   familyLocalCopy: "Open local shared copy",
+  familyLocalCopyLabel: "Local copy",
   familyExportLocal: "Export local shared backup",
   copyTo: "Copy to",
   copyToGroup: "Copy to group",
@@ -378,7 +379,41 @@ export const en = {
   retryUpload: "Saved locally · will retry",
   syncPhotoUnavailable: "Photo unavailable · will retry",
   syncConflict: "Changes conflict · choose a version",
-  actionRequired: "Sync needs attention",
+  actionRequired: "Sync failed",
+  syncGroupLocalOnly: "Local group copy · no sync",
+  familySwitchedPrivate:
+    "Group access ended. Switched to Private places. The local copy is in Groups.",
+  syncGroupLocalDetail:
+    "Shared access to this group has ended. This local copy cannot sync. Your private data still syncs. Switch to Private places to continue.",
+  syncPrivateComplete: "Private data synced. This group is a local copy.",
+  syncSignIn: "Sync sign-in failed",
+  syncAccessDenied: "Sync access denied",
+  syncLimitReached: "Sync storage limit reached",
+  syncHistoryFull: "Sync history limit reached",
+  syncInvalidResponse: "Sync response could not be read",
+  syncStorageFailed: "Device storage failed",
+  syncFailedDetail:
+    "An unexpected app error stopped sync. Try again. If it keeps failing, report it to Voltura.",
+  syncSignInDetail:
+    "The server did not accept this sign-in. Sign out and sign in again to reconnect.",
+  syncAccessDeniedDetail:
+    "The server denied access, or this group is no longer shared with you. Open Groups to check membership, or switch to Private places. If access should work, report this to Voltura.",
+  syncLimitDetail:
+    "The cloud library or photo storage is full. Remove unused items, then sync again.",
+  syncHistoryDetail:
+    "This account has reached its sync history limit. Retrying cannot add new records. Report this to Voltura.",
+  syncInvalidDetail:
+    "The cloud response is incompatible with this app. Update Places and retry. If it continues, report this to Voltura.",
+  syncStorageDetail:
+    "Places could not read or write device storage. Check available space and browser storage permissions, then retry.",
+  syncRetryDetail:
+    "The server could not be reached or is temporarily unavailable. Places retries automatically; you can also retry now.",
+  syncOfflineDetail: "There is no network connection. Connect to the internet, then retry.",
+  syncPhotoDetail:
+    "A photo could not be transferred. Retry when online. If it stays unavailable, open the affected place and replace or remove its photo.",
+  syncConflictDetail: "Open the places marked with a conflict and choose which version to keep.",
+  syncPendingDetail: "Sync is waiting for another operation to finish. Try again shortly.",
+  syncReconcileDetail: "Finish or skip the device-place transfer before syncing.",
   account: "Account & sync",
   profileName: "Display name",
   profileNameHint: "Shown to group members.",
@@ -658,6 +693,7 @@ export const sv: Record<Message, string> = {
     "Delad åtkomst har upphört. Tidigare nedladdade platser finns kvar på enheten, men nya ändringar kan inte synkas.",
   invalidFamilyAction: "Kunde inte slutföra åtgärden. Uppdatera och försök igen.",
   familyLocalCopy: "Öppna lokal gemensam kopia",
+  familyLocalCopyLabel: "Lokal kopia",
   familyExportLocal: "Exportera lokal gemensam säkerhetskopia",
   copyTo: "Kopiera till",
   copyToGroup: "Kopiera till grupp",
@@ -911,7 +947,44 @@ export const sv: Record<Message, string> = {
   retryUpload: "Sparat lokalt · försöker igen",
   syncPhotoUnavailable: "Foto saknas · försöker igen",
   syncConflict: "Ändringskonflikt · välj version",
-  actionRequired: "Synkroniseringen behöver din hjälp",
+  actionRequired: "Synkroniseringen misslyckades",
+  syncGroupLocalOnly: "Lokal gruppkopia · synkas inte",
+  familySwitchedPrivate:
+    "Gruppåtkomsten har upphört. Bytte till Privata platser. Den lokala kopian finns i Grupper.",
+  syncGroupLocalDetail:
+    "Gruppåtkomsten har upphört. Den lokala kopian kan inte synkas. Dina privata uppgifter synkas fortfarande. Byt till Privata platser för att fortsätta.",
+  syncPrivateComplete: "Privata uppgifter synkade. Gruppen är en lokal kopia.",
+  syncSignIn: "Inloggningen för synk nekades",
+  syncAccessDenied: "Åtkomst för synk nekades",
+  syncLimitReached: "Lagringsgränsen har nåtts",
+  syncHistoryFull: "Gränsen för synkhistorik har nåtts",
+  syncInvalidResponse: "Synksvaret kunde inte läsas",
+  syncStorageFailed: "Enhetens lagring misslyckades",
+  syncFailedDetail:
+    "Ett oväntat appfel stoppade synkroniseringen. Försök igen. Rapportera felet till Voltura om det fortsätter.",
+  syncSignInDetail:
+    "Servern godkände inte inloggningen. Logga ut och logga in igen för att återansluta.",
+  syncAccessDeniedDetail:
+    "Servern nekade åtkomst, eller så delas gruppen inte längre med dig. Öppna Grupper för att kontrollera medlemskapet eller byt till Privata platser. Rapportera felet till Voltura om åtkomsten borde fungera.",
+  syncLimitDetail:
+    "Molnbiblioteket eller fotolagringen är full. Ta bort sådant du inte använder och synkronisera igen.",
+  syncHistoryDetail:
+    "Kontot har nått gränsen för synkhistorik. Nya poster kan inte läggas till genom att försöka igen. Rapportera detta till Voltura.",
+  syncInvalidDetail:
+    "Molnets svar är inte kompatibelt med appen. Uppdatera Places och försök igen. Rapportera felet till Voltura om det fortsätter.",
+  syncStorageDetail:
+    "Places kunde inte läsa eller skriva i enhetens lagring. Kontrollera ledigt utrymme och webbläsarens lagringsbehörighet och försök igen.",
+  syncRetryDetail:
+    "Servern kunde inte nås eller är tillfälligt otillgänglig. Places försöker automatiskt igen. Du kan också försöka nu.",
+  syncOfflineDetail: "Nätverksanslutning saknas. Anslut till internet och försök igen.",
+  syncPhotoDetail:
+    "Ett foto kunde inte överföras. Försök igen när du är online. Öppna den berörda platsen och byt eller ta bort fotot om felet fortsätter.",
+  syncConflictDetail:
+    "Öppna platserna som är markerade med en konflikt och välj vilken version du vill behålla.",
+  syncPendingDetail:
+    "Synkroniseringen väntar på att en annan åtgärd ska bli klar. Försök igen om en stund.",
+  syncReconcileDetail:
+    "Slutför eller hoppa över överföringen av enhetens platser innan du synkroniserar.",
   account: "Konto och synkronisering",
   profileName: "Visningsnamn",
   profileNameHint: "Visas för gruppmedlemmar.",

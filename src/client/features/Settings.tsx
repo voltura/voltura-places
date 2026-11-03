@@ -29,6 +29,7 @@ import type { Language, Message } from "../foundation/i18n";
 import type { LocalRecord } from "../../shared/model";
 import type { DistanceUnits } from "../foundation/distance";
 import type { ReactNode } from "react";
+import type { SyncStatus } from "../foundation/sync";
 
 const sectionIcons = {
   preferences: SlidersHorizontal,
@@ -77,7 +78,7 @@ export function Settings({
   account: AccountState;
   onAccount: () => Promise<void>;
   onSignOut: () => Promise<void>;
-  onSync: () => void;
+  onSync: () => Promise<SyncStatus | undefined>;
   syncStatus: Message;
   onDeleteAccount: () => Promise<void>;
   onRemoveDevice: () => Promise<void>;
@@ -151,6 +152,7 @@ export function Settings({
             <ChevronDown size={22} />
           </div>
           <select
+            name="settingsSection"
             aria-label={t("settings")}
             value={tab}
             onChange={(e) => setTab(e.target.value)}

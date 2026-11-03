@@ -39,7 +39,7 @@ export function usePlaceEditing({
   t: (key: Message) => string;
   notify: (key: Message, error?: boolean) => void;
   sync: () => void;
-  setStatus: Dispatch<SetStateAction<SyncStatus>>;
+  setStatus: (status: SyncStatus) => void;
   setSelected: Dispatch<SetStateAction<string | null>>;
   rememberPosition: (position: GeolocationPosition) => void;
   onRemoved: (id: string) => void;

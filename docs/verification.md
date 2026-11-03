@@ -1,3 +1,11 @@
+# Release 0.1.30: ended group access and actionable sync feedback, 3 November 2026
+
+The production warning was traced to a selected archived group while the private sync endpoint returned 200. The owner removed that old local copy and the live app showed Private places with Synced. A verified loss of the selected active group's membership now switches to Private places through the normal cancellation boundary, persists that selection and explains the change. Explicitly reopened recovery copies have an informational local-only status and separate private-sync confirmation. Unknown failures no longer request unspecified help; classified failures include visible causes/next steps and repeated manual failures receive explicit feedback. The malformed local-copy separator and affected form names/autofill are corrected.
+
+All 338 unit/data tests and 218 real workerd/D1 authorization, CAS, retry and recovery checks pass. Eleven Chromium browser scenarios pass, including actual two-member removal, owned empty/populated deletion with workspace removal and reload, external deletion/removal fixtures, HTTP 401/403 photo failures, lost-request retry and English/Swedish manual progress/failure/offline feedback. Four isolated Chromium and four WebKit checks also pass on the shared 5173 preview. Rendered phone feedback was inspected. These are browser-engine checks, not physical-device verification.
+
+HTML now issues fresh CSP script nonces for Cloudflare's injected browser check, keeps arbitrary inline execution blocked and skips HTML ETag reuse with no-store. Binary asset/HEAD/conditional caching behavior and API CSP remain covered by unit checks. Cloudflare's live nonce propagation and disappearance of the reported console error must be checked after publication; local checks do not establish them. The owner requested release publication with all local changes. Publication uses the exact validated clean-main commit and the independent Sites app publisher. The owner performed the old local-copy cleanup themselves.
+
 # Members heading focus, 3 November 2026 (0.1.29)
 
 The Members heading keeps its programmatic focus when opening participants, but no longer draws a focus rectangle. The CSS rule targets only that heading; interactive controls retain their focus indicators.

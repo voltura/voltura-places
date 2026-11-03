@@ -95,6 +95,12 @@ test("private sync success or progress cannot hide a group failure", () => {
     "retryUpload",
     "retryRefresh",
     "syncPhotoUnavailable",
+    "syncSignIn",
+    "syncAccessDenied",
+    "syncLimitReached",
+    "syncHistoryFull",
+    "syncInvalidResponse",
+    "syncStorageFailed",
   ] as const) {
     expect(combineSyncStatus(problem, "synced")).toBe(problem);
     expect(combineSyncStatus("synced", problem)).toBe(problem);
@@ -102,6 +108,8 @@ test("private sync success or progress cannot hide a group failure", () => {
   expect(combineSyncStatus("offline", "synced")).toBe("offline");
   expect(combineSyncStatus("pending", "synced")).toBe("pending");
   expect(combineSyncStatus("synced", "synced")).toBe("synced");
+  expect(combineSyncStatus("syncGroupLocalOnly", "synced")).toBe("syncGroupLocalOnly");
+  expect(combineSyncStatus("syncGroupLocalOnly", "retryUpload")).toBe("retryUpload");
 });
 
 test("a sync response from the previous visit to an account cannot merge or report success", async () => {

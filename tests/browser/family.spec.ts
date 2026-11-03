@@ -541,6 +541,17 @@ test("two signed-in family members share photos and offline saves while private 
     await a.page.locator(".sheet-head").getByRole("button", { name: "Close", exact: true }).click();
     await b.page.clock.fastForward(30000);
     await expect(
+      b.page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText("Private places");
+    await expect(b.page.locator("#account-sync-status")).toHaveText("Synced");
+    await expect(b.page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+    await b.page.getByRole("button", { name: "Choose group", exact: true }).click();
+    await b.page
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: /· Local copy$/, exact: true })
+      .click();
+    await expect(b.page.locator("#account-sync-status")).toHaveText("Local group copy · no sync");
+    await expect(
       b.page.getByText(
         "This is a local copy. Shared access has ended; you can view and export it.",
         { exact: true },

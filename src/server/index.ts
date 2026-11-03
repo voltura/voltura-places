@@ -69,22 +69,40 @@ export function createWorker(assets: AssetMap, version: string) {
           return new Response("Not found", { status: 404, headers: security });
         }
         const [type, data] = asset;
+        const html = type.startsWith("text/html");
+        // Cloudflare copies this per-response nonce onto its injected browser check.
+        const nonce = html
+          ? Buffer.from(crypto.getRandomValues(new Uint8Array(18))).toString("base64")
+          : undefined;
 
         const etag = `W/"${version}:${encodeURIComponent(path)}"`;
         const headers = {
           ...security,
+          ...(nonce
+            ? {
+                "Content-Security-Policy": security["Content-Security-Policy"].replace(
+                  "script-src 'self'",
+                  `script-src 'self' 'nonce-${nonce}'`,
+                ),
+              }
+            : {}),
           "Content-Type": type,
-          ETag: etag,
-          "Cache-Control": path.startsWith("/assets/")
-            ? "public, max-age=31536000, immutable"
-            : "no-cache, max-age=0, must-revalidate",
+          ...(html ? {} : { ETag: etag }),
+          "Cache-Control": html
+            ? "no-store"
+            : path.startsWith("/assets/")
+              ? "public, max-age=31536000, immutable"
+              : "no-cache, max-age=0, must-revalidate",
           ...(path === "/sw.js" ? { "Service-Worker-Allowed": "/" } : {}),
         };
         const validators = request.headers
           .get("If-None-Match")
           ?.split(",")
           .map((tag) => tag.trim());
-        if (validators?.some((tag) => tag === "*" || tag === etag || tag === etag.slice(2))) {
+        if (
+          !html &&
+          validators?.some((tag) => tag === "*" || tag === etag || tag === etag.slice(2))
+        ) {
           return new Response(null, { status: 304, headers });
         }
 

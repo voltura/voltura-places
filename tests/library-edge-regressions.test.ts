@@ -203,7 +203,7 @@ test.each(["forbidden", "network", "throttled", "unavailable"] as const)(
     const statuses: string[] = [];
     await synchronize(key, (s) => statuses.push(s));
     expect(downloads).toBe(failure === "unavailable" ? 2 : 1);
-    expect(statuses.at(-1)).toBe(failure === "forbidden" ? "actionRequired" : "retryRefresh");
+    expect(statuses.at(-1)).toBe(failure === "forbidden" ? "syncAccessDenied" : "retryRefresh");
   },
 );
 

@@ -118,6 +118,17 @@ for (const language of ["en", "sv"] as const) {
     await expect(status.locator(".lucide-triangle-alert")).toHaveCount(1);
     expect(await header.boundingBox()).toEqual(headerBounds);
     await expect(button).toBeEnabled();
+    await expect(page.getByRole("alert")).toContainText(
+      language === "sv" ? "Servern kunde inte nås" : "The server could not be reached",
+    );
+    await expect(page.locator("#settings-sync-detail")).toContainText(
+      language === "sv" ? "Servern kunde inte nås" : "The server could not be reached",
+    );
+    await button.click();
+    await expect(page.getByRole("alert")).toContainText(
+      language === "sv" ? "Servern kunde inte nås" : "The server could not be reached",
+    );
+    await page.screenshot({ path: testInfo.outputPath("sync-failure.png") });
     await context.setOffline(true);
     await button.click();
     await expect(status).toHaveText(
@@ -129,6 +140,239 @@ for (const language of ["en", "sv"] as const) {
     await expect(header.locator(".header-sync-icon .lucide-cloud-off")).toHaveCount(1);
     await expect(status.locator(".lucide-cloud-off")).toHaveCount(1);
     expect(await header.boundingBox()).toEqual(headerBounds);
+  });
+}
+
+for (const reason of ["deleted", "member removed"] as const) {
+  test(`selected group ${reason} returns to private sync and an explicitly opened local copy is explained`, async ({
+    page,
+  }, testInfo) => {
+    const account = "external-removal-fixture";
+    const group = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Former shared group",
+      ownerId: "another-person",
+      members: [{ id: account, label: "Fixture" }],
+      requests: [],
+    };
+    let access = true;
+    let privatePulls = 0;
+    let groupPulls = 0;
+    await page.addInitScript(
+      ({ account, group }) => {
+        if (localStorage.getItem("places-account")) {
+          return;
+        }
+        localStorage.setItem("places-account-choice", "done");
+        localStorage.setItem(
+          "places-account",
+          JSON.stringify({ enabled: true, providers: {}, account: { id: account, methods: [] } }),
+        );
+        localStorage.setItem(
+          `places-family:${account}`,
+          JSON.stringify({ families: [group], inactive: [] }),
+        );
+        localStorage.setItem(`places-workspace:${account}`, `family:${account}:${group.id}`);
+      },
+      { account, group },
+    );
+    await page.route("**/api/account", (route) =>
+      route.fulfill({
+        json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
+      }),
+    );
+    await page.route("**/api/family", (route) =>
+      route.fulfill({ json: { families: access ? [group] : [] } }),
+    );
+    await page.route("**/api/v1/sync", (route) => {
+      if (route.request().headers()["x-places-family"]) {
+        groupPulls++;
+
+        return access
+          ? route.fulfill({
+              json: { version: 1, accountId: `family:${account}:${group.id}`, records: [] },
+            })
+          : route.fulfill({
+              status: reason === "deleted" ? 404 : 403,
+              json: { error: "familyAccessEnded" },
+            });
+      }
+      privatePulls++;
+
+      return route.fulfill({ json: { version: 1, accountId: account, records: [] } });
+    });
+    await page.goto("/");
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText(group.name);
+    await expect(page.locator("#account-sync-status")).toHaveText("Synced");
+    access = false;
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText("Private places");
+    await expect(page.locator("#account-sync-status")).toHaveText("Synced");
+    await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
+    await page.reload();
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText("Private places");
+    await expect(page.locator("#account-sync-status")).toHaveText("Synced");
+    await page.getByRole("button", { name: "Choose group", exact: true }).click();
+    await page
+      .getByRole("group", { name: "Choose group", exact: true })
+      .getByRole("button", { name: `${group.name} · Local copy`, exact: true })
+      .click();
+    await expect(page.locator("#account-sync-status")).toHaveText("Local group copy · no sync");
+    const before = { groupPulls, privatePulls };
+    await page.getByRole("button", { name: "Account & sync", exact: true }).click();
+    await expect(page.locator("#settings-sync-detail")).toContainText(
+      "Shared access to this group has ended",
+    );
+    await expect(page.locator("#settings-sync-status")).not.toHaveClass(/warning/);
+    await page.getByRole("button", { name: "Sync now", exact: true }).click();
+    await expect(page.locator(".toast")).toHaveText(
+      "Private data synced. This group is a local copy.",
+    );
+    expect(privatePulls).toBeGreaterThan(before.privatePulls);
+    expect(groupPulls).toBe(before.groupPulls);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("local-group-sync.png") });
+  });
+}
+
+for (const populated of [false, true]) {
+  test(`deleting an owned ${populated ? "populated" : "empty"} group removes its selection, cache and records across reload`, async ({
+    page,
+  }) => {
+    const account = "delete-owner-fixture";
+    const group = {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "Group to delete",
+      ownerId: account,
+      members: [{ id: account, label: "Fixture" }],
+      requests: [],
+    };
+    let deleted = false;
+    await page.addInitScript(
+      ({ account, group }) => {
+        if (localStorage.getItem("places-account")) {
+          return;
+        }
+        localStorage.setItem("places-account-choice", "done");
+        localStorage.setItem(
+          "places-account",
+          JSON.stringify({ enabled: true, providers: {}, account: { id: account, methods: [] } }),
+        );
+        localStorage.setItem(
+          `places-family:${account}`,
+          JSON.stringify({ families: [group], inactive: [] }),
+        );
+        localStorage.setItem(`places-workspace:${account}`, `family:${account}:${group.id}`);
+      },
+      { account, group },
+    );
+    await page.route("**/api/account", (route) =>
+      route.fulfill({
+        json: { enabled: true, providers: {}, account: { id: account, methods: [] } },
+      }),
+    );
+    await page.route("**/api/family", (route) => {
+      if (route.request().method() === "POST") {
+        expect(route.request().postDataJSON()).toMatchObject({
+          action: "delete",
+          familyId: group.id,
+        });
+        deleted = true;
+      }
+
+      return route.fulfill({ json: { families: deleted ? [] : [group] } });
+    });
+    await page.route("**/api/v1/sync", (route) => {
+      const inGroup = !!route.request().headers()["x-places-family"];
+
+      return route.fulfill({
+        json: {
+          version: 1,
+          accountId: inGroup ? `family:${account}:${group.id}` : account,
+          records:
+            inGroup && populated
+              ? [
+                  {
+                    id: "synthetic-place",
+                    kind: "place",
+                    revision: 1,
+                    deleted: false,
+                    value: {
+                      name: "Synthetic place",
+                      categoryId: "other",
+                      latitude: 0,
+                      longitude: 0,
+                      accuracy: null,
+                      capturedAt: "2026-11-03T00:00:00Z",
+                      updatedAt: "2026-11-03T00:00:00Z",
+                    },
+                  },
+                ]
+              : [],
+        },
+      });
+    });
+    await page.goto("/");
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText(group.name);
+    await expect(page.locator("#account-sync-status")).toHaveText("Synced");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page
+      .getByRole("combobox", { name: "Settings", exact: true })
+      .selectOption("familySharing");
+    await page.locator("summary").filter({ hasText: "Delete family library" }).click();
+    await page.getByRole("button", { name: "Delete family library", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Delete family library", exact: true });
+    await confirmation.getByRole("button", { name: "Delete family library", exact: true }).click();
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText("Private places");
+    expect(deleted).toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async ({ account, group }) => {
+            const request = indexedDB.open("voltura-places");
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            try {
+              return await new Promise<boolean>((resolve, reject) => {
+                const r = db
+                  .transaction("workspaces", "readonly")
+                  .objectStore("workspaces")
+                  .get(`family:${account}:${group.id}`);
+                r.onsuccess = () => resolve(!r.result);
+                r.onerror = () => reject(r.error);
+              });
+            } finally {
+              db.close();
+            }
+          },
+          { account, group },
+        ),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(
+        ({ account }) => JSON.parse(localStorage.getItem(`places-family:${account}`)!).discarded,
+        { account },
+      ),
+    ).toContain(group.id);
+    await page.reload();
+    await expect(
+      page.locator(".library-selector-label > span:not(.library-selector-count)"),
+    ).toHaveText("Private places");
+    await page.getByRole("button", { name: "Choose group", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Group to delete/ })).toHaveCount(0);
   });
 }
 
@@ -240,7 +484,11 @@ for (const status of [401, 403, 503]) {
     await editor.getByRole("button", { name: "Save", exact: true }).click();
     expect((await upload).status()).toBe(status);
     await expect(feedback).toHaveText(
-      status === 503 ? "Saved locally · will retry" : "Sync needs attention",
+      status === 503
+        ? "Saved locally · will retry"
+        : status === 401
+          ? "Sync sign-in failed"
+          : "Sync access denied",
     );
     expect(mutations).toBe(0);
   });

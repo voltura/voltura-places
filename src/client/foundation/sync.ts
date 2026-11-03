@@ -9,6 +9,13 @@ export type SyncStatus =
   | "syncPhotoUnavailable"
   | "syncConflict"
   | "actionRequired"
+  | "syncSignIn"
+  | "syncAccessDenied"
+  | "syncLimitReached"
+  | "syncHistoryFull"
+  | "syncInvalidResponse"
+  | "syncStorageFailed"
+  | "syncGroupLocalOnly"
   | "synced"
   | "reconcilePending";
 import { api, ApiError } from "./http";
@@ -82,6 +89,57 @@ export function temporarySyncFailure(error: unknown) {
     (error instanceof DOMException && ["TimeoutError", "NetworkError"].includes(error.name)) ||
     (error instanceof ApiError && (error.status >= 500 || [408, 429].includes(error.status)))
   );
+}
+
+export function syncFailureStatus(error: unknown): SyncStatus {
+  if (!navigator.onLine) {
+    return "offline";
+  }
+  if (error instanceof ApiError) {
+    if ([401, 409].includes(error.status)) {
+      return "syncSignIn";
+    }
+    if (error.status === 403) {
+      return "syncAccessDenied";
+    }
+    if (error.status === 413) {
+      return "syncLimitReached";
+    }
+  }
+  if (error instanceof z.ZodError || error instanceof SyntaxError) {
+    return "syncInvalidResponse";
+  }
+  if (
+    error instanceof DOMException &&
+    [
+      "QuotaExceededError",
+      "InvalidStateError",
+      "UnknownError",
+      "AbortError",
+      "NotReadableError",
+    ].includes(error.name)
+  ) {
+    return "syncStorageFailed";
+  }
+  if (error instanceof Error) {
+    if (error.message === "accountChanged") {
+      return "syncSignIn";
+    }
+    if (error.message === "invalidResponse") {
+      return "syncInvalidResponse";
+    }
+    if (["libraryLimit", "photoQuota"].includes(error.message)) {
+      return "syncLimitReached";
+    }
+    if (error.message === "syncBusy") {
+      return "pending";
+    }
+    if (error.message === "photoUnavailable") {
+      return "syncPhotoUnavailable";
+    }
+  }
+
+  return temporarySyncFailure(error) ? "retryRefresh" : "actionRequired";
 }
 
 const running = new Map<string, Promise<void>>();
@@ -321,7 +379,7 @@ export async function synchronize(
         latest.records.some((r) => r.conflict)
           ? "syncConflict"
           : latest.deferredFlights?.some((flight) => flight.snapshotBlocked)
-            ? "actionRequired"
+            ? "syncHistoryFull"
             : missingPhoto
               ? "syncPhotoUnavailable"
               : latest.records.some((r) => r.dirty)
@@ -332,7 +390,7 @@ export async function synchronize(
       if (!isCurrent()) {
         return;
       }
-      let status: SyncStatus = "actionRequired";
+      let status = syncFailureStatus(error);
       if (!navigator.onLine) {
         status = "offline";
       } else if (temporarySyncFailure(error)) {

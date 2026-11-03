@@ -782,7 +782,7 @@ test.each([
   );
   const statuses: string[] = [];
   await synchronize(key, (s) => statuses.push(s));
-  expect(statuses.at(-1)).toBe("actionRequired");
+  expect(statuses.at(-1)).toBe("syncInvalidResponse");
   expect(await prepareMutation(key)).toEqual(flight);
 });
 
@@ -866,7 +866,7 @@ test("a full snapshot history defers the exact new-ID flight while later edits a
   );
   const statuses: string[] = [];
   await synchronize(key, (status) => statuses.push(status));
-  expect(statuses.at(-1)).toBe("actionRequired");
+  expect(statuses.at(-1)).toBe("syncHistoryFull");
   expect(cloud.get(editing.id)?.value.name).toBe("Allowed edit");
   expect(cloud.get(deleting.id)?.deleted).toBe(true);
   expect(requests).toHaveLength(3);

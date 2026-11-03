@@ -16,6 +16,8 @@ The dedicated email relay uses its own 32-byte HMAC secret and fixed sender plac
 
 ## Publication
 
+HTML responses include a fresh cryptographically random CSP script nonce in the response header. Cloudflare copies it onto its injected JavaScript Detections browser check, as documented in [Cloudflare's CSP guidance](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/#if-you-have-a-content-security-policy-csp). The app retains same-origin scripts and blocks arbitrary inline scripts; do not add unsafe-inline or a fixed challenge hash. HTML uses no-store and skips static ETag/304 handling so network responses do not reuse a nonce. Other assets retain their existing validators/cache policies and API responses retain the strict nonce-free policy. The service worker's explicit offline precache remains separate from HTTP caching. Verify the injected script's nonce and absence of CSP violations on the deployed HTML; local checks cannot reproduce Cloudflare's injection.
+
 The build version uses package.json's semantic version followed by the source revision and client-asset digest. The publisher rechecks clean main and the captured revision after validation and before packaging, and pushes that exact commit SHA rather than a moving branch tip. A concurrent checkout change stops publication for revalidation without discarding local work.
 
 Validate/commit reviewed changes to main; npm run publish synchronizes the exact public source commit with Sites, packages/saves/deploys it, and retains checkpoint IDs until success. CI validates contributions without deployment credentials. Manual merges do not autonomously publish Sites. Initial publication stays private until verified, then publicly enable as requested.

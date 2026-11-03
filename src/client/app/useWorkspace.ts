@@ -31,6 +31,7 @@ export function useWorkspace(
   session: Session,
   onTransition: (reason: "account" | "workspace") => void,
   onStorageError: () => void,
+  onAccessEnded: () => void,
 ) {
   const { operations } = session;
   const renderedAccount = operations.capture("account");
@@ -45,40 +46,8 @@ export function useWorkspace(
   const selectedRead = useRef(0);
   const personalRead = useRef(0);
   const familyActionPending = useRef(false);
-  const callbacks = useRef({ onTransition, onStorageError });
-  callbacks.current = { onTransition, onStorageError };
-  const updateFamilies = useCallback(
-    (families: Family[], discardedGroup?: string) => {
-      const id = operations.account;
-      if (!id) {
-        return;
-      }
-      familyRequest.current++;
-      const next = storeFamilies(id, families, cache.current, discardedGroup);
-      if (next === cache.current) {
-        return;
-      }
-      for (const previous of cache.current.families) {
-        if (!families.some((f) => f.id === previous.id)) {
-          membershipGenerations.current.set(
-            previous.id,
-            (membershipGenerations.current.get(previous.id) ?? 0) + 1,
-          );
-        }
-      }
-      const selected = workspaceIdentity(operations.workspace).family;
-      if (
-        selected &&
-        cache.current.families.some((f) => f.id === selected) &&
-        !families.some((f) => f.id === selected)
-      ) {
-        operations.invalidateWorkspace();
-      }
-      cache.current = next;
-      setFamilyCache(next);
-    },
-    [operations],
-  );
+  const callbacks = useRef({ onTransition, onStorageError, onAccessEnded });
+  callbacks.current = { onTransition, onStorageError, onAccessEnded };
   const selectedFamily = workspaceIdentity(scope).family;
   const canWriteNow = useCallback(() => {
     const family = workspaceIdentity(operations.workspace).family;
@@ -162,6 +131,41 @@ export function useWorkspace(
       } catch {}
     },
     [operations, transition],
+  );
+  const updateFamilies = useCallback(
+    (families: Family[], discardedGroup?: string) => {
+      const id = operations.account;
+      if (!id) {
+        return;
+      }
+      familyRequest.current++;
+      const next = storeFamilies(id, families, cache.current, discardedGroup);
+      if (next === cache.current) {
+        return;
+      }
+      for (const previous of cache.current.families) {
+        if (!next.families.some((f) => f.id === previous.id)) {
+          membershipGenerations.current.set(
+            previous.id,
+            (membershipGenerations.current.get(previous.id) ?? 0) + 1,
+          );
+        }
+      }
+      const selected = workspaceIdentity(operations.workspace).family;
+      const accessEnded =
+        selected &&
+        cache.current.families.some((f) => f.id === selected) &&
+        !next.families.some((f) => f.id === selected);
+      cache.current = next;
+      setFamilyCache(next);
+      if (accessEnded) {
+        switchLibrary(id);
+        if (discardedGroup !== selected) {
+          callbacks.current.onAccessEnded();
+        }
+      }
+    },
+    [operations, switchLibrary],
   );
   const membershipAction = useCallback((pending: boolean) => {
     familyActionPending.current = pending;

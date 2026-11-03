@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import { synchronizeAndWait, temporarySyncFailure, type SyncStatus } from "../foundation/sync";
+import {
+  synchronizeAndWait,
+  temporarySyncFailure,
+  syncFailureStatus,
+  type SyncStatus,
+} from "../foundation/sync";
 import { visitOwner } from "../../shared/visits";
 import type { Session } from "./useSession";
 import type { WorkspaceController } from "./useWorkspace";
@@ -8,6 +13,12 @@ export function combineSyncStatus(library: SyncStatus, personal: SyncStatus): Sy
   const priority: SyncStatus[] = [
     "syncConflict",
     "actionRequired",
+    "syncSignIn",
+    "syncAccessDenied",
+    "syncLimitReached",
+    "syncHistoryFull",
+    "syncInvalidResponse",
+    "syncStorageFailed",
     "offline",
     "retryUpload",
     "syncPhotoUnavailable",
@@ -16,6 +27,7 @@ export function combineSyncStatus(library: SyncStatus, personal: SyncStatus): Sy
     "reconcilePending",
     "syncing",
     "pending",
+    "syncGroupLocalOnly",
     "synced",
     "localOnly",
   ];
@@ -31,7 +43,12 @@ export function useSynchronization(
   const { operations, refreshAccount } = session;
   const { scope, refresh, canWrite, canWriteNow } = workspace;
   const discardStaleIdentity = useEffectEvent(session.discardStaleIdentity);
-  const [status, setStatus] = useState<SyncStatus>(operations.account ? "pending" : "localOnly");
+  const [status, updateStatus] = useState<SyncStatus>(operations.account ? "pending" : "localOnly");
+  const latestStatus = useRef(status);
+  const setStatus = useCallback((next: SyncStatus) => {
+    latestStatus.current = next;
+    updateStatus(next);
+  }, []);
   const blocked = useRef(reconciling);
   blocked.current = reconciling;
   const active = useRef<{
@@ -68,7 +85,7 @@ export function useSynchronization(
         do {
           pass.changed = false;
           const owner = visitOwner(key);
-          let libraryStatus: SyncStatus = "actionRequired";
+          let libraryStatus: SyncStatus = "syncGroupLocalOnly";
           pass.writable = canWriteNow();
           if (pass.writable) {
             await synchronizeAndWait(
@@ -147,7 +164,7 @@ export function useSynchronization(
             // The sync endpoint checks the expected account independently.
             await requestSync(false);
           } else {
-            setStatus(navigator.onLine ? "actionRequired" : "offline");
+            setStatus(syncFailureStatus(error));
           }
         }
 
@@ -196,18 +213,27 @@ export function useSynchronization(
     };
   }, [operations, refreshAccount, refresh, requestSync]);
 
-  const manualSync = () => {
+  const manualSync = async () => {
+    const operation = operations.capture();
     if (blocked.current) {
       setStatus("reconcilePending");
 
-      return;
+      return "reconcilePending" as const;
     }
     if (operations.workspace !== "guest") {
       if (!active.current?.isCurrent()) {
         setStatus(navigator.onLine ? "syncing" : "offline");
       }
-      void requestSync(false);
+      try {
+        await requestSync(true);
+      } catch (error) {
+        if (operation.isCurrent()) {
+          setStatus(syncFailureStatus(error));
+        }
+      }
     }
+
+    return operation.isCurrent() ? latestStatus.current : undefined;
   };
 
   return { status, setStatus, sync, refreshAccount: refreshIdentity, manualSync };
