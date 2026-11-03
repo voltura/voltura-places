@@ -662,3 +662,28 @@ The shared 5173 preview with isolated synthetic guest data verifies first select
 The editor right-aligns the selected category icon/name group when it fits. Its explicit text span allows longer names to fill the available value column with left-aligned text, wrapping at word boundaries and breaking within an unbroken word only when necessary. Settings preference rows retain their existing layout.
 
 Formatting and static checks pass. Isolated guest checks on the shared 5173 Chromium preview verify Accommodation and Mushrooms against the right edge, multiword wrapping with left-aligned text, and no overflow for a long unbroken category at 320, 390 and 1280px. The fitting and wrapping 390px screenshots were visually inspected. This is browser emulation, not physical-device verification. Publication runs the full release gates against the exact clean-main commit.
+
+# Dependency security and release 0.1.33, 3 November 2026
+
+Dependabot PR #1 updates lucide-react to 1.66.0, fake-indexeddb to 6.2.7 and Wrangler
+to 4.156.0. The minimatch override updates every installed copy to 11.0.1 for
+GHSA-g3hv-75wg-m249. Glob must also use 14.0.2: glob 11 silently missed wildcard
+matches with minimatch 11 and produced an empty Workbox manifest during the first
+candidate build. The corrected build discovers 24 application precache files
+without warnings (29 entries including the PWA plugin's additional entries),
+including index.html and the deferred photo GPS parser. Glob 14.0.2 also contains
+the cancellation fix for GHSA-3g3m-2fjr-6pw4.
+
+All 363 unit/data checks pass, including four dependency-security tests for bounded
+pattern amplification, large-set matching and real Workbox manifest generation.
+Formatting, static checks and the production build pass. Chromium browser tests
+verify durable offline photos, deferred GPS parsing after offline reload and GPS
+quick-save persistence. The real auth, usage and PHP mail-relay runtime suites
+pass. Production-only npm audit reports zero vulnerabilities. The full audit
+still flags the development-only deepmerge chain; its unexposed fixed-default
+call is documented in architecture.md and alert #1 is dismissed as not used,
+without claiming an upstream patch exists. Reassess it on resolver updates.
+
+Publication uses the exact clean-main commit through the standard Sites publisher,
+which repeats the release gates including real workerd/D1 authorization and data
+integrity checks. Browser checks use emulation; physical devices were not tested.

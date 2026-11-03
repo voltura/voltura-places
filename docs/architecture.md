@@ -47,6 +47,25 @@ Capacity validation counts live entities in one pass without filtered arrays; si
 
 ## Runtime and integration
 
+### Build dependency security
+
+The npm overrides pin every transitive `minimatch` to 11.0.1, including ESLint,
+Workbox's glob and filelist, and `glob` to 14.0.2. This closes
+GHSA-g3hv-75wg-m249's pattern-amplification path and keeps Workbox's file discovery
+compatible with minimatch 11's matcher representation. Glob 14.0.2 also includes
+the cancellation repair for GHSA-3g3m-2fjr-6pw4. Dependency-security tests cover the
+expansion limit, large-pattern handling, ordinary matching and Workbox-style glob
+discovery. Review these callers and remove the overrides when their declared
+versions include compatible safe releases.
+
+`deepmerge` 4.3.1 remains a development-only dependency of Workbox's Rollup resolver.
+GHSA-gcqx-w48m-w2h4 has no upstream patched release. In resolver 16.0.3 its only call
+clones fixed, module-local default arrays and booleans (`deepMerge({}, defaults)`);
+user options are combined separately with a shallow spread. No application input
+reaches this merge and it is absent from the production Worker/client. The alert
+is classified as vulnerable code not used, rather than claiming the package is
+patched. Reassess this disposition when the resolver or its dependency path changes.
+
 Browser installation infrastructure captures install offers before React renders and exposes a session-only external store to the shared InstallPlaces feature used by Settings and mobile first-use onboarding. It owns browser listeners, single-use offers, pending/error state and display-mode detection independently of presentation, accounts and persistence. Development hot replacement disposes its listeners.
 
 Place details reuse the lazy-loaded map feature in a non-interactive 180px preview. Only visible details mount a preview; mobile does not mount the hidden desktop pane. The app owns the List/Map mode and workspace-scoped expansion target so expanding a preview shows the selected place in the main map without carrying targets across account/library changes. Map previews use the same tile/privacy/security/cache rules as the main map. Composition also owns workspace-scoped fullscreen state. The main map promotes its existing inline dialog to a viewport-filling native modal without remounting Leaflet; desktop pin details use the existing sheet while fullscreen. Nested sheets remain above the map, and workspace/view changes or an empty result set end fullscreen.
