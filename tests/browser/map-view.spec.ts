@@ -140,6 +140,9 @@ test("map is optional, opens saved details under production CSP, and filters sha
   ]);
   await expect(page.locator(".place-card")).toHaveCount(2);
   expect(tileRequests).toBe(0);
+  expect(
+    await page.evaluate(() => (window as unknown as { cspErrors: string[] }).cspErrors),
+  ).toEqual([]);
   // Measure the map's lazy import and interactions separately from initial loading.
   await page.evaluate(() => {
     (window as unknown as { cspErrors: string[] }).cspErrors = [];
@@ -281,7 +284,9 @@ for (const width of [375, 390, 1280]) {
         }),
       )
       .toBeLessThan(4);
-    const allPlaces = page.getByRole("button", { name: "All places", exact: true });
+    const allPlaces = page
+      .getByRole("navigation", { name: "Categories", exact: true })
+      .getByRole("button", { name: "All", exact: true });
     await expect(allPlaces).toHaveAttribute("aria-pressed", "true");
     const showAll = page.getByRole("button", { name: "Show all", exact: true });
     await expect(showAll).toBeVisible();

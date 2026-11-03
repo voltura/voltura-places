@@ -1,3 +1,9 @@
+# CSP startup follow-up 0.2.7, 3 November 2026
+
+After 0.2.6 was published, its live health endpoint reported the reviewed commit and Cloudflare's injected script carried the response CSP nonce. A production browser check also exposed a caught Zod dynamic-code capability probe that emitted a `script-src` violation. Client startup now enables Zod's `jitless` mode before app schemas are constructed, without relaxing CSP or changing server configuration. The production-CSP map browser test now checks initial loading as well as map interactions. An independent review confirmed the bundled initialization order and equivalent validation of six valid/adverse inputs, with no blocked probe in an isolated CSP runtime. It found no remaining actionable issues.
+
+Formatting, static checks, 401 unit/data tests, production build, 218 API authorization/data-integrity checks and 70 route API/migration checks pass. The browser run passed 22 map/promo scenarios; three map scenarios initially exposed a stale `All places` selector from before the current `All` label. After updating that fixture, all three pass along with the startup CSP case. These checks use browser emulation, not a physical iPhone.
+
 # Theme release 0.2.6 validation, 3 November 2026
 
 The four new app themes and the localized promo deck were reviewed before release. The first independent review found low-contrast browser-default placeholder text in several dark palettes; placeholders now use the theme's muted color, and the forty synthetic phone captures were refreshed. Chromium and WebKit checks cover the actual search-placeholder contrast for all four new themes in both modes. A separate pre-existing attribution regression fixture and the UI owner were updated to reflect the compact 24px credits introduced in 0.2.0. The corrected rotation/map case passes in both browser engines. A second independent review found no remaining actionable issues.
