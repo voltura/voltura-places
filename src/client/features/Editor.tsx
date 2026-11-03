@@ -76,7 +76,8 @@ export function Editor({
   onUpdate?: () => void;
 }) {
   const comparisonBase = useRef<Entity | null>(entity ?? null);
-  const initial = entity?.kind === "place" ? entity.value : null;
+  const route = entity?.kind === "route" ? entity : null;
+  const initial = entity?.kind === "place" || entity?.kind === "route" ? entity.value : null;
   const [name, setName] = useState(initial?.name ?? "");
   const [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
   const [latitude, setLat] = useState(initial ? String(initial.latitude) : "");
@@ -287,7 +288,19 @@ export function Editor({
     stopRefinement.current();
     try {
       await onSave(
-        { id, kind: "place", value: parsed.data as Place },
+        route
+          ? {
+              ...route,
+              value: {
+                ...route.value,
+                name: parsed.data.name,
+                description: parsed.data.description,
+                categoryId: parsed.data.categoryId,
+                photoId: parsed.data.photoId,
+                updatedAt: now,
+              },
+            }
+          : { id, kind: "place", value: parsed.data as Place },
         comparisonBase.current,
         visitedHere,
       );
@@ -372,7 +385,9 @@ export function Editor({
   return (
     <>
       <Sheet
-        title={fresh ? t("placeSaved") : initial ? t("edit") : t("manual")}
+        title={
+          route ? t("routeDetails") : fresh ? t("placeSaved") : initial ? t("edit") : t("manual")
+        }
         className="editor-sheet"
         onClose={dismiss}
         closeLabel={t("close")}
@@ -501,7 +516,7 @@ export function Editor({
           </div>
           <div
             className={`editor-location-controls ${!manualLocation && latitude && longitude ? "editor-location" : "stack"}`}
-            hidden={!initial && manualLocation && coordinatesExpanded}
+            hidden={!!route || (!initial && manualLocation && coordinatesExpanded)}
           >
             {!manualLocation && latitude && longitude && (
               <p className="muted small" role="status">
@@ -661,19 +676,23 @@ export function Editor({
             t={t}
             onChange={setPhoto}
             onBusy={setPhotoBusy}
-            onPosition={(position) => {
-              stopCapture.current();
-              stopRefinement.current();
-              setLocating(false);
-              setLocationUpdated(false);
-              setVisitedHere(false);
-              setManualLocation(false);
-              setLat(String(position.latitude));
-              setLng(String(position.longitude));
-              setAccuracy(null);
-              setCapturedAt(new Date().toISOString());
-              setError("");
-            }}
+            onPosition={
+              route
+                ? undefined
+                : (position) => {
+                    stopCapture.current();
+                    stopRefinement.current();
+                    setLocating(false);
+                    setLocationUpdated(false);
+                    setVisitedHere(false);
+                    setManualLocation(false);
+                    setLat(String(position.latitude));
+                    setLng(String(position.longitude));
+                    setAccuracy(null);
+                    setCapturedAt(new Date().toISOString());
+                    setError("");
+                  }
+            }
           />
           {error && (
             <p className="error" role="alert">

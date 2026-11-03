@@ -1,6 +1,7 @@
 import { CategoryIcon } from "./CategoryAppearance";
 import { Suspense, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  Route,
   Plus,
   Search,
   X,
@@ -60,7 +61,7 @@ type Props = {
   onResolve: (id: string, choice: "device" | "cloud" | "both") => void;
   current: PlaceRecord | undefined;
   renderDetails: (p: PlaceRecord) => ReactNode;
-  prefs: { language: Language };
+  prefs: { language: Language; units?: "metric" | "imperial" };
 };
 
 export function LibraryView({
@@ -217,7 +218,7 @@ export function LibraryView({
               </div>
               <label
                 className={`visit-filter sort-button${visitFilter !== "all" ? " active" : ""}`}
-                title={`${t("visitFilter")}: ${t(visitFilter === "want" ? "visitWant" : visitFilter === "visited" ? "visitVisited" : visitFilter === "none" ? "visitNone" : "visitAll")}`}
+                title={`${t("visitFilter")}: ${t(visitFilter === "places" ? "onlyPlaces" : visitFilter === "routes" ? "onlyRoutes" : visitFilter === "want" ? "visitWant" : visitFilter === "visited" ? "visitVisited" : visitFilter === "none" ? "visitNone" : "visitAll")}`}
               >
                 <ListFilter size={20} aria-hidden="true" />
                 {visitFilter !== "all" && <span className="filter-dot" aria-hidden="true" />}
@@ -230,6 +231,8 @@ export function LibraryView({
                   }}
                 >
                   <option value="all">{t("visitAll")}</option>
+                  <option value="places">{t("onlyPlaces")}</option>
+                  <option value="routes">{t("onlyRoutes")}</option>
                   <option value="want">{t("visitWant")}</option>
                   <option value="visited">{t("visitVisited")}</option>
                   <option value="none">{t("visitNone")}</option>
@@ -312,6 +315,7 @@ export function LibraryView({
               focusId={mapFocus?.workspace === workspace ? mapFocus.id : null}
               focusRequest={mapFocus?.workspace === workspace ? mapFocus.request : 0}
               key={workspace}
+              workspace={workspace}
               places={filtered}
               fitKey={`${search}\u0000${filter}\u0000${visitFilter}\u0000${fitRequest}`}
               selected={selected}
@@ -330,7 +334,11 @@ export function LibraryView({
                   onClick={() => setSelected(p.id)}
                 >
                   <span className={`place-marker ${color}`}>
-                    <CategoryIcon record={category} size={24} />
+                    {p.kind === "route" ? (
+                      <Route size={24} />
+                    ) : (
+                      <CategoryIcon record={category} size={24} />
+                    )}
                   </span>
                   <span className="card-text">
                     <strong>
@@ -347,6 +355,16 @@ export function LibraryView({
                     </strong>
                     <span>
                       {label}
+                      {p.kind === "route" && (
+                        <span>
+                          {" "}
+                          · {Math.floor(p.value.duration / 60000)} min ·{" "}
+                          {(
+                            p.value.distance / (prefs.units === "imperial" ? 1609.344 : 1000)
+                          ).toFixed(1)}{" "}
+                          {prefs.units === "imperial" ? "mi" : "km"}
+                        </span>
+                      )}
                       {date && (
                         <>
                           <span className="middle-dot">·</span>
@@ -359,7 +377,7 @@ export function LibraryView({
                 <div className="card-actions">
                   <button className="card-maps" onClick={() => openMaps(p.value)}>
                     <MapIcon size={17} />
-                    {t("openMaps")}
+                    {t(p.kind === "route" ? "routeStart" : "openMaps")}
                   </button>
                   <button
                     className="icon-button"

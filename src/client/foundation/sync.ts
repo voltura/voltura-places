@@ -1,3 +1,5 @@
+import { loadGeometry, uploadGeometry } from "./route-geometry";
+
 export type SyncStatus =
   | "localOnly"
   | "pending"
@@ -128,7 +130,7 @@ export function syncFailureStatus(error: unknown): SyncStatus {
     if (error.message === "invalidResponse") {
       return "syncInvalidResponse";
     }
-    if (["libraryLimit", "photoQuota"].includes(error.message)) {
+    if (["libraryLimit", "photoQuota", "routeQuota"].includes(error.message)) {
       return "syncLimitReached";
     }
     if (error.message === "syncBusy") {
@@ -218,9 +220,12 @@ export async function synchronize(
         if (!flight) {
           break;
         }
+        if (!flight.mutation.deleted && flight.mutation.entity.kind === "route") {
+          await uploadGeometry(account, flight.mutation.entity.value.geometryId, isCurrent);
+        }
         if (
           !flight.mutation.deleted &&
-          flight.mutation.entity.kind === "place" &&
+          (flight.mutation.entity.kind === "place" || flight.mutation.entity.kind === "route") &&
           flight.mutation.entity.value.photoId
         ) {
           await uploadPhoto(account, flight.mutation.entity.value.photoId, isCurrent);
@@ -239,6 +244,7 @@ export async function synchronize(
             "Content-Type": "application/json",
             ...workspaceHeaders(account),
             "X-Places-Photos": "1",
+            "X-Places-Routes": "1",
           },
           body: JSON.stringify(flight.mutation),
         });
@@ -256,7 +262,7 @@ export async function synchronize(
           response.status === 422 &&
           data.error === "photoUnavailable" &&
           !flight.mutation.deleted &&
-          flight.mutation.entity.kind === "place" &&
+          (flight.mutation.entity.kind === "place" || flight.mutation.entity.kind === "route") &&
           flight.mutation.entity.value.photoId &&
           repairedPhotoFlight !== flight.mutation.mutationId
         ) {
@@ -327,13 +333,24 @@ export async function synchronize(
         throw new Error("accountChanged");
       }
       const w = await mergeSnapshot(account, snapshot.records, isCurrent);
+      for (const record of w.records) {
+        for (const candidate of [record, record.conflict]) {
+          if (candidate?.kind === "route" && !candidate.deleted) {
+            await loadGeometry(account, candidate.value.geometryId, isCurrent);
+          }
+        }
+      }
       const photoIds = new Set<string>();
       for (const r of w.records) {
-        if (r.kind === "place" && !r.deleted && r.value.photoId) {
+        if ((r.kind === "place" || r.kind === "route") && !r.deleted && r.value.photoId) {
           photoIds.add(r.value.photoId);
         }
         const conflict = r.conflict;
-        if (conflict?.kind === "place" && !conflict.deleted && conflict.value.photoId) {
+        if (
+          (conflict?.kind === "place" || conflict?.kind === "route") &&
+          !conflict.deleted &&
+          conflict.value.photoId
+        ) {
           photoIds.add(conflict.value.photoId);
         }
       }

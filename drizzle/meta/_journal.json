@@ -85,6 +85,20 @@
       "when": 1793653800000,
       "tag": "0011_account_display_name",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793664000000,
+      "tag": "0012_routes",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793664000001,
+      "tag": "0013_route_shares",
+      "breakpoints": true
     }
   ]
 }

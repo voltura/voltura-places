@@ -1,3 +1,4 @@
+import { loadGeometry } from "./route-geometry";
 import { visitOwner } from "../../shared/visits";
 import { readWorkspace, exportBackup, type Workspace } from "./library";
 import { loadPhoto } from "./photos";
@@ -8,7 +9,9 @@ export async function exportWithPhotos(workspace: Workspace, isCurrent = () => t
   }
   const ids = new Set(
     workspace.records.flatMap((r) =>
-      r.kind === "place" && !r.deleted && r.value.photoId ? [r.value.photoId] : [],
+      (r.kind === "place" || r.kind === "route") && !r.deleted && r.value.photoId
+        ? [r.value.photoId]
+        : [],
     ),
   );
   const photos: { id: string; data: string }[] = [];
@@ -39,7 +42,19 @@ export async function exportWithPhotos(workspace: Workspace, isCurrent = () => t
     throw new Error("accountChanged");
   }
 
-  return exportBackup(workspace, photos, personal.records);
+  const geometry: { id: string; data: string }[] = [];
+  const seen = new Set<string>();
+  for (const route of workspace.records) {
+    if (route.kind === "route" && !route.deleted && !seen.has(route.value.geometryId)) {
+      geometry.push({
+        id: route.value.geometryId,
+        data: JSON.stringify(await loadGeometry(workspace.key, route.value.geometryId, isCurrent)),
+      });
+      seen.add(route.value.geometryId);
+    }
+  }
+
+  return exportBackup(workspace, photos, personal.records, geometry);
 }
 
 async function jpegDataURL(blob: Blob) {

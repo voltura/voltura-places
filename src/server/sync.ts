@@ -8,7 +8,7 @@ import type { Environment } from "./types";
 
 type Row = {
   id: string;
-  kind: "place" | "category" | "visit";
+  kind: "place" | "route" | "category" | "visit";
   value: string;
   revision: number;
   deleted: number;
@@ -44,6 +44,8 @@ export async function handleSync(request: Request, env: Environment) {
   }
   const account = identity.storage;
 
+  const routes = request.headers.get("X-Places-Routes") === "1";
+  const routeFilter = routes ? "1" : "kind <> 'route'";
   const legacyPhotos = request.headers.get("X-Places-Photos") !== "1";
 
   const present = (record: RecordState) => {
@@ -64,8 +66,8 @@ export async function handleSync(request: Request, env: Environment) {
     }
     const rows = await env.DB.prepare(
       identity.family
-        ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`
-        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`,
+        ? `SELECT id,kind,value,revision,deleted FROM places_records WHERE ${routeFilter} AND account_id = ? AND id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`
+        : `SELECT id,kind,value,revision,deleted FROM (SELECT id,kind,value,revision,deleted FROM places_records WHERE ${routeFilter} AND account_id=? UNION ALL SELECT id,kind,value,revision,deleted FROM places_visits WHERE account_id=?) WHERE id > ? AND ${membershipSQL} ORDER BY id LIMIT ${syncLimits.pageSize + 1}`,
     )
       .bind(
         ...(identity.family
@@ -105,6 +107,38 @@ export async function handleSync(request: Request, env: Environment) {
   const body = parsed.data;
   const hash = await digest(JSON.stringify(body));
   const e = body.entity;
+  if (
+    !routes &&
+    (await env.DB.prepare(
+      "SELECT id FROM places_records WHERE account_id=? AND id=? AND kind='route'",
+    )
+      .bind(account, e.id)
+      .first())
+  ) {
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
+  if (e.kind === "route" && !routes) {
+    return json({ error: "invalidMutation", accountId: identity.key }, 422);
+  }
+  if (e.kind === "route" && !body.deleted) {
+    const geometry = await env.DB.prepare(
+      `SELECT summary FROM places_geometry WHERE account_id=? AND id=? AND ${membershipSQL}`,
+    )
+      .bind(account, e.value.geometryId, ...membershipArgs(identity))
+      .first<{ summary: string }>();
+    if (!geometry) {
+      return json({ error: "geometryUnavailable", accountId: identity.key }, 422);
+    }
+    const summary = JSON.parse(geometry.summary);
+    if (
+      ["latitude", "longitude", "accuracy", "pointCount", "distance"].some(
+        (key) => summary[key] !== e.value[key as keyof typeof e.value],
+      ) ||
+      JSON.stringify(summary.bounds) !== JSON.stringify(e.value.bounds)
+    ) {
+      return json({ error: "invalidGeometry", accountId: identity.key }, 422);
+    }
+  }
   if (e.kind === "visit") {
     const source = e.value.libraryId
       ? `family:${identity.account}:${e.value.libraryId}`
@@ -149,7 +183,7 @@ export async function handleSync(request: Request, env: Environment) {
     }
   }
   if (
-    e.kind === "place" &&
+    (e.kind === "place" || e.kind === "route") &&
     e.value.photoId &&
     !body.deleted &&
     !(await env.DB.prepare("SELECT id FROM places_photos WHERE account_id=? AND id=?")
@@ -167,8 +201,10 @@ export async function handleSync(request: Request, env: Environment) {
   const liveCount =
     e.kind === "visit"
       ? "SELECT count(*) FROM places_visits WHERE account_id=? AND deleted=0"
-      : "SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0";
-  const countArgs = e.kind === "visit" ? [account] : [account, e.kind];
+      : e.kind === "place" || e.kind === "route"
+        ? "SELECT count(*) FROM places_records WHERE account_id=? AND kind IN ('place','route') AND deleted=0"
+        : "SELECT count(*) FROM places_records WHERE account_id=? AND kind=? AND deleted=0";
+  const countArgs = e.kind === "category" ? [account, e.kind] : [account];
   // Both statements run in one D1 transaction. Only the winning CAS can write a receipt.
   const write =
     body.baseRevision === 0

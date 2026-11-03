@@ -5,7 +5,7 @@ export const PHOTO_BYTES = 256 * 1024;
 export const PHOTO_QUOTA = 50 * 1024 * 1024;
 // Covers base64 for the full photo quota plus JSON escaping and pretty-printing
 // 5,000 maximum-length place descriptions/names with their categories and visits.
-export const BACKUP_BYTES = 112 * 1024 * 1024;
+export const BACKUP_BYTES = 160 * 1024 * 1024;
 
 export function jpegDimensions(bytes: Uint8Array) {
   if (

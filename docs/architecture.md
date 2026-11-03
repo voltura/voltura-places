@@ -1,5 +1,9 @@
 # Architecture
 
+## Route ownership
+
+Route recording lifecycle belongs to app/useRouteRecording; browser foundation owns its Web Lock, GPS watch, append-only drafts, immutable geometry storage and attachment transport. Shared route schemas derive geometry hashes and summaries without presentation dependencies. Features own route maps and descriptive editing; the server authorizes geometry and builds public snapshots from authorized persisted records. Geometry downloads are bounded to three concurrent requests.
+
 ## Source style
 
 `npm run format` applies the repository's pinned source-style tools; `npm run format:check` verifies without writing. `npm run check` includes that verification, so CI rejects style drift. Run the formatter after edits and the full check before submitting changes. `.editorconfig` supplies editor defaults; the executable formatter/linter configuration is authoritative.

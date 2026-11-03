@@ -125,6 +125,9 @@ test("repeated and concurrent group copies retain one independently editable des
   ]);
   expect(results.map((result) => result.copied).sort()).toEqual([false, true]);
   const copied = livePlaces(await readWorkspace(target))[0];
+  if (copied.kind !== "place") {
+    throw new Error("Expected a place");
+  }
   await saveEntity(target, { ...copied, value: { ...copied.value, name: "Destination edit" } });
   await saveEntity(source, {
     ...original,

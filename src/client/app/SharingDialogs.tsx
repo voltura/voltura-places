@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { DeferredPlacesMap } from "../features/DeferredPlacesMap";
+import { familyKey } from "../../shared/families";
 import { Copy, MapPin, Pencil, Share2, Trash2, Users, Map } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { GroupCopyPicker } from "../features/GroupCopyPicker";
@@ -45,6 +48,83 @@ export function SharingDialogs({
 
   return (
     <>
+      {sharing.routeSnapshot && (
+        <Sheet
+          title={t("sharedRouteTitle")}
+          onClose={() => sharing.setRouteSnapshot(null)}
+          closeLabel={t("close")}
+        >
+          <div className="stack">
+            <h3>{sharing.routeSnapshot.snapshot.route.name}</h3>
+            <p>{sharing.routeSnapshot.snapshot.category.name}</p>
+            <p className="place-description">{sharing.routeSnapshot.snapshot.route.description}</p>
+            {sharing.routeSnapshot.snapshot.photo && (
+              <img
+                src={sharing.routeSnapshot.snapshot.photo}
+                alt=""
+                className="route-shared-photo"
+              />
+            )}
+            <Suspense fallback={<p>{t("working")}</p>}>
+              <DeferredPlacesMap
+                preview
+                places={[
+                  {
+                    id: sharing.routeSnapshot.id,
+                    kind: "route",
+                    value: sharing.routeSnapshot.snapshot.route,
+                    revision: 0,
+                    generation: 0,
+                    deleted: false,
+                    dirty: false,
+                  },
+                ]}
+                selected={sharing.routeSnapshot.id}
+                fitKey={sharing.routeSnapshot.id}
+                onSelect={() => {}}
+                categoryColor={() => sharing.routeSnapshot!.snapshot.category.color}
+                t={t}
+                geometry={{
+                  [sharing.routeSnapshot.snapshot.route.geometryId]:
+                    sharing.routeSnapshot.snapshot.geometry,
+                }}
+              />
+            </Suspense>
+            <label>
+              {t("routeDestination")}
+              <select
+                aria-label={t("routeDestination")}
+                name="route-destination"
+                value=""
+                disabled={sharing.routeShareBusy}
+                onChange={(event) => {
+                  if (event.target.value) {
+                    void sharing.saveIncomingRoute(event.target.value);
+                  }
+                }}
+              >
+                <option value="" disabled>
+                  {t("saveCopy")}
+                </option>
+                <option value={account.account?.id ?? "guest"}>
+                  {t(account.account ? "privateLibrary" : "localOnly")}
+                </option>
+                {account.account &&
+                  workspaceController.familyCache.families.map((group) => (
+                    <option key={group.id} value={familyKey(account.account!.id, group.id)}>
+                      {group.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {sharing.routeShareError && (
+              <p role="alert" className="error">
+                {sharing.routeShareError}
+              </p>
+            )}
+          </div>
+        </Sheet>
+      )}
       {sharePlace && (
         <Sheet
           key={copyGroupPicker ? "share-group" : "share-place"}
@@ -73,12 +153,43 @@ export function SharingDialogs({
                   {t("shareToGroup")}
                 </button>
               )}
-              <button className="button outline" onClick={() => void share(sharePlace)}>
+              <button
+                className="button outline"
+                disabled={
+                  sharing.routeShareBusy ||
+                  (sharePlace.kind === "route" && (!account.account || !navigator.onLine))
+                }
+                onClick={() => void share(sharePlace)}
+              >
                 <Share2 size={19} aria-hidden="true" />
                 {t("shareLink")}
               </button>
-              <p className="muted">{t("shareNotice")}</p>
-              <p className="muted small">{t("photoHint")}</p>
+              {sharePlace.kind === "route" ? (
+                <details className="muted small">
+                  <summary>{t("routeShareSummary")}</summary>
+                  <p>{t("routeShareNotice")}</p>
+                </details>
+              ) : (
+                <p className="muted">{t("shareNotice")}</p>
+              )}
+              {sharePlace.kind === "route" ? (
+                <>
+                  <button
+                    className="button outline"
+                    disabled={sharing.routeShareBusy || !account.account || !navigator.onLine}
+                    onClick={() => void sharing.revokeRoute(sharePlace.id)}
+                  >
+                    {t("routeRevoke")}
+                  </button>
+                  {sharing.routeShareError && (
+                    <p role="alert" className="error">
+                      {sharing.routeShareError}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="muted small">{t("photoHint")}</p>
+              )}
             </div>
           )}
         </Sheet>

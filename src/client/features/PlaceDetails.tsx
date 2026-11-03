@@ -76,6 +76,13 @@ export function PlaceDetails({
             : t("other")}
         </span>
       </div>
+      {record.kind === "route" && (
+        <p>
+          <Route size={18} aria-hidden="true" /> {Math.floor(record.value.duration / 60000)} min ·{" "}
+          {(record.value.distance / (units === "imperial" ? 1609.344 : 1000)).toFixed(1)}{" "}
+          {units === "imperial" ? "mi" : "km"}
+        </p>
+      )}
       {record.value.description && <p className="place-description">{record.value.description}</p>}
       <div className="personal-visit">
         <label className="visit-status-row" title={t("personalVisitHint")}>
@@ -116,7 +123,7 @@ export function PlaceDetails({
       <div className="details-map-actions split-actions">
         <button className="button primary" onClick={() => openMaps(record.value)}>
           <Map size={20} />
-          {t("openMaps")}
+          {t(record.kind === "route" ? "routeStart" : "openMaps")}
         </button>
         <div className="details-map-picker split-picker">
           <select
@@ -143,7 +150,7 @@ export function PlaceDetails({
       </div>
       <button className="button outline navigate-place" onClick={() => navigate(record.value)}>
         <Route size={20} />
-        {t("navigate")}
+        {t(record.kind === "route" ? "routeNavigate" : "navigate")}
       </button>
       <div className="details-secondary-actions">
         <button className="button outline" onClick={() => setSharePlace(record)}>
@@ -218,6 +225,7 @@ export function PlaceDetails({
           }
         >
           <PlacesMap
+            workspace={workspace}
             key={`${workspace}:${record.id}`}
             preview
             onExpand={() => expandMap(record)}

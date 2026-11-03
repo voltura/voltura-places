@@ -1,3 +1,12 @@
+import { sameValue } from "../foundation/library-records";
+import {
+  createRouteShare,
+  revokeRouteShare,
+  fetchRouteShare,
+  saveRouteSnapshot,
+  type RouteSnapshot,
+} from "../foundation/route-sharing";
+import { synchronizeAndWait } from "../foundation/sync";
 import { useEffect, useRef, useState } from "react";
 import { categoryName } from "../../shared/category-names";
 import { familyKey } from "../../shared/families";
@@ -9,7 +18,7 @@ import {
   type PlaceRecord,
 } from "../../shared/model";
 import { shareOrCopy } from "../foundation/sharing";
-import { copyPlaceToWorkspace } from "../foundation/library";
+import { readWorkspace, copyPlaceToWorkspace } from "../foundation/library";
 import { synchronize } from "../foundation/sync";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
 import type { Session } from "./useSession";
@@ -38,6 +47,12 @@ export function useSharing({
 }) {
   const { operations } = session;
   const rendered = operations.capture();
+  const [routeSnapshot, setRouteSnapshot] = useState<{
+    id: string;
+    snapshot: RouteSnapshot;
+  } | null>(null);
+  const [routeShareBusy, setRouteShareBusy] = useState(false);
+  const [routeShareError, setRouteShareError] = useState("");
   const [shared, setShared] = useState(() => parseShare(location.hash));
   const [sharePlace, setSharePlace] = useState<PlaceRecord | null>(null);
   const [menu, setMenu] = useState<PlaceRecord | null>(null);
@@ -53,6 +68,24 @@ export function useSharing({
   useEffect(() => {
     const consume = () => {
       const hash = location.hash;
+      if (hash.startsWith("#route=")) {
+        history.replaceState(history.state, "", location.pathname + location.search);
+        const token = hash.slice(7);
+        if (/^[a-f0-9]{64}$/.test(token)) {
+          const revision = ++sharedRevision.current;
+          void fetchRouteShare(token)
+            .then((snapshot) => {
+              if (revision === sharedRevision.current) {
+                setRouteSnapshot({ id: crypto.randomUUID(), snapshot });
+              }
+            })
+            .catch(() => callbacks.current.notify("invalidShare", true));
+        } else {
+          callbacks.current.notify("invalidShare", true);
+        }
+
+        return;
+      }
       if (!hash.startsWith("#place=")) {
         return;
       }
@@ -92,6 +125,45 @@ export function useSharing({
 
   async function share(p: PlaceRecord) {
     if (!rendered.isCurrent()) {
+      return;
+    }
+    if (p.kind === "route") {
+      setRouteShareBusy(true);
+      setRouteShareError("");
+      try {
+        if (!operations.account || !navigator.onLine) {
+          throw new Error("shareUnavailable");
+        }
+        await synchronizeAndWait(workspace.scope, () => {}, rendered.isCurrent);
+        if (!rendered.isCurrent()) {
+          return;
+        }
+        const latest = (await readWorkspace(workspace.scope)).records.find((r) => r.id === p.id);
+        if (
+          !latest ||
+          latest.deleted ||
+          latest.dirty ||
+          latest.conflict ||
+          latest.revision < 1 ||
+          !sameValue(latest.value, p.value)
+        ) {
+          throw new Error("shareUnavailable");
+        }
+        const url = await createRouteShare(workspace.scope, p.id);
+        if (rendered.isCurrent()) {
+          await copy(url);
+          notify("shareReady");
+        }
+      } catch {
+        if (rendered.isCurrent()) {
+          setRouteShareError(t("routeShareFailed"));
+        }
+      } finally {
+        if (rendered.isCurrent()) {
+          setRouteShareBusy(false);
+        }
+      }
+
       return;
     }
     const category = categoryFor(p.value.categoryId);
@@ -211,7 +283,66 @@ export function useSharing({
     }
   }
 
+  const revokeRoute = async (id: string) => {
+    setRouteShareBusy(true);
+    try {
+      await revokeRouteShare(workspace.scope, id);
+      if (rendered.isCurrent()) {
+        notify("routeRevoked");
+      }
+    } catch {
+      if (rendered.isCurrent()) {
+        setRouteShareError(t("routeShareFailed"));
+      }
+    } finally {
+      if (rendered.isCurrent()) {
+        setRouteShareBusy(false);
+      }
+    }
+  };
+
+  const saveIncomingRoute = async (destination: string) => {
+    if (!routeSnapshot || routeShareBusy) {
+      return;
+    }
+    const op = operations.capture("account");
+    const family = destination.startsWith("family:") ? destination.split(":")[2] : null;
+    const destinationCurrent = family
+      ? workspace.captureGroup(family)
+      : () => op.account === operations.account;
+
+    const current = () =>
+      op.isCurrent() &&
+      destinationCurrent() &&
+      (family
+        ? destination === familyKey(op.account!, family)
+        : destination === (op.account ?? "guest"));
+
+    setRouteShareBusy(true);
+    setRouteShareError("");
+    try {
+      await saveRouteSnapshot(destination, routeSnapshot.id, routeSnapshot.snapshot, current);
+      if (current()) {
+        setRouteSnapshot(null);
+        await workspace.refresh();
+        notify("saved");
+        if (destination !== "guest") {
+          void synchronize(destination, () => {}, current);
+        }
+      }
+    } catch {
+      if (op.isCurrent()) {
+        setRouteShareError(t("routeDestinationFailed"));
+      }
+    } finally {
+      if (op.isCurrent()) {
+        setRouteShareBusy(false);
+      }
+    }
+  };
+
   const reset = () => {
+    setRouteShareBusy(false);
     copyInProgress.current = null;
     sharedSavePending.current = null;
     setSharePlace(null);
@@ -222,6 +353,12 @@ export function useSharing({
   };
 
   return {
+    routeSnapshot,
+    setRouteSnapshot,
+    routeShareBusy,
+    routeShareError,
+    revokeRoute,
+    saveIncomingRoute,
     shared,
     setShared,
     sharePlace,

@@ -24,6 +24,7 @@ test("linked language wins while valid device preferences survive", () => {
     lastCategory: "hikes",
     reviewGps: true,
     autoHideControls: false,
+    recordingInterval: 10,
     units: "imperial",
   });
 });
@@ -63,6 +64,7 @@ test("malformed fields cannot erase valid settings or inject unknown fields", ()
     lastCategory: "other",
     reviewGps: false,
     autoHideControls: false,
+    recordingInterval: 10,
     units: "metric",
   });
 });

@@ -1,9 +1,9 @@
 {
   "en": {
     "lang": "en",
-    "title": "Save places.",
+    "title": "Places and routes.",
     "titleSecond": "Find your way back.",
-    "description": "Save places with photos, browse them in a list or on a map, and share with family or other groups.",
+    "description": "Save places, record routes and add photos. Browse offline and share with your groups.",
     "open": "Open Voltura Places",
     "github": "View on GitHub",
     "eyebrow": "VOLTURA PLACES",
@@ -13,17 +13,17 @@
       [
         "01",
         "Save in a moment",
-        "Tap Save position to save your current location on your device, then add a name, category or photo. Save with details also lets you use a photo’s embedded location or enter coordinates manually."
+        "Save your position, or choose Track route. Keep Places visible while recording. Add a name, category, description or photo."
       ],
       [
         "02",
         "Keep it your way",
-        "Switch between List and Map with the same search and category filters. Choose category colours and icons, add photos, and optionally sync across devices."
+        "Browse List or Map. Filter places, routes or personal visit status. Routes show duration and distance."
       ],
       [
         "03",
         "Find your way back",
-        "Preview a saved place on the map, then open it or get directions in Google Maps or Apple Maps. Share a snapshot link or keep places up to date together in a group."
+        "Open a place or route start in Google Maps or Apple Maps. Copy to a group, or share a route and photo with a public link."
       ]
     ],
     "offlineTitle": "Use Places offline",
@@ -33,13 +33,13 @@
     "ios": "iPhone: open Places in Safari",
     "android": "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
     "privacyTitle": "Privacy and backups",
-    "privacyText": "No background tracking. You choose when to use GPS or a photo location. Start without an account, or sign in for device sync and shared groups. Export a backup whenever you want.",
+    "privacyText": "No background tracking. Recording requires Places to remain visible. Guest data stays on your device; account libraries sync when online. Back up whenever you want.",
     "sourceTitle": "Open source",
     "sourceText": "Voltura Places is freeware with MIT-licensed source. Run it, inspect it, or make it your own. Development and publishing are documented in the public repository.",
     "footer": "Voltura Places",
     "privacy": "Privacy",
     "about": "How it works",
-    "sharingTitle": "Share places with groups",
+    "sharingTitle": "Share places and routes",
     "sharingText": "Keep a private library and separate groups for family, friends or a weekend trip. Switch groups before saving; each group has its own places, photos and members.",
     "sharingSteps": [
       [
@@ -55,7 +55,7 @@
       [
         "03",
         "Choose what to share",
-        "Save into the selected group or copy an existing private place to it. The private original stays separate; members can add, edit and delete shared places."
+        "Copy a place or route to a group. Copies stay independent. Signed-in users can also publish a route and photo link, replace it or revoke it."
       ]
     ],
     "appearanceTitle": "Appearance and language",
@@ -68,13 +68,13 @@
     "sharingNav": "Sharing",
     "installNav": "Install",
     "platforms": "iPhone, Android & desktop",
-    "detailsTitle": "Your places. List or map.",
-    "detailsText": "Browse saved places as cards or explore them on an interactive map. Search and category filters follow you between views, within your selected library.",
+    "detailsTitle": "Places and routes. List or map.",
+    "detailsText": "Search names, descriptions and categories. Filter places, routes or personal visit status in either view.",
     "detailFeatures": [
       [
         "map",
         "See your places on the map",
-        "Category-coloured pins cluster together as you zoom out. Select a pin for details, expand the map to fullscreen, or use the map preview in place details."
+        "Clustered place pins and category-coloured routes. Gaps stay separate. Select a route for its full track, or expand the map to fullscreen."
       ],
       [
         "palette",
@@ -84,11 +84,11 @@
       [
         "navigation",
         "Find your way back",
-        "Open a saved position or start directions in Google Maps or Apple Maps. Choose your preferred map app in Settings."
+        "Open a place or navigate to a route start in Google Maps or Apple Maps."
       ]
     ],
     "capabilities": [
-      ["target", "Save your position"],
+      ["target", "Save places · Record routes"],
       ["map", "Browse List or Map"],
       ["wifi", "Save places offline"],
       ["users", "Share with groups"]
@@ -102,9 +102,9 @@
     "familyLabel": "Family",
     "walksLabel": "Weekend walks",
     "separateLabel": "Separate places, photos and members",
-    "offlineShort": "Save and search without a connection after your first visit. Changes are stored on your device. If you are signed in, they sync when you are online again. Map backgrounds need an internet connection; there are no downloadable map regions. Your saved pins and place details remain available if tiles cannot load.",
+    "offlineShort": "Save places and record visible routes offline after your first visit. Downloaded routes and photos remain available. Changes sync when online. Map backgrounds need internet; no downloadable map regions.",
     "offlinePoints": [
-      "Places saved on your device",
+      "Places and routes saved on your device",
       "Photos available after download",
       "Optional account sync"
     ],
@@ -135,7 +135,7 @@
       ],
       [
         "Shared links",
-        "Shared place links contain a location snapshot without its photo. Anyone with the link can read it, and the link cannot be revoked."
+        "Place links contain a photo-free location snapshot and cannot be revoked. Hosted route links include the route, description, category and photo. Anyone with the link can view or save them. No expiry; sharing again replaces your previous link. Publishers can revoke links, and group owners can revoke group-route links. Deletion or lost membership blocks further reads; saved copies cannot be recalled."
       ],
       [
         "Usage activity",
@@ -149,9 +149,9 @@
   },
   "sv": {
     "lang": "sv",
-    "title": "Spara platser.",
+    "title": "Platser och rutter.",
     "titleSecond": "Hitta tillbaka.",
-    "description": "Spara platser med foton, se dem i en lista eller på en karta och dela med familjen eller andra grupper.",
+    "description": "Spara platser, spela in rutter och lägg till foton. Bläddra offline och dela med dina grupper.",
     "open": "Öppna Voltura Places",
     "github": "Visa på GitHub",
     "eyebrow": "VOLTURA PLACES",
@@ -161,17 +161,17 @@
       [
         "01",
         "Spara på ett ögonblick",
-        "Tryck Spara position för att spara din nuvarande plats på enheten. Lägg sedan till namn, kategori eller foto. Med Spara med detaljer kan du också använda platsinformationen i ett foto eller ange koordinater manuellt."
+        "Spara din position eller välj Spela in rutt. Ha Places synligt under inspelningen. Lägg till namn, kategori, beskrivning eller foto."
       ],
       [
         "02",
         "Ordna som du vill",
-        "Växla mellan Lista och Karta med samma sökning och kategorifilter. Välj färger och ikoner för kategorier, lägg till foton och synkronisera mellan enheter om du vill."
+        "Växla mellan Lista och Karta. Filtrera platser, rutter eller egen besöksstatus. Rutter visar tid och sträcka."
       ],
       [
         "03",
         "Hitta tillbaka",
-        "Förhandsvisa en sparad plats på kartan och öppna den sedan eller få en vägbeskrivning i Google Maps eller Apple Maps. Dela en länk med en kopia eller håll platser uppdaterade tillsammans i en grupp."
+        "Öppna en plats eller ruttstart i Google Maps eller Apple Maps. Kopiera till en grupp eller dela rutt och foto med en offentlig länk."
       ]
     ],
     "offlineTitle": "Använd Places offline",
@@ -181,13 +181,13 @@
     "ios": "iPhone: öppna Places i Safari",
     "android": "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",
     "privacyTitle": "Integritet och säkerhetskopior",
-    "privacyText": "Ingen bakgrundsspårning. Du väljer när GPS eller platsen från ett foto används. Börja utan konto eller logga in för synkronisering och delade grupper. Exportera en säkerhetskopia när du vill.",
+    "privacyText": "Ingen bakgrundsspårning. Places måste vara synligt vid inspelning. Gästdata stannar på enheten; kontobibliotek synkas online. Säkerhetskopiera när du vill.",
     "sourceTitle": "Öppen källkod",
     "sourceText": "Voltura Places är freeware med MIT-licensierad källkod. Kör, granska eller anpassa. Utveckling och publicering beskrivs i det publika kodarkivet.",
     "footer": "Voltura Places",
     "privacy": "Integritet",
     "about": "Så fungerar det",
-    "sharingTitle": "Dela platser med grupper",
+    "sharingTitle": "Dela platser och rutter",
     "sharingText": "Ha ett privat bibliotek och separata grupper för familjen, vännerna eller helgutflykten. Välj grupp innan du sparar. Varje grupp har egna platser, foton och medlemmar.",
     "sharingSteps": [
       [
@@ -203,7 +203,7 @@
       [
         "03",
         "Välj vad du delar",
-        "Spara i vald grupp eller kopiera en privat plats till den. Det privata originalet förblir separat. Medlemmar kan lägga till, redigera och radera delade platser."
+        "Kopiera en plats eller rutt till en grupp. Kopiorna är oberoende. Inloggade kan också publicera en länk med rutt och foto, ersätta den eller återkalla den."
       ]
     ],
     "appearanceTitle": "Utseende och språk",
@@ -216,13 +216,13 @@
     "sharingNav": "Delning",
     "installNav": "Installera",
     "platforms": "iPhone, Android och dator",
-    "detailsTitle": "Dina platser. Lista eller karta.",
-    "detailsText": "Bläddra bland sparade platser som kort eller utforska dem på en interaktiv karta. Sökning och kategorifilter följer med mellan vyerna i ditt valda bibliotek.",
+    "detailsTitle": "Platser och rutter. Lista eller karta.",
+    "detailsText": "Sök namn, beskrivningar och kategorier. Filtrera platser, rutter eller egen besöksstatus i båda vyerna.",
     "detailFeatures": [
       [
         "map",
         "Se dina platser på kartan",
-        "Nålar med kategorifärger samlas i kluster när du zoomar ut. Välj en nål för detaljer, visa kartan i helskärm eller använd kartförhandsvisningen i platsdetaljerna."
+        "Grupperade platsnålar och kategorifärgade rutter. Avbrott hålls åtskilda. Välj en rutt för hela spåret eller öppna kartan i helskärm."
       ],
       [
         "palette",
@@ -232,11 +232,11 @@
       [
         "navigation",
         "Hitta tillbaka",
-        "Öppna en sparad position eller starta en vägbeskrivning i Google Maps eller Apple Maps. Välj din föredragna kartapp i Inställningar."
+        "Öppna en plats eller navigera till en ruttstart i Google Maps eller Apple Maps."
       ]
     ],
     "capabilities": [
-      ["target", "Spara din position"],
+      ["target", "Spara platser · Spela in rutter"],
       ["map", "Välj Lista eller Karta"],
       ["wifi", "Spara platser offline"],
       ["users", "Dela med grupper"]
@@ -250,9 +250,9 @@
     "familyLabel": "Familjen",
     "walksLabel": "Helgpromenader",
     "separateLabel": "Separata platser, foton och medlemmar",
-    "offlineShort": "Spara och sök utan anslutning efter ditt första besök. Ändringar lagras på enheten. Om du är inloggad synkroniseras de när du är online igen. Kartbakgrunder kräver internetanslutning och det finns inga nedladdningsbara kartområden. Dina sparade nålar och platsdetaljer finns kvar även om kartbilderna inte kan laddas.",
+    "offlineShort": "Spara platser och spela in synliga rutter offline efter första besöket. Hämtade rutter och foton finns kvar. Ändringar synkas online. Kartbakgrunder behöver internet; inga nedladdningsbara kartområden.",
     "offlinePoints": [
-      "Platser sparas på enheten",
+      "Platser och rutter sparas på enheten",
       "Foton finns tillgängliga efter nedladdning",
       "Valfri kontosynkronisering"
     ],
@@ -283,7 +283,7 @@
       ],
       [
         "Delade länkar",
-        "Delade platslänkar innehåller en ögonblickskopia av platsen utan fotot. Alla med länken kan läsa kopian och länken kan inte återkallas."
+        "Platslänkar innehåller en kopia utan foto och kan inte återkallas. Publicerade ruttlänkar innehåller rutt, beskrivning, kategori och foto. Alla med länken kan se eller spara dem. Ingen tidsgräns; ny delning ersätter din tidigare länk. Utgivaren kan återkalla länkar, och gruppägare kan återkalla gruppens ruttlänkar. Radering eller förlorat medlemskap stoppar nya hämtningar; sparade kopior kan inte återkallas."
       ],
       [
         "Användningsaktivitet",

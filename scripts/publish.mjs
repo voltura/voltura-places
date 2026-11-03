@@ -84,6 +84,7 @@ try {
       ["node_modules/vitest/vitest.mjs", "run"],
       ["scripts/build.mjs"],
       ["scripts/test-api.mjs"],
+      ["scripts/test-routes-api.mjs"],
       ["--test", "tests/auth-runtime.test.mjs", "tests/statistics-runtime.test.mjs"],
     ]) {
       await run(process.execPath, args);

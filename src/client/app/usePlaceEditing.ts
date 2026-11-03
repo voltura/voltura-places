@@ -10,7 +10,13 @@ import { validPosition, captureLocation } from "../foundation/location-review";
 import type { Preferences } from "../foundation/preferences";
 import { libraryErrorMessage, type Message } from "../foundation/i18n";
 import type { SyncStatus } from "../foundation/sync";
-import { placeSchema, type Entity, type LocalRecord, type PlaceRecord } from "../../shared/model";
+import {
+  entitySchema,
+  placeSchema,
+  type Entity,
+  type LocalRecord,
+  type PlaceRecord,
+} from "../../shared/model";
 import type { Session } from "./useSession";
 import type { WorkspaceController } from "./useWorkspace";
 import type { Operation } from "./operations";
@@ -121,11 +127,17 @@ export function usePlaceEditing({
         ) {
           const id = draft.id;
           const w = await readWorkspace(scope);
+          const original = "base" in draft ? entitySchema.safeParse(draft.base).data : undefined;
+          if (original?.kind === "route" && !w.records.some((r) => r.id === id)) {
+            return;
+          }
           if (active && operation.isCurrent()) {
             setEditor(
               (existing) =>
                 existing ?? {
-                  entity: w.records.find((r) => r.id === id && r.kind === "place" && !r.deleted),
+                  entity: w.records.find(
+                    (r) => r.id === id && (r.kind === "place" || r.kind === "route") && !r.deleted,
+                  ),
                   draftId: id,
                 },
             );

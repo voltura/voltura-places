@@ -1,5 +1,7 @@
 # Asset provenance
 
+The 0.2.0 candidate refreshes both social cards with Places and routes / Platser och rutter and Record. Save. Share. / Spela in. Spara. Dela. The existing localized app captures remain actual screenshots with synthetic data, as described below. The cards are regenerated through the existing local branding pipeline; no generated scene or paid service replaces the app imagery.
+
 `public/flags/gb.svg` and `se.svg` are local vector drawings of the UK and Swedish flags for English/Svenska selection, following Music's country choices. They require no external image service or font support.
 
 The Places pin/check SVG is original project artwork, with a dark forest surface and mint gradient matching the app’s default theme. PNG app icons are deterministically rendered from it with resvg during build.

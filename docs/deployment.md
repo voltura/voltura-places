@@ -1,5 +1,9 @@
 # Deployment and recovery
 
+## Route deployment
+
+Deploy route-compatible server support and migrations before exposing the route-aware client. Older clients omit routes from SQL-paginated snapshots; ordinary mutation limits remain unchanged. Publish only an exact validated clean-main commit using the existing publishers. Physical-phone GPS and installed-app behavior are separate from browser-emulated verification.
+
 ## Local preview
 
 The single human-review app preview is http://127.0.0.1:5173/. Start it with `npm run dev:ui`; all changes in the same checkout appear through Vite hot reload. Repeated startup reuses a preview only when its development-only identity matches this project and checkout. Port binding is strict: a different server or checkout produces a clear conflict, never a new preview port. Switching to another checkout is an explicit stop/start of the chosen preview. For interactive account and invitation flows, also run `npm run dev` to keep the local API/D1 service alive on 5174. It uses the 5173 preview as its canonical origin and upstream, so proxied account reads and writes pass the same origin checks as production. Cached demo groups alone do not provide a running API. Browser tests apply migrations to a dedicated .artifacts/browser-test-db and start their own API on 5174 with a 5174 canonical origin. Stop the interactive API before those tests and restart it afterward. Tests start the promo preview on 5175 or reuse the instance identified with this checkout. Local API/D1 and browser tests use 5174; the isolated promo server uses 5175. These are separate services, not alternative app review addresses. Do not move the user's review tab between ports or clear browser data; local storage and permissions belong to each origin.

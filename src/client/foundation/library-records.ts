@@ -6,12 +6,16 @@ import type { Workspace } from "./library-types";
 // In-memory record transitions. Callers own the transaction and cancellation boundary.
 export function enforceCapacity(w: Workspace) {
   const family = workspaceIdentity(w.key).family;
-  const counts = { place: 0, category: 0, visit: 0 };
+  const counts = { place: 0, route: 0, category: 0, visit: 0 };
   for (const record of w.records) {
     if (family && record.kind === "visit") {
       throw new Error("invalidImport");
     }
-    if (!record.deleted && ++counts[record.kind] > entityLimits[record.kind]) {
+    if (
+      !record.deleted &&
+      ++counts[record.kind === "route" ? "place" : record.kind] >
+        entityLimits[record.kind === "route" ? "place" : record.kind]
+    ) {
       throw new Error("libraryLimit");
     }
   }
@@ -33,7 +37,9 @@ function editedRecord(
   // A guest record can be removed after transfer and later restored from a backup.
   // Never reuse a generation already acknowledged or skipped for this source ID.
   const receipt =
-    !previous && w.key === "guest" && e.kind === "place" ? w.deviceTransfers?.[e.id] : undefined;
+    !previous && w.key === "guest" && (e.kind === "place" || e.kind === "route")
+      ? w.deviceTransfers?.[e.id]
+      : undefined;
   const generation =
     previous?.generation ?? Math.max(receipt?.generation ?? 0, receipt?.skippedGeneration ?? 0);
 

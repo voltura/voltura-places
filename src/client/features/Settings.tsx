@@ -360,6 +360,28 @@ export function Settings({
                   <p className="muted">{t("privacyMapsText")}</p>
                 </div>
               </div>
+              <label className="preference-row">
+                <span>{t("recordingInterval")}</span>
+                <span className="preference-value" aria-hidden="true">
+                  {preferences.recordingInterval} s
+                </span>
+                <ChevronRight size={20} aria-hidden="true" />
+                <select
+                  value={preferences.recordingInterval}
+                  onChange={(e) =>
+                    onPreferences({
+                      ...preferences,
+                      recordingInterval: Number(e.target.value) as 5 | 10 | 30,
+                    })
+                  }
+                >
+                  {[5, 10, 30].map((seconds) => (
+                    <option key={seconds} value={seconds}>
+                      {seconds} s
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="gps-setting">
                 <span>{t("activityReporting")}</span>
                 <input

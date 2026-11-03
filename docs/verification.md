@@ -1,3 +1,15 @@
+# Route recording 0.2.0, 3 November 2026
+
+Formatting, TypeScript, architecture/document checks and the production app/promo build pass. All 372 unit/data tests pass, including route geometry validation, segmented distance, sampling, visibility/gaps, monotonic timing, cross-tab exclusion, changed-draft rejection, recovery cleanup, partitions, copies, combined capacity, backup v3 and offline snapshot saving/cancellation. The workerd/D1 suites pass 218 existing checks plus 70 route checks covering migration rowids/receipts, geometry limits/auth/origin, route-aware and legacy sync pagination, combined capacity, snapshots/photos, deduplication, replacement/revocation, source/account deletion, lost membership, owner revocation and rate limits.
+
+Six focused browser scenarios pass on the shared 5173 preview. Four cover Chromium and WebKit, each in English and Swedish: a dedicated modal recording view, inaccessible background controls, stable Stop-button position through accuracy changes and the first fix, one start marker, a growing path and latest-position marker while fullscreen, minimize without stopping, automatic active-recording recovery on reload, preservation of explicitly stopped drafts, route editing and successful save. Two further scenarios verify anonymous route preview, fragment-token removal and offline saving in both engines. GPS and clock inputs are simulated; map tiles are synthetic in these tests. A separate isolated Chromium preview used synthetic positions and actual OpenStreetMap tiles for visual inspection of the path and controls.
+
+Rendered recording foreground/background values follow all six themes in Light and Dark; representative light/dark phone captures were inspected. Existing theme tokens also serve System mode. OpenStreetMap tiles retain their normal imagery.
+
+Both localized social cards were regenerated, visually inspected and their pixel-regression expectation updated for the new copy. The promo dry run passed and lists only Places payloads under /places/.
+
+Physical-phone GPS, installed-PWA foreground/wake-lock behavior and actual movement remain unverified. The build retains its bundle-size advisory.
+
 # Initial GPS permission recovery, 3 November 2026
 
 The owner reported a denied-location review immediately after choosing Allow on an iPhone, reproducible after closing and restarting the app. The acquisition now retains its grant listener through an initial denial, including briefly stale denied permission status, and automatically continues when permission becomes granted. Confirmed denial ends after a one-second grace period without another request; unavailable Permissions APIs permit one bounded retry. Revocation after a fix, cancellation, stale callbacks and the original one-minute limit retain their stop boundaries. Review still requires confirmation before persistence.

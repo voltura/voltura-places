@@ -1,3 +1,5 @@
+import type { RouteGeometry } from "../../shared/routes";
+import { routeLayers } from "./route-layers";
 import {
   useEffect,
   useEffectEvent,
@@ -18,6 +20,9 @@ import type { Message } from "../foundation/i18n";
 import { Sheet } from "../ui/Sheet";
 
 type Props = {
+  recording?: boolean;
+  workspace?: string;
+  geometry?: Record<string, RouteGeometry>;
   onExpand?: () => void;
   onBrowse?: () => void;
   fullscreen?: boolean;
@@ -125,6 +130,9 @@ function fitPlaces(map: L.Map | null, bounds: L.LatLngBounds, preview: boolean) 
 }
 
 export default function PlacesMap({
+  recording = false,
+  workspace = "guest",
+  geometry,
   places,
   fitKey,
   selected,
@@ -355,6 +363,23 @@ export default function PlacesMap({
   }, []);
 
   useEffect(() => {
+    if (!mapRef.current) {
+      return;
+    }
+
+    return routeLayers(
+      mapRef.current,
+      workspace,
+      places,
+      selected,
+      categoryColor,
+      onSelect,
+      { start: t("routeStartMarker"), end: t(recording ? "routeLatestMarker" : "routeEndMarker") },
+      recording,
+      geometry,
+    );
+  }, [workspace, places, selected, categoryColor, onSelect, geometry, recording, t]);
+  useEffect(() => {
     if (!preview) {
       return;
     }
@@ -382,7 +407,9 @@ export default function PlacesMap({
 
   useEffect(() => {
     const group = groupRef.current!;
-    const { places, categoryColor, start } = live();
+    const liveState = live();
+    const { categoryColor, start } = liveState;
+    const places = liveState.places.filter((p) => p.kind === "place");
     const ids = new Set(places.map((place) => place.id));
     const removed: L.Marker[] = [];
     const added: L.Marker[] = [];

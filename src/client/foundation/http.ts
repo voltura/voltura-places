@@ -27,6 +27,7 @@ export async function api<T>(
     signal: AbortSignal.timeout(20000),
     headers: {
       "X-Places-Photos": "1",
+      "X-Places-Routes": "1",
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       ...(account ? workspaceHeaders(account) : {}),
     },

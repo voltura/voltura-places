@@ -1,5 +1,7 @@
+import { handleRouteShare } from "./route-shares";
 import { handleAccounts } from "./accounts";
 import { Buffer } from "node:buffer";
+import { handleGeometry } from "./routes";
 import { handleSync } from "./sync";
 import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
@@ -41,6 +43,13 @@ export function createWorker(assets: AssetMap, version: string) {
             response = await handleFamilies(request, env);
           } else if (url.pathname.startsWith("/api/v1/photos/")) {
             response = await handlePhoto(request, env);
+          } else if (
+            url.pathname === "/api/v1/route-share" ||
+            url.pathname.startsWith("/api/v1/route-shares/")
+          ) {
+            response = await handleRouteShare(request, env);
+          } else if (url.pathname.startsWith("/api/v1/geometry/")) {
+            response = await handleGeometry(request, env);
           } else if (url.pathname === "/api/v1/sync") {
             response = await handleSync(request, env);
           } else if (

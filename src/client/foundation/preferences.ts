@@ -11,6 +11,7 @@ export type Preferences = {
   reviewGps: boolean;
   autoHideControls: boolean;
   units: DistanceUnits;
+  recordingInterval: 5 | 10 | 30;
 };
 export const preferencesKey = "places-preferences";
 
@@ -31,6 +32,7 @@ export function parsePreferences(
     reviewGps: false,
     autoHideControls: false,
     units: "metric",
+    recordingInterval: 10,
   };
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return defaults;
@@ -51,6 +53,8 @@ export function parsePreferences(
         : "other",
     reviewGps: v.reviewGps === true,
     autoHideControls: v.autoHideControls === true,
+    recordingInterval:
+      v.recordingInterval === 5 || v.recordingInterval === 30 ? v.recordingInterval : 10,
     units: v.units === "imperial" ? "imperial" : "metric",
   };
 }

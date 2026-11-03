@@ -183,7 +183,7 @@ export function PhotoPicker({
   t: (key: Message) => string;
   onChange: (id: string | null) => void;
   onBusy: (busy: boolean) => void;
-  onPosition: (position: PhotoPosition) => void;
+  onPosition?: (position: PhotoPosition) => void;
 }) {
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
@@ -298,13 +298,13 @@ export function PhotoPicker({
           {t("removePhoto")}
         </button>
       )}
-      {position && (
+      {position && onPosition && (
         <button
           type="button"
           className="button outline"
           disabled={busy}
           onClick={() => {
-            onPosition(position);
+            onPosition?.(position);
             setPosition(null);
           }}
         >

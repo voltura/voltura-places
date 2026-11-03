@@ -1,3 +1,7 @@
+import { clearRouteRecordings } from "./route-recording";
+import { canonicalGeometry, ROUTE_QUOTA } from "../../shared/routes";
+import { loadGeometry } from "./route-geometry";
+import { putGeometry, clearGeometry } from "./route-store";
 import { digest } from "../../shared/digest";
 import type { Workspace, WorkspaceChangeOptions } from "./library-types";
 import {
@@ -26,6 +30,7 @@ import {
 import { loadPhoto } from "./photos";
 import {
   starters,
+  entitySchema,
   recordSchema,
   validateBackup,
   parseBackupManifest,
@@ -177,7 +182,7 @@ export async function changeWorkspace(
       if (
         !place ||
         place.deleted ||
-        place.kind !== "place" ||
+        (place.kind !== "place" && place.kind !== "route") ||
         (required.original && !sameValue(place.value, required.original.value))
       ) {
         throw new Error("placeChanged");
@@ -287,6 +292,16 @@ export async function saveEntity(
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
+  if (e.kind === "route") {
+    const checked = await canonicalGeometry(await loadGeometry(key, e.value.geometryId, isCurrent));
+    if (
+      Object.entries(checked.summary).some(
+        ([field, value]) => !sameValue(value, e.value[field as keyof typeof e.value]),
+      )
+    ) {
+      throw new Error("invalidGeometry");
+    }
+  }
   if (clearDraft) {
     await flushDrafts().catch(() => {});
   }
@@ -297,8 +312,8 @@ export async function saveEntity(
       if (
         clearDraft &&
         !personalStatus &&
-        base?.kind === "place" &&
-        e.kind === "place" &&
+        (base?.kind === "place" || base?.kind === "route") &&
+        (e.kind === "place" || e.kind === "route") &&
         base.id === e.id &&
         sameValue(editablePlace(base.value), editablePlace(e.value))
       ) {
@@ -323,7 +338,7 @@ export async function saveEntity(
       clearDraftId: clearDraft ? e.id : undefined,
       isCurrent,
       personalVisit:
-        e.kind === "place" && personalStatus
+        (e.kind === "place" || e.kind === "route") && personalStatus
           ? await visitEntity(key, e.id, personalStatus)
           : undefined,
     },
@@ -364,8 +379,10 @@ export async function copyPlaceToWorkspace(
   isCurrent = () => true,
 ) {
   const source = await readWorkspace(from);
-  const place = source.records.find((r) => r.id === id && r.kind === "place" && !r.deleted);
-  if (!place || place.kind !== "place") {
+  const place = source.records.find(
+    (r) => r.id === id && (r.kind === "place" || r.kind === "route") && !r.deleted,
+  );
+  if (!place || (place.kind !== "place" && place.kind !== "route")) {
     throw new Error("invalidImport");
   }
   if (!isCurrent()) {
@@ -382,7 +399,11 @@ export async function copyPlaceToWorkspace(
       to,
       (w) => {
         const previous = w.records.find((record) => record.id === newId);
-        if (!previous || previous.deleted || previous.kind !== "place") {
+        if (
+          !previous ||
+          previous.deleted ||
+          (previous.kind !== "place" && previous.kind !== "route")
+        ) {
           throw new Error("placeChanged");
         }
 
@@ -392,6 +413,9 @@ export async function copyPlaceToWorkspace(
     );
 
     return { workspace, copied: false };
+  }
+  if (place.kind === "route") {
+    await putGeometry(to, await loadGeometry(from, place.value.geometryId, isCurrent), isCurrent);
   }
   if (place.value.photoId) {
     await loadPhoto(from, place.value.photoId, isCurrent);
@@ -415,7 +439,7 @@ export async function copyPlaceToWorkspace(
       }
       const previous = w.records.find((record) => record.id === newId);
       if (previous) {
-        if (previous.deleted || previous.kind !== "place") {
+        if (previous.deleted || (previous.kind !== "place" && previous.kind !== "route")) {
           throw new Error("placeChanged");
         }
 
@@ -438,7 +462,7 @@ export async function copyPlaceToWorkspace(
       if (
         w.records.some(
           (record) =>
-            record.kind === "place" &&
+            (record.kind === "place" || record.kind === "route") &&
             !record.deleted &&
             sameValue(content(record.value), expected),
         )
@@ -471,15 +495,18 @@ export async function copyPlaceToWorkspace(
           write(w, { ...category, id: categoryId });
         }
       }
-      write(w, {
-        id: newId,
-        kind: "place",
-        value: {
-          ...place.value,
-          ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
-          categoryId,
-        },
-      });
+      write(
+        w,
+        entitySchema.parse({
+          ...place,
+          id: newId,
+          value: {
+            ...place.value,
+            ...(place.value.photoId ? { photoId: photoIds.get(place.value.photoId)! } : {}),
+            categoryId,
+          },
+        }),
+      );
       copied = true;
     },
     { isCurrent, requirePlace: { workspace: from, id, original: place } },
@@ -506,11 +533,17 @@ export async function deleteEntity(key: string, id: string, isCurrent = () => tr
       const batch = recordBatch(w);
       const updatedAt = new Date().toISOString();
       for (const place of w.records) {
-        if (place.kind === "place" && !place.deleted && place.value.categoryId === id) {
-          batch.write({
-            ...place,
-            value: { ...place.value, categoryId: "other", updatedAt },
-          });
+        if (
+          (place.kind === "place" || place.kind === "route") &&
+          !place.deleted &&
+          place.value.categoryId === id
+        ) {
+          batch.write(
+            entitySchema.parse({
+              ...place,
+              value: { ...place.value, categoryId: "other", updatedAt },
+            }),
+          );
         }
       }
       batch.write(r, true);
@@ -524,18 +557,35 @@ export function exportBackup(
   w: Workspace,
   photos?: { id: string; data: string }[],
   personalRecords = w.records,
+  geometry: { id: string; data: string }[] = [],
 ): Backup {
+  const geometryIds = new Set(geometry.map((item) => item.id));
+  if (
+    w.records.some((r) => r.kind === "route" && !r.deleted && !geometryIds.has(r.value.geometryId))
+  ) {
+    throw new Error("geometryUnavailable");
+  }
   const categories = w.records
     .filter((r) => r.kind === "category" && !r.deleted)
     .map((r) => ({ id: r.id, value: r.value }));
   const ids = new Set(categories.map((c) => c.id));
   const placeIds = new Set(
-    w.records.filter((r) => r.kind === "place" && !r.deleted).map((r) => r.id),
+    w.records
+      .filter((r) => (r.kind === "place" || r.kind === "route") && !r.deleted)
+      .map((r) => r.id),
   );
 
   return validateBackup({
     format: "voltura-places",
-    version: photos?.length ? 2 : 1,
+    version: geometry.length ? 3 : photos?.length ? 2 : 1,
+    ...(geometry.length
+      ? {
+          geometry,
+          routes: w.records
+            .filter((r) => r.kind === "route" && !r.deleted)
+            .map((r) => ({ id: r.id, value: r.value })),
+        }
+      : {}),
     ...(photos?.length ? { photos } : {}),
     exportedAt: new Date().toISOString(),
     categories,
@@ -568,6 +618,34 @@ export async function importBackup(
     throw new Error("accountChanged");
   }
   const b = parseBackupManifest(input);
+  const neededGeometry = new Map((b.routes ?? []).map((r) => [r.value.geometryId, r.value]));
+  if (
+    neededGeometry.size !== (b.geometry?.length ?? 0) ||
+    new Set(b.geometry?.map((g) => g.id)).size !== (b.geometry?.length ?? 0)
+  ) {
+    throw new Error("invalidImport");
+  }
+  let geometryBytes = 0;
+  for (const attachment of b.geometry ?? []) {
+    const checked = await canonicalGeometry(JSON.parse(attachment.data));
+    if (checked.id !== attachment.id || !neededGeometry.has(checked.id)) {
+      throw new Error("invalidImport");
+    }
+    geometryBytes += checked.bytes;
+    if (geometryBytes > ROUTE_QUOTA) {
+      throw new Error("routeQuota");
+    }
+    for (const route of b.routes ?? []) {
+      if (
+        route.value.geometryId === checked.id &&
+        Object.entries(checked.summary).some(
+          ([key, value]) => !sameValue(value, route.value[key as keyof typeof route.value]),
+        )
+      ) {
+        throw new Error("invalidImport");
+      }
+    }
+  }
   const prepared = [];
   for (const item of b.photos ?? []) {
     if (!isCurrent()) {
@@ -598,7 +676,7 @@ export async function importBackup(
     ),
   );
   const personalVisits: Entity[] = [];
-  if (!prepared.length) {
+  if (!prepared.length && !b.geometry?.length) {
     return changeWorkspace(
       key,
       (w) => {
@@ -636,7 +714,7 @@ export async function importBackup(
   if (!isCurrent()) {
     throw new Error("accountChanged");
   }
-  for (const place of b.places) {
+  for (const place of [...b.places, ...(b.routes ?? [])]) {
     if (place.value.photoId) {
       place.value.photoId = ids.get(place.value.photoId)!;
     }
@@ -686,6 +764,9 @@ export async function importBackup(
     throw error;
   }
   try {
+    for (const attachment of b.geometry ?? []) {
+      await putGeometry(key, JSON.parse(attachment.data), isCurrent);
+    }
     await putPhotos(stored, isCurrent);
 
     return await changeWorkspace(
@@ -740,6 +821,7 @@ function applyImport(
   const batch = recordBatch(w);
   const incoming = new Map([
     ...b.places.map((e) => [e.id, "place"] as const),
+    ...(b.routes ?? []).map((e) => [e.id, "route"] as const),
     ...b.categories.map((e) => [e.id, "category"] as const),
   ]);
   if (replace) {
@@ -767,20 +849,23 @@ function applyImport(
     }
     batch.write({ id, kind: "category", value: e.value });
   }
-  for (const e of b.places) {
+  for (const e of [
+    ...b.places.map((r) => ({ ...r, kind: "place" as const })),
+    ...(b.routes ?? []).map((r) => ({ ...r, kind: "route" as const })),
+  ]) {
     const value = { ...e.value, categoryId: categoryMap.get(e.value.categoryId) ?? "other" };
     const old = batch.get(e.id);
-    const identical = old?.kind === "place" && !old.deleted && sameValue(old.value, value);
-    if (old && !identical && (old.kind !== "place" || !replace) && !placeRemaps.has(e.id)) {
+    const identical = old?.kind === e.kind && !old.deleted && sameValue(old.value, value);
+    if (old && !identical && (old.kind !== e.kind || !replace) && !placeRemaps.has(e.id)) {
       placeRemaps.set(e.id, crypto.randomUUID());
     }
     const id = identical
       ? e.id
-      : old && (old.kind !== "place" || !replace)
+      : old && (old.kind !== e.kind || !replace)
         ? placeRemaps.get(e.id)!
         : e.id;
     if (!identical) {
-      batch.write({ id, kind: "place", value });
+      batch.write(entitySchema.parse({ id, kind: e.kind, value }));
     }
     const visit = visitImports.get(e.id);
     if (visit) {
@@ -807,10 +892,12 @@ function applyImport(
   return personalVisits;
 }
 
-type DevicePlace = LocalRecord & { kind: "place" };
+type DevicePlace = Extract<LocalRecord, { kind: "place" | "route" }>;
 
 const liveDevicePlaces = (guest: Workspace) =>
-  guest.records.filter((r): r is DevicePlace => r.kind === "place" && !r.deleted);
+  guest.records.filter(
+    (r): r is DevicePlace => (r.kind === "place" || r.kind === "route") && !r.deleted,
+  );
 
 function handledDevicePlaces(w: Workspace, guest: Workspace) {
   const receipts = new Set(Object.keys(w.guestPlaces ?? {}));
@@ -818,7 +905,7 @@ function handledDevicePlaces(w: Workspace, guest: Workspace) {
   if (devicePlaces.every((r) => receipts.has(r.id))) {
     return receipts;
   }
-  const places = w.records.filter((r) => r.kind === "place");
+  const places = w.records.filter((r) => r.kind === "place" || r.kind === "route");
   const values = new Set(places.map((r) => valueKey(r.value)));
   const legacyIds = new Set(w.reconciled && !w.guestPlaces ? places.map((r) => r.id) : []);
   for (const r of devicePlaces) {
@@ -836,7 +923,7 @@ function placeMatches(records: RecordState[]) {
   let order = 0;
 
   const add = (record: RecordState) => {
-    if (record.kind !== "place") {
+    if (record.kind !== "place" && record.kind !== "route") {
       return;
     }
     const entry = { record, order: order++ };
@@ -1060,6 +1147,17 @@ export async function reconcileDevicePlaces(
   const matchByValue = (r: DevicePlace) =>
     !transfers[r.id] || transfers[r.id].generation === r.generation;
 
+  if (decision !== "skip") {
+    for (const route of source) {
+      if (route.kind === "route") {
+        await putGeometry(
+          key,
+          await loadGeometry("guest", route.value.geometryId, isCurrent),
+          isCurrent,
+        );
+      }
+    }
+  }
   let photoIds = new Map<string, string>();
   if (decision !== "skip") {
     photoIds = await copyPhotos(
@@ -1128,7 +1226,9 @@ export async function reconcileDevicePlaces(
       initializePrivateRecords(w, cloud);
     }
     if (w.reconciled && !w.guestPlaces) {
-      const legacyIds = new Set(w.records.filter((r) => r.kind === "place").map((r) => r.id));
+      const legacyIds = new Set(
+        w.records.filter((r) => r.kind === "place" || r.kind === "route").map((r) => r.id),
+      );
       w.guestPlaces = Object.fromEntries(
         liveDevicePlaces(guest)
           .filter((r) => legacyIds.has(r.id))
@@ -1202,15 +1302,19 @@ export async function reconcileDevicePlaces(
         categories.set(r.value.categoryId, categoryId);
       }
       const id = ids.get(r.id)!;
-      const copied = batch.write({
-        id,
-        kind: "place",
-        value: {
-          ...r.value,
-          ...(r.value.photoId ? { photoId: photoIds.get(r.value.photoId) ?? r.value.photoId } : {}),
-          categoryId,
-        },
-      });
+      const copied = batch.write(
+        entitySchema.parse({
+          ...r,
+          id,
+          value: {
+            ...r.value,
+            ...(r.value.photoId
+              ? { photoId: photoIds.get(r.value.photoId) ?? r.value.photoId }
+              : {}),
+            categoryId,
+          },
+        }),
+      );
       existingPlaces.add(copied);
       w.guestPlaces[r.id] = id;
       currentGuest.deviceTransfers[r.id] = {
@@ -1309,7 +1413,7 @@ export async function finishDevicePlaceTransfer(key: string, isCurrent = () => t
       const destination = byId.get(transfer.destination);
       if (
         !destination ||
-        destination.kind !== "place" ||
+        (destination.kind !== "place" && destination.kind !== "route") ||
         destination.dirty ||
         destination.conflict ||
         destination.revision < 1
@@ -1588,12 +1692,16 @@ async function removeWorkspaceRecords(scope: string, allAccountWorkspaces: boole
 export async function removeWorkspace(key: string) {
   await removeWorkspaceRecords(key, false);
   await clearPhotos(key);
+  await clearGeometry(key);
+  await clearRouteRecordings(key);
   changed([key]);
 }
 
 export async function removeAccountWorkspaces(account: string) {
   await removeWorkspaceRecords(account, true);
   await clearAccountPhotos(account);
+  await clearGeometry(account, true);
+  await clearRouteRecordings(account, true);
   try {
     localStorage.removeItem(`places-family:${account}`);
     localStorage.removeItem(`places-workspace:${account}`);

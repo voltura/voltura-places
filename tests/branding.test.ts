@@ -69,7 +69,7 @@ test("losslessly encoded launch images and social cards retain their original RG
     [
       "public",
       ["social-en.png", "social-sv.png"],
-      "6334f5962c6960e19aba7e1e60b6ee30a7cf48333184903d48f28dd6ca0385fd",
+      "3e1dd917fc7b308c6130142cf6a3564c9c3577ca671b339caaa3f217e385cb8e",
     ],
   ] as const;
   for (const [directory, names, expected] of groups) {

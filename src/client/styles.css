@@ -212,6 +212,87 @@ hr {
   flex-direction: column;
   gap: 18px;
 }
+.route-recording-heading {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.route-recording {
+  gap: 14px;
+}
+.recording-view {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.recording-view-content {
+  max-width: 672px;
+  margin: 0 auto;
+  padding: 20px max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  display: grid;
+  gap: 22px;
+}
+.recording-header .header-inner {
+  max-width: 672px;
+  padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+}
+.recording-view-content > h1 {
+  outline: none;
+}
+.recording-preview {
+  display: grid;
+  gap: 8px;
+}
+.route-point-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.recording-preview .map-surface:not(.is-fullscreen) .places-map,
+.recording-map-placeholder {
+  height: clamp(180px, 32dvh, 360px);
+  min-height: 180px;
+}
+.recording-map-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 13px;
+}
+.route-location-status {
+  display: grid;
+}
+.route-location-status > p {
+  grid-area: 1 / 1;
+}
+.route-location-status > p[aria-hidden="true"] {
+  visibility: hidden;
+}
+.route-recording-actions {
+  display: grid;
+  gap: 10px;
+}
+.route-recording .button {
+  width: 100%;
+}
+.route-recording .button svg {
+  flex-shrink: 0;
+}
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -4279,4 +4360,27 @@ select option .category-icon {
     padding-block: 0;
     padding-inline-end: 0;
   }
+}
+
+.route-line {
+  stroke: var(--marker, #339977);
+}
+.route-endpoint {
+  display: block;
+  background: var(--surface);
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 18px;
+}
+.route-endpoint.route-current {
+  border-radius: 50%;
+}
+
+.route-shared-photo {
+  max-width: 100%;
+}
+
+.save-controls[hidden] {
+  display: none;
 }

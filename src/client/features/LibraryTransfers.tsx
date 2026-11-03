@@ -75,8 +75,8 @@ export function ImportDialog({
     <Sheet title={t("importTitle")} onClose={onClose} closeLabel={t("close")}>
       <div className="stack">
         <p>
-          {backup.places.length} {t("places")} · {backup.categories.length}{" "}
-          {t("categories").toLowerCase()}
+          {backup.places.length} {t("places")} · {backup.routes?.length ?? 0} {t("routes")} ·{" "}
+          {backup.categories.length} {t("categories").toLowerCase()}
         </p>
         <p className="muted">{t("importDescription")}</p>
         <label className="radio-card">

@@ -1,3 +1,7 @@
+import { useRouteRecording } from "./useRouteRecording";
+import { RecordingPreview } from "../features/RecordingPreview";
+import { RecordingView } from "../features/RecordingView";
+import { Editor } from "../features/Editor";
 import { BackupDialogs } from "./BackupDialogs";
 import { PlaceEditingDialogs } from "./PlaceEditingDialogs";
 import { SharingDialogs } from "./SharingDialogs";
@@ -32,6 +36,11 @@ import {
   CircleArrowUp,
   PanelBottomOpen,
   Plus,
+  Play,
+  Square,
+  Save,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
@@ -196,6 +205,10 @@ export function App() {
     return scope === "guest" ? (online ? "localOnly" : "offline") : status;
   }, [online, scope, workspace, personalWorkspace, status]);
   const syncWarning = syncStatusWarning(syncStatus);
+  const recording = useRouteRecording(workspaceController, prefs.recordingInterval, () => {
+    void refresh();
+    sync();
+  });
   const renderedOperation = operations.capture();
   const [libraryOpen, setLibraryOpen] = useState<false | "selector" | "dock">(false);
   const changeLibraryOpen = useCallback(
@@ -391,6 +404,8 @@ export function App() {
     prefs.autoHideControls,
     !!(
       locating ||
+      recording.draft ||
+      recording.active ||
       reconciling ||
       libraryOpen ||
       editor ||
@@ -760,7 +775,106 @@ export function App() {
                 </span>
               </button>
             )}
-            <div className="save-controls">
+            {recording.draft && (
+              <RecordingView title={t("trackRoute")}>
+                <div className="stack route-recording" role="region" aria-label={t("trackRoute")}>
+                  <h2 className="route-recording-heading">
+                    {recording.active ? (
+                      <>
+                        {t("routeElapsed")} ·{" "}
+                        <span role="timer">{`${Math.floor(recording.draft.elapsed / 60000)}:${String(Math.floor(recording.draft.elapsed / 1000) % 60).padStart(2, "0")}`}</span>
+                      </>
+                    ) : (
+                      t("routeRecovery")
+                    )}
+                  </h2>
+                  {recording.active && (
+                    <div className="route-location-status small muted" role="status">
+                      {(
+                        [
+                          ["waiting", "recordingWaiting"],
+                          ["accuracy", "routeAccuracy"],
+                          ["denied", "routeLocationDenied"],
+                          ["paused", "routePaused"],
+                          ["unavailable", "routeLocationUnavailable"],
+                          ["stale", "routeLocationUnavailable"],
+                          ["recording", "routeRecording"],
+                        ] as const
+                      ).map(([state, label]) => (
+                        <p key={state} aria-hidden={recording.locationState !== state}>
+                          {t(label)}
+                          {state === "accuracy"
+                            ? ` (±${Math.ceil(recording.accuracy ?? 100)} m)`
+                            : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="small muted">{t("recordingVisible")}</p>
+                  <RecordingPreview key={recording.draft.id} draft={recording.draft} t={t} />
+                  {recording.active && (
+                    <button
+                      className="button outline"
+                      onClick={recording.retry}
+                      disabled={recording.busy || recording.locationState === "paused"}
+                    >
+                      <RefreshCw size={20} aria-hidden="true" />
+                      {t("retry")}
+                    </button>
+                  )}
+                  <div className="route-recording-actions">
+                    {recording.active ? (
+                      <button
+                        className="button primary"
+                        disabled={recording.busy}
+                        onClick={() => void recording.stop()}
+                      >
+                        <Square size={20} aria-hidden="true" />
+                        {t("routeStop")}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="button primary"
+                          disabled={recording.busy || !canWrite}
+                          onClick={() => void recording.start()}
+                        >
+                          <Play size={20} aria-hidden="true" />
+                          {t("routeResume")}
+                        </button>
+                        <button
+                          className="button outline"
+                          disabled={recording.busy || recording.draft.count < 2 || !canWrite}
+                          onClick={() => void recording.edit()}
+                        >
+                          <Save size={20} aria-hidden="true" />
+                          {t("routeSave")}
+                        </button>
+                        <button
+                          className="button danger"
+                          disabled={recording.busy}
+                          onClick={() => void recording.discard()}
+                        >
+                          <Trash2 size={20} aria-hidden="true" />
+                          {t("routeDiscard")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {recording.error && (
+                    <p role="alert" className="error">
+                      {t(recording.error === "syncBusy" ? "routeBusy" : recording.error)}
+                    </p>
+                  )}
+                </div>
+              </RecordingView>
+            )}
+            {recording.error && !recording.draft && (
+              <p role="alert" className="error">
+                {t(recording.error === "syncBusy" ? "routeBusy" : recording.error)}
+              </p>
+            )}
+            <div className="save-controls" hidden={!!recording.draft}>
               <div className={`save-split${locating ? "" : " split-actions"}`}>
                 <button
                   className="button primary save-here"
@@ -783,6 +897,9 @@ export function App() {
                       value=""
                       disabled={locating || !workspace || reconciling || !canWrite}
                       onChange={(event) => {
+                        if (event.target.value === "route") {
+                          void recording.start();
+                        }
                         if (event.target.value === "details") {
                           setEditor({});
                         }
@@ -792,6 +909,7 @@ export function App() {
                         {t("saveOptions")}
                       </option>
                       <option value="details">{t("addWithDetails")}</option>
+                      <option value="route">{t("trackRoute")}</option>
                     </select>
                     <ChevronDown size={20} aria-hidden="true" />
                   </div>
@@ -894,6 +1012,20 @@ export function App() {
           t={t}
           onChanged={familyChanged}
           onPending={workspaceController.membershipAction}
+        />
+      )}
+      {recording.entity && (
+        <Editor
+          entity={recording.entity}
+          categories={categories}
+          categoryLabel={categoryLabel}
+          t={t}
+          workspace={scope}
+          reviewGps={false}
+          units={prefs.units}
+          onSave={recording.save}
+          onClose={() => recording.setEntity(null)}
+          onDiscardPlace={recording.discard}
         />
       )}
       <PlaceEditingDialogs
@@ -1026,7 +1158,7 @@ export function App() {
         !settings &&
         !maps && (
           <Sheet
-            title={t("placeDetails")}
+            title={t(current?.kind === "route" ? "routeDetails" : "placeDetails")}
             onClose={() => setSelected(null)}
             closeLabel={t("close")}
           >

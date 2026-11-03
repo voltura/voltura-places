@@ -12,6 +12,7 @@ export type WorkspaceChangeOptions = {
 
 export type Workspace = {
   key: string;
+  completedRouteDrafts?: string[];
   records: LocalRecord[];
   flight?: { mutation: Mutation; generation: number };
   deferredFlights?: (NonNullable<Workspace["flight"]> & { snapshotBlocked?: boolean })[];

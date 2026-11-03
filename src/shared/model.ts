@@ -1,3 +1,4 @@
+import { geometryIdSchema, routeBoundsSchema, ROUTE_POINTS } from "./routes";
 import { entityLimits, syncLimits } from "./limits";
 import { z } from "zod";
 import { decodePhoto, encodedPhotoSize, PHOTO_QUOTA } from "./photos";
@@ -97,6 +98,22 @@ export const placeSchema = z
     photoId: z.string().uuid().nullable().optional(),
   })
   .strict();
+export const routeSchema = placeSchema
+  .extend({
+    geometryId: geometryIdSchema,
+    startedAt: z.string().datetime(),
+    stoppedAt: z.string().datetime(),
+    duration: z.number().finite().min(0),
+    distance: z.number().finite().min(0),
+    pointCount: z.number().int().min(2).max(ROUTE_POINTS),
+    bounds: routeBoundsSchema,
+  })
+  .refine(
+    (route) =>
+      Date.parse(route.stoppedAt) >= Date.parse(route.startedAt) &&
+      Date.parse(route.stoppedAt) - Date.parse(route.startedAt) === route.duration,
+  );
+export type Route = z.infer<typeof routeSchema>;
 export type Place = z.infer<typeof placeSchema>;
 export type Category = z.infer<typeof categorySchema>;
 export const visitStatusSchema = z.enum(["none", "want", "visited"]);
@@ -111,6 +128,7 @@ export const visitSchema = z
   .strict();
 export const entitySchema = z.discriminatedUnion("kind", [
   z.object({ id: idSchema, kind: z.literal("place"), value: placeSchema }),
+  z.object({ id: idSchema, kind: z.literal("route"), value: routeSchema }),
   z.object({ id: idSchema, kind: z.literal("category"), value: categorySchema }),
   z.object({ id: idSchema, kind: z.literal("visit"), value: visitSchema }),
 ]);
@@ -131,7 +149,7 @@ export type LocalRecord = RecordState & {
   dirty: boolean;
   conflict?: RecordState;
 };
-export type PlaceRecord = Extract<LocalRecord, { kind: "place" }>;
+export type PlaceRecord = Extract<LocalRecord, { kind: "place" | "route" }>;
 
 export const mutationSchema = z
   .object({
@@ -146,7 +164,15 @@ export type Mutation = z.infer<typeof mutationSchema>;
 export const backupSchema = z
   .object({
     format: z.literal("voltura-places"),
-    version: z.union([z.literal(1), z.literal(2)]),
+    version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    routes: z
+      .array(z.object({ id: idSchema, value: routeSchema }).strict())
+      .max(entityLimits.place)
+      .optional(),
+    geometry: z
+      .array(z.object({ id: geometryIdSchema, data: z.string().max(1024 * 1024) }).strict())
+      .max(entityLimits.place)
+      .optional(),
     photos: z
       .array(z.object({ id: z.string().uuid(), data: z.string().max(350000) }).strict())
       .max(1000)
@@ -165,7 +191,14 @@ export const backupSchema = z
   })
   .strict()
   .superRefine((b, ctx) => {
-    const ids = [...b.places, ...b.categories].map((x) => x.id);
+    const locations = [...b.places, ...(b.routes ?? [])];
+    if (
+      locations.length > entityLimits.place ||
+      (b.version !== 3 && (b.routes?.length || b.geometry?.length))
+    ) {
+      ctx.addIssue({ code: "custom", message: "Invalid routes" });
+    }
+    const ids = [...locations, ...b.categories].map((x) => x.id);
     if (ids.some((id) => id.startsWith("visit-"))) {
       ctx.addIssue({ code: "custom", message: "Reserved identifier" });
     }
@@ -173,10 +206,10 @@ export const backupSchema = z
       ctx.addIssue({ code: "custom", message: "Duplicate identifiers" });
     }
     const cats = new Set(b.categories.map((x) => x.id));
-    if (!cats.has("other") || b.places.some((p) => !cats.has(p.value.categoryId))) {
+    if (!cats.has("other") || locations.some((p) => !cats.has(p.value.categoryId))) {
       ctx.addIssue({ code: "custom", message: "Missing category" });
     }
-    const placeIds = new Set(b.places.map((p) => p.id));
+    const placeIds = new Set(locations.map((p) => p.id));
     if (
       new Set(b.visits?.map((v) => v.placeId)).size !== (b.visits?.length ?? 0) ||
       b.visits?.some((v) => !placeIds.has(v.placeId))
@@ -310,6 +343,8 @@ export function parseBackupManifest(input: unknown) {
     const candidate = input as Record<string, unknown>;
     for (const [field, limit] of Object.entries({
       places: entityLimits.place,
+      routes: entityLimits.place,
+      geometry: entityLimits.place,
       categories: entityLimits.category,
       visits: entityLimits.place,
       photos: 1000,
@@ -322,9 +357,13 @@ export function parseBackupManifest(input: unknown) {
   }
   const backup = backupSchema.parse(input);
   const photos = backup.photos ?? [];
-  const needed = new Set(backup.places.flatMap((p) => (p.value.photoId ? [p.value.photoId] : [])));
+  const needed = new Set(
+    [...backup.places, ...(backup.routes ?? [])].flatMap((p) =>
+      p.value.photoId ? [p.value.photoId] : [],
+    ),
+  );
   if (
-    (photos.length && backup.version !== 2) ||
+    (photos.length && backup.version === 1) ||
     new Set(photos.map((p) => p.id)).size !== photos.length ||
     photos.length !== needed.size ||
     photos.some((p) => !needed.has(p.id))

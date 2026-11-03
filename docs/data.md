@@ -159,3 +159,17 @@ Migration 0011 adds a nullable display name to the Places account. Existing acco
 Display names need not be unique. Members see the chosen label in their group's roster. The current owner sees it on that group's pending join requests. Clearing the name restores the existing label fallback. The display name never identifies a user for sign-in, authorization, ownership, invitation decisions, activity statistics or synchronization.
 
 Restoring a guest place ID from backup advances its generation beyond any previous transfer receipt for that ID. Group state responses validate the session in the same D1 batch as the roster. Provider linking checks the originating session again when rotating the token.
+
+# Routes and hosted snapshots (0.2.0 candidate)
+
+Routes share the 5,000-live-item limit with places. Migration 0012 preserves record rowids, revisions and receipts while admitting route metadata; immutable geometry lives separately in D1 and the partitioned browser geometry database. Canonical segmented tuples contain latitude, longitude, timestamp and accuracy. SHA-256 identifies canonical JSON, limited to 10,000 points and 1 MiB per route, with 25 MiB retained geometry per workspace. Summaries are recomputed before accepting uploads, metadata and imports.
+
+The recording database appends points and checkpoints atomically. An origin-wide Web Lock permits one active recording. Geometry is staged first; route metadata, pending writes, private Visited status and a completion marker commit together. Cleanup is retryable and repeated saving cannot duplicate a route. Saving rejects a draft changed since opening its editor. Monotonic elapsed time and persisted checkpoints normalize the final stop time across clock rollback and recovery.
+
+Ordinary sync mutations remain limited to 8,192 bytes. Route-aware clients send X-Places-Routes: 1 and upload geometry before metadata. Older-client snapshots filter routes in SQL before pagination and reject route mutations, including attempts to overwrite existing route identities. Geometry endpoints use the same account/group authorization boundary as records. Public cloudPlaces statistics still count places only.
+
+Backup version 3 carries routes and canonical geometry strings with photos and personal statuses; versions 1 and 2 remain readable. Imports reject files above 160 MiB before reading and validate references, hashes, summaries and quotas before metadata commit. Attachments are staged sequentially. Exports fail if required route geometry is unavailable.
+
+Migration 0013 adds immutable public snapshots and hashed bearer capabilities. Public GET ignores session cookies and checks the source route, publisher account and current group membership on every read. The fragment token is consumed on opening and sent only in a request header. API responses use no-store; the service worker does not cache them. Snapshots contain route metadata, geometry, category and optional JPEG, excluding identity and private status.
+
+Each publisher/route has one active link. Replacement changes the token atomically; revocation by its publisher or the group owner removes access. Snapshot byte accounting deduplicates equal snapshots; another link's reference keeps its snapshot alive. Creation is limited to ten attempts per account/hour and 50 MiB per publisher. Fetched copies remain independent after revocation. No expiry is promised.

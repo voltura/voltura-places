@@ -9,7 +9,9 @@ export const liveCategories = (workspace: Workspace | null) =>
   workspace?.records.filter((r) => r.kind === "category" && !r.deleted) ?? [];
 
 export const livePlaces = (workspace: Workspace | null) =>
-  workspace?.records.filter((r): r is PlaceRecord => r.kind === "place" && !r.deleted) ?? [];
+  workspace?.records.filter(
+    (r): r is PlaceRecord => (r.kind === "place" || r.kind === "route") && !r.deleted,
+  ) ?? [];
 
 export function libraryVisits(
   scope: string,
@@ -71,7 +73,12 @@ export function selectPlaces({
 
     return (
       (filter === "all" || (category?.id ?? "other") === filter) &&
-      (visitFilter === "all" || (visits.get(p.id) ?? "none") === visitFilter) &&
+      (visitFilter === "all" ||
+        (visitFilter === "places"
+          ? p.kind === "place"
+          : visitFilter === "routes"
+            ? p.kind === "route"
+            : (visits.get(p.id) ?? "none") === visitFilter)) &&
       (!query ||
         `${p.value.name} ${p.value.description ?? ""} ${categoryLabel(category)}`
           .normalize()
