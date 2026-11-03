@@ -810,6 +810,18 @@ details p {
   margin-top: 4px;
   margin-left: 44px;
 }
+.privacy-section .privacy-topics {
+  display: grid;
+  gap: 12px;
+}
+.privacy-section .privacy-topics h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.privacy-section .privacy-topics p {
+  margin: 0;
+}
 .site-footer {
   border-top: 1px solid var(--border);
 }

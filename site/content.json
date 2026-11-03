@@ -34,7 +34,6 @@
     "android": "In Chrome on Android: tap More (⋮) to the right of the address bar → Install and create shortcut → Install. Follow the on-screen instructions.",
     "privacyTitle": "Privacy and backups",
     "privacyText": "No background tracking. You choose when to use GPS or a photo location. Start without an account, or sign in for device sync and shared groups. Export a backup whenever you want.",
-    "privacyDetail": "Account data is hosted through ChatGPT Sites. Sign-in email is delivered through one.com. Group members can add, edit and delete shared places and photos; the owner approves membership. Removing access cannot recall downloaded copies. Browser data may be cleared or evicted; sync and unencrypted exported backups provide recovery. Shared place links contain a location snapshot without its photo. Anyone with the link can read it, and the link cannot be revoked. Anonymous activity uses a random browser ID. It is hashed on the server. The activity window is 31 days. Older entries are cleared during use. Turn reporting off in Settings → Privacy. Public statistics show aggregate usage and cloud totals. Opening a map sends the viewed areas and network information to the OpenStreetMap tile provider. Place names, photos and group identities are not included in tile requests.",
     "sourceTitle": "Open source",
     "sourceText": "Voltura Places is freeware with MIT-licensed source. Run it, inspect it, or make it your own. Development and publishing are documented in the public repository.",
     "footer": "Voltura Places",
@@ -120,6 +119,32 @@
       "In the share sheet, tap View More (⌄) if the full list of actions is hidden.",
       "Scroll down and tap Add to Home Screen.",
       "Keep Open as Web App enabled if shown, then tap Add."
+    ],
+    "privacyTopics": [
+      [
+        "Account & sign-in",
+        "Account data is hosted through ChatGPT Sites. Sign-in email is delivered through one.com."
+      ],
+      [
+        "Groups",
+        "Group members can add, edit and delete shared places and photos; the owner approves membership. Removing access cannot recall downloaded copies."
+      ],
+      [
+        "Backup & restore",
+        "Browser data may be cleared or evicted; sync and unencrypted exported backups provide recovery."
+      ],
+      [
+        "Shared links",
+        "Shared place links contain a location snapshot without its photo. Anyone with the link can read it, and the link cannot be revoked."
+      ],
+      [
+        "Usage activity",
+        "Usage activity uses a random browser ID. It is hashed on the server. The activity window is 31 days. Older entries are cleared during use. Turn reporting off in Settings → Privacy. Public statistics show aggregate usage and cloud totals."
+      ],
+      [
+        "Maps & navigation",
+        "Opening a map sends the viewed areas and network information to the OpenStreetMap tile provider. Place names, photos and group identities are not included in tile requests."
+      ]
     ]
   },
   "sv": {
@@ -157,7 +182,6 @@
     "android": "I Chrome på Android: tryck på Mer (⋮) till höger om adressfältet → Installera och skapa genväg → Installera. Följ anvisningarna på skärmen.",
     "privacyTitle": "Integritet och säkerhetskopior",
     "privacyText": "Ingen bakgrundsspårning. Du väljer när GPS eller platsen från ett foto används. Börja utan konto eller logga in för synkronisering och delade grupper. Exportera en säkerhetskopia när du vill.",
-    "privacyDetail": "Kontodata lagras via ChatGPT Sites. Inloggningsmejl skickas via one.com. Gruppmedlemmar kan lägga till, redigera och radera delade platser och foton. Ägaren godkänner medlemskap. Borttagen åtkomst återkallar inte nedladdade kopior. Webbläsardata kan raderas eller rensas; synkronisering och okrypterade exporter ger möjlighet till återställning. Delade platslänkar innehåller en ögonblickskopia av platsen utan fotot. Alla med länken kan läsa kopian och länken kan inte återkallas. Anonym aktivitet använder ett slumpat webbläsar-ID. Det hashas på servern. Aktivitetsfönstret är 31 dagar. Äldre poster rensas vid användning. Stäng av rapportering i Inställningar → Integritet. Offentlig statistik visar samlad användning och molntotaler. När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMaps kartbildsleverantör. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna.",
     "sourceTitle": "Öppen källkod",
     "sourceText": "Voltura Places är freeware med MIT-licensierad källkod. Kör, granska eller anpassa. Utveckling och publicering beskrivs i det publika kodarkivet.",
     "footer": "Voltura Places",
@@ -243,6 +267,32 @@
       "Tryck på Visa mer (⌄) i delningspanelen om hela listan med åtgärder är dold.",
       "Rulla ned och tryck på Lägg till på hemskärmen.",
       "Behåll Öppna som webbapp aktiverat om det visas och tryck sedan på Lägg till."
+    ],
+    "privacyTopics": [
+      [
+        "Konto och inloggning",
+        "Kontodata lagras via ChatGPT Sites. Inloggningsmejl skickas via one.com."
+      ],
+      [
+        "Grupper",
+        "Gruppmedlemmar kan lägga till, redigera och radera delade platser och foton. Ägaren godkänner medlemskap. Borttagen åtkomst återkallar inte nedladdade kopior."
+      ],
+      [
+        "Säkerhetskopiering och återställning",
+        "Webbläsardata kan raderas eller rensas; synkronisering och okrypterade exporter ger möjlighet till återställning."
+      ],
+      [
+        "Delade länkar",
+        "Delade platslänkar innehåller en ögonblickskopia av platsen utan fotot. Alla med länken kan läsa kopian och länken kan inte återkallas."
+      ],
+      [
+        "Användningsaktivitet",
+        "Användningsaktivitet använder ett slumpat webbläsar-ID. Det hashas på servern. Aktivitetsfönstret är 31 dagar. Äldre poster rensas vid användning. Stäng av rapportering i Inställningar → Integritet. Offentlig statistik visar samlad användning och molntotaler."
+      ],
+      [
+        "Kartor och navigering",
+        "När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMaps kartbildsleverantör. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna."
+      ]
     ]
   }
 }
