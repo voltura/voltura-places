@@ -510,7 +510,7 @@ export function FamilyPanel({
               </select>
             </label>
           )}
-          <h3 className="family-group-name">{family.name}</h3>
+          {cache.families.length === 1 && <h3 className="family-group-name">{family.name}</h3>}
           {family.ownerId === account.id &&
             (renameName === null ? (
               <button

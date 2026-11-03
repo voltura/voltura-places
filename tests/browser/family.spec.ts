@@ -399,7 +399,10 @@ test("two signed-in family members share photos and offline saves while private 
     await groupName.fill("Mother and family");
     await a.page.screenshot({ path: testInfo.outputPath("create-from-group-menu.png") });
     await a.page.getByRole("button", { name: "Create group", exact: true }).click();
-    await expect(a.page.locator(".family-group-name")).toHaveText("Mother and family");
+    await expect(
+      a.page.getByRole("combobox", { name: "Group", exact: true }).locator("option:checked"),
+    ).toHaveText("Mother and family");
+    await expect(a.page.locator(".family-group-name")).toHaveCount(0);
     const secondState = await (await familyAction(a, undefined)).json();
     const second = secondState.families.find(
       (g: { name: string }) => g.name === "Mother and family",
@@ -530,11 +533,10 @@ test("two signed-in family members share photos and offline saves while private 
       .getByRole("button", { name: "Mother and family", exact: true })
       .click();
     await a.page.getByRole("button", { name: "2 members", exact: true }).click();
-    await expect(
-      a.page
-        .getByRole("dialog", { name: "Settings", exact: true })
-        .getByRole("heading", { name: "Mother and family", exact: true }),
-    ).toBeVisible();
+    await expect(a.page.getByRole("combobox", { name: "Group", exact: true })).toHaveValue(
+      second.id,
+    );
+    await expect(a.page.locator(".family-group-name")).toHaveCount(0);
     await expect(
       a.page.getByRole("list", { name: "Members · 2/10" }).getByRole("listitem"),
     ).toHaveCount(2);
