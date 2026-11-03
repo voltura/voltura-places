@@ -15,8 +15,9 @@ test("editor location update reports progress, cancellation, success and bounded
         coords: { latitude: 0, longitude: 0, accuracy },
       }) as GeolocationPosition;
 
+    const permission = Object.assign(new EventTarget(), { state: "granted" });
     Object.defineProperty(navigator, "permissions", {
-      value: { query: async () => Object.assign(new EventTarget(), { state: "granted" }) },
+      value: { query: async () => permission },
     });
     Object.defineProperty(navigator, "geolocation", {
       value: {
@@ -36,7 +37,10 @@ test("editor location update reports progress, cancellation, success and bounded
     });
     Object.assign(window, {
       sendEditorFix: (accuracy: number) => success(fix(accuracy)),
-      denyEditorGps: () => failure?.({ code: 1 } as GeolocationPositionError),
+      denyEditorGps: () => {
+        permission.state = "denied";
+        failure?.({ code: 1 } as GeolocationPositionError);
+      },
       activeEditorWatches: () => active.size,
     });
   });
@@ -97,6 +101,7 @@ test("editor location update reports progress, cancellation, success and bounded
   ).toBe(0);
   await update.click();
   await page.evaluate(() => (window as unknown as { denyEditorGps: () => void }).denyEditorGps());
+  await page.clock.fastForward(1001);
   await expect(editor.getByRole("alert")).toContainText("Location access was denied.");
   await expect(update).toBeEnabled();
   await expect(editor.locator(".editor-location [role=status]")).toContainText("±25 m");

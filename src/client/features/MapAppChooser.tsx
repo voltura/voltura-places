@@ -1,4 +1,5 @@
 import { mapProviders, type MapProvider } from "../foundation/map-providers";
+import { mapLinkTarget } from "../foundation/map-links";
 import { ArrowUpRight, Copy, Map } from "lucide-react";
 import { mapURL, directionsURL, type MapAction, type Place } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
@@ -85,7 +86,7 @@ export function MapAppChooser({
                   ? directionsURL(provider, place)
                   : mapURL(provider, place)
               }
-              target="_blank"
+              target={mapLinkTarget()}
               rel="noopener noreferrer"
               onClick={() => onChoose(provider)}
             >

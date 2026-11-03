@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { mapURL, directionsURL, type Place, type MapAction } from "../../shared/model";
 import { mapProviders } from "../foundation/map-providers";
+import { openMapLink } from "../foundation/map-links";
 import type { Preferences } from "../foundation/preferences";
 
 export function useBrowsing(
@@ -44,7 +45,7 @@ export function useBrowsing(
 
   const openMaps = (place: Place) => {
     if (prefs.provider && mapProviders().includes(prefs.provider)) {
-      window.open(mapURL(prefs.provider, place), "_blank", "noopener,noreferrer");
+      openMapLink(mapURL(prefs.provider, place));
     } else {
       setMaps({ place, action: "show" });
     }
@@ -52,7 +53,7 @@ export function useBrowsing(
 
   const navigate = (place: Place) => {
     if (prefs.provider === "google" || prefs.provider === "apple") {
-      window.open(directionsURL(prefs.provider, place), "_blank", "noopener,noreferrer");
+      openMapLink(directionsURL(prefs.provider, place));
     } else {
       setMaps({ place, action: "navigate" });
     }

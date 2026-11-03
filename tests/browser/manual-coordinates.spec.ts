@@ -96,6 +96,10 @@ test("manual entry returns after GPS cancellation or denial and hides after a fi
     let requests = 0;
     let success: PositionCallback;
     let failure: PositionErrorCallback;
+    const permission = Object.assign(new EventTarget(), { state: "granted" });
+    Object.defineProperty(navigator, "permissions", {
+      value: { query: async () => permission },
+    });
     Object.defineProperty(navigator, "geolocation", {
       value: {
         watchPosition: (onPosition: PositionCallback, onError: PositionErrorCallback) => {
@@ -115,7 +119,10 @@ test("manual entry returns after GPS cancellation or denial and hides after a fi
           timestamp: Date.now(),
           coords: { latitude: 0, longitude: 0, accuracy: 8 },
         } as GeolocationPosition),
-      manualDeny: () => failure({ code: 1 } as GeolocationPositionError),
+      manualDeny: () => {
+        permission.state = "denied";
+        failure({ code: 1 } as GeolocationPositionError);
+      },
     });
   });
   await page.goto("/");

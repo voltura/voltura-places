@@ -593,7 +593,7 @@ export function Editor({
               </button>
             </div>
           )}
-          {locationUpdated && !fresh && (
+          {locationUpdated && initial && !fresh && (
             <p role="status" className="small muted editor-location-feedback">
               {t("editorLocationUpdated")}
             </p>

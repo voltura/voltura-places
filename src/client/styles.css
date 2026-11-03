@@ -3248,6 +3248,7 @@ button.save-destination > svg {
   padding-block: 12px;
 }
 .editor-sheet .editor-category .preference-row {
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) 20px;
   border-radius: 13px;
 }
 .editor-location-update {

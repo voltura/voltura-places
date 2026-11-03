@@ -33,9 +33,47 @@ export function Sheet({
   useLayoutEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
-    (dialog.querySelector<HTMLElement>("[data-initial-focus]") ?? dialog).focus();
+    (dialog.querySelector<HTMLElement>("[data-initial-focus]") ?? dialog).focus({
+      preventScroll: true,
+    });
 
-    return () => dialog.close();
+    // WebKit can retain the scroll layer's old touch regions after rotation.
+    // Rebuild that layer once the viewport width settles, keeping the same
+    // form nodes, focus and scroll position (including in nested sheets).
+    const content = dialog.querySelector<HTMLElement>(".sheet-content")!;
+    let width = window.innerWidth;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const top = content.scrollTop;
+        const overflow = content.style.overflow;
+        content.style.overflow = "clip";
+        content.getBoundingClientRect();
+        content.style.overflow = overflow;
+        content.scrollTop = top;
+      }, 150);
+    };
+
+    const resize = () => {
+      if (window.innerWidth === width) {
+        return;
+      }
+      width = window.innerWidth;
+      backdropPress.current = false;
+      refresh();
+    };
+
+    // Details may be newly mounted after crossing the phone breakpoint.
+    refresh();
+    window.addEventListener("resize", resize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", resize);
+      dialog.close();
+    };
   }, []);
 
   return (

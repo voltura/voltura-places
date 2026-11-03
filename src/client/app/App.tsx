@@ -7,6 +7,7 @@ import { useSession } from "./useSession";
 import { useWorkspace } from "./useWorkspace";
 import { useSynchronization } from "./useSynchronization";
 import { useBrowsing } from "./useBrowsing";
+import { openMapLink } from "../foundation/map-links";
 import { useBackups } from "./useBackups";
 import { useLibraryQueries } from "./useLibraryQueries";
 import { Settings } from "../features/Settings";
@@ -489,7 +490,7 @@ export function App() {
         }
       }}
       chooseMapProvider={(place, provider) => {
-        window.open(mapURL(provider, place), "_blank", "noopener,noreferrer");
+        openMapLink(mapURL(provider, place));
         setPrefs({ ...prefs, provider });
       }}
       setSharePlace={setSharePlace}
