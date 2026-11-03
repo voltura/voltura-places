@@ -24,3 +24,5 @@ The app uses system fonts and Lucide icons (ISC license). React, Better Auth, Zo
 
 Startup PNGs and the English and Swedish social cards use lossless truecolour compression. The encoder removes an alpha channel only when all pixels are opaque and keeps the smaller encoding. The branding regression compares decoded RGBA pixels and dimensions against the original artwork for all 66 images. The promo and app reuse the same social-card bytes.
 `src/client/foundation/sweden-boundary.json` contains Sweden from Natural Earth 1:10m Admin 0 Countries, obtained from the [official data repository](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_10m_admin_0_countries.geojson). Natural Earth data is [public domain](https://www.naturalearthdata.com/about/terms-of-use/). It selects map coverage locally. The Swedish terrain background is served by Naturkartan. OpenStreetMap tiles retain their attribution.
+
+The two desktop promo captures were refreshed from version 0.2.0 on 3 November 2026. They show the current filters, personal visit status and compact OpenStreetMap credit in both map surfaces. The mobile captures remain from 2 November.
