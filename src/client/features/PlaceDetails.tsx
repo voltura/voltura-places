@@ -134,8 +134,13 @@ export function PlaceDetails({
           {t("followRoute")}
         </button>
       )}
-      <div className="details-map-actions split-actions">
-        <button className="button primary" onClick={() => openMaps(record.value)}>
+      <div
+        className={`details-map-actions split-actions${record.kind === "route" ? " secondary" : ""}`}
+      >
+        <button
+          className={`button ${record.kind === "route" ? "outline" : "primary"}`}
+          onClick={() => openMaps(record.value)}
+        >
           <Map size={20} />
           {t(record.kind === "route" ? "routeStart" : "openMaps")}
         </button>

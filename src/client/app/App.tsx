@@ -3,6 +3,7 @@ import { FollowRoute } from "../features/FollowRoute";
 import { useRouteRecording } from "./useRouteRecording";
 import { RecordingPreview } from "../features/RecordingPreview";
 import { RecordingView } from "../features/RecordingView";
+import { DiscardRecording } from "../features/DiscardRecording";
 import { MapBackgroundContext } from "../features/MapBackgroundContext";
 import { Editor } from "../features/Editor";
 import { BackupDialogs } from "./BackupDialogs";
@@ -42,8 +43,9 @@ import {
   Play,
   Square,
   Save,
-  Trash2,
   RefreshCw,
+  Route,
+  ChevronUp,
 } from "lucide-react";
 import { registerSW } from "virtual:pwa-register";
 import { watchForUpdates } from "../foundation/updates";
@@ -463,8 +465,18 @@ export function App() {
   useEffect(() => {
     const dock = saveDock.current!;
     const reveal = document.querySelector<HTMLElement>(".show-controls");
+    const header = document.querySelector<HTMLElement>(".app-header")!;
+    const headerContent = header.querySelector<HTMLElement>(".header-inner")!;
 
     const measure = () => {
+      // The fixed viewport can include a themed scrollbar gutter that the page excludes.
+      dock.style.width = `${header.getBoundingClientRect().width}px`;
+      if (reveal) {
+        const edge =
+          headerContent.getBoundingClientRect().right -
+          parseFloat(getComputedStyle(headerContent).paddingRight);
+        reveal.style.setProperty("--show-controls-edge", `${edge}px`);
+      }
       const clearance = reveal
         ? reveal.getBoundingClientRect().height + parseFloat(getComputedStyle(reveal).bottom)
         : dock.getBoundingClientRect().height;
@@ -480,13 +492,16 @@ export function App() {
 
     const observer = new ResizeObserver(measure);
     observer.observe(dock);
+    observer.observe(header);
     if (reveal) {
       observer.observe(reveal);
+      window.addEventListener("resize", measure);
     }
     measure();
 
     return () => {
       observer.disconnect();
+      window.removeEventListener("resize", measure);
       document.documentElement.style.removeProperty("--save-dock-height");
       document.documentElement.style.removeProperty("--floating-controls-clearance");
     };
@@ -706,6 +721,16 @@ export function App() {
       />
       <LibraryView
         compactHeader={!!account.account}
+        emptyActions={
+          <button
+            className="button outline empty-track-route"
+            disabled={locating || !workspace || reconciling || !canWrite || recording.busy}
+            onClick={() => void recording.start()}
+          >
+            <Route size={20} aria-hidden="true" />
+            {t("trackRoute")}
+          </button>
+        }
         onBrowse={controls.browse}
         view={libraryView}
         setView={setLibraryView}
@@ -791,11 +816,15 @@ export function App() {
                 ) : (
                   <LockKeyhole size={18} aria-hidden="true" />
                 )}
-                <span className="save-destination-name">
-                  {selectedFamily
-                    ? (selectedGroup?.name ?? t("familyLibrary"))
-                    : t("privateLibrary")}
+                <span className="save-destination-label">
+                  {selectedFamily && !canWrite ? `${t("familyLocalCopyLabel")} ·` : t("saveTo")}{" "}
+                  <span className="save-destination-name">
+                    {selectedFamily
+                      ? (selectedGroup?.name ?? t("familyLibrary"))
+                      : t("privateLibrary")}
+                  </span>
                 </span>
+                <ChevronUp size={18} aria-hidden="true" />
               </button>
             )}
             {recording.draft && (
@@ -833,18 +862,10 @@ export function App() {
                       ))}
                     </div>
                   )}
-                  <p className="small muted">{t("recordingVisible")}</p>
+                  <p className="small muted">
+                    {t(recording.active ? "recordingVisible" : "routeRetained")}
+                  </p>
                   <RecordingPreview key={recording.draft.id} draft={recording.draft} t={t} />
-                  {recording.active && (
-                    <button
-                      className="button outline"
-                      onClick={recording.retry}
-                      disabled={recording.busy || recording.locationState === "paused"}
-                    >
-                      <RefreshCw size={20} aria-hidden="true" />
-                      {t("retry")}
-                    </button>
-                  )}
                   <div className="route-recording-actions">
                     {recording.active ? (
                       <button
@@ -873,17 +894,31 @@ export function App() {
                           <Save size={20} aria-hidden="true" />
                           {t("routeSave")}
                         </button>
-                        <button
-                          className="button danger"
-                          disabled={recording.busy}
-                          onClick={() => void recording.discard()}
-                        >
-                          <Trash2 size={20} aria-hidden="true" />
-                          {t("routeDiscard")}
-                        </button>
+                        <DiscardRecording
+                          key={recording.draft.id}
+                          busy={recording.busy}
+                          error={
+                            recording.error
+                              ? t(recording.error === "syncBusy" ? "routeBusy" : recording.error)
+                              : ""
+                          }
+                          onDiscard={recording.discard}
+                          t={t}
+                        />
                       </>
                     )}
                   </div>
+                  {recording.active &&
+                    ["denied", "unavailable", "stale"].includes(recording.locationState) && (
+                      <button
+                        className="button outline"
+                        onClick={recording.retry}
+                        disabled={recording.busy}
+                      >
+                        <RefreshCw size={20} aria-hidden="true" />
+                        {t("retry")}
+                      </button>
+                    )}
                   {recording.error && (
                     <p role="alert" className="error">
                       {t(recording.error === "syncBusy" ? "routeBusy" : recording.error)}

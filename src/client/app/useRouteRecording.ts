@@ -180,11 +180,12 @@ export function useRouteRecording(
   };
 
   const discard = async () => {
-    if (!draft || active) {
+    if (!draft || active || busy) {
       return;
     }
     const op = beginWrite();
     setBusy(true);
+    setError("");
     try {
       await discardRouteDraft(scope, draft.id);
       if (op.isCurrent()) {

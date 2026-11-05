@@ -71,7 +71,7 @@ for (const width of [390, 1280]) {
     expect((await page.locator(".search-row").boundingBox())!.height).toBe(row!.height);
     await statusFilter.selectOption("none");
     await expect(page.locator(".library-pane .places-map")).toHaveCount(0);
-    await page.getByRole("button", { name: "Clear search", exact: true }).last().click();
+    await page.getByRole("button", { name: "Clear filters", exact: true }).click();
     await expect(statusFilter).toHaveValue("all");
     await expect(page.locator(".library-pane .map-toolbar")).toContainText("1 place");
     await page.getByRole("button", { name: "List", exact: true }).click();

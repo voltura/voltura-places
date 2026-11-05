@@ -35,6 +35,7 @@ type Props = {
   title?: string;
   compactHeader?: boolean;
   headerActions?: ReactNode;
+  emptyActions?: ReactNode;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -78,6 +79,7 @@ export function LibraryView({
   title,
   compactHeader,
   headerActions,
+  emptyActions,
   t,
   places,
   filtered,
@@ -108,6 +110,30 @@ export function LibraryView({
 }: Props) {
   const [fitRequest, setFitRequest] = useState(0);
   const searchField = useRef<HTMLInputElement>(null);
+  const hasFilters = !!search.trim() || filter !== "all" || visitFilter !== "all";
+  const visitFilterLabel = t(
+    visitFilter === "places"
+      ? "onlyPlaces"
+      : visitFilter === "routes"
+        ? "onlyRoutes"
+        : visitFilter === "want"
+          ? "visitWant"
+          : visitFilter === "visited"
+            ? "visitVisited"
+            : visitFilter === "none"
+              ? "visitNone"
+              : "visitAll",
+  );
+  const selectedCategory = categories.find((category) => category.id === filter);
+
+  const clearFilters = () => {
+    setSearch("");
+    setFilter("all");
+    setVisitFilter("all");
+    onClearMapFocus();
+    searchField.current?.blur();
+  };
+
   const dateFormat = useMemo(
     () => new Intl.DateTimeFormat(prefs.language, { day: "numeric", month: "short" }),
     [prefs.language],
@@ -157,7 +183,9 @@ export function LibraryView({
             {places.length > 0 && !compactHeader && (
               <h1>
                 {title ?? t("library")}
-                <span className="count">{places.length}</span>
+                <span className="count">
+                  {hasFilters ? `${filtered.length} / ${places.length}` : places.length}
+                </span>
               </h1>
             )}
             {headerActions}
@@ -218,7 +246,7 @@ export function LibraryView({
               </div>
               <label
                 className={`visit-filter sort-button${visitFilter !== "all" ? " active" : ""}`}
-                title={`${t("visitFilter")}: ${t(visitFilter === "places" ? "onlyPlaces" : visitFilter === "routes" ? "onlyRoutes" : visitFilter === "want" ? "visitWant" : visitFilter === "visited" ? "visitVisited" : visitFilter === "none" ? "visitNone" : "visitAll")}`}
+                title={`${t("visitFilter")}: ${visitFilterLabel}`}
               >
                 <ListFilter size={20} aria-hidden="true" />
                 {visitFilter !== "all" && <span className="filter-dot" aria-hidden="true" />}
@@ -282,28 +310,55 @@ export function LibraryView({
                   </button>
                 ))}
             </nav>
+            {(filter !== "all" || visitFilter !== "all") && (
+              <div className="active-filters" role="group" aria-label={t("activeFilters")}>
+                {filter !== "all" && (
+                  <button
+                    className="active-filter"
+                    aria-label={`${t("removeFilter")}: ${selectedCategory ? categoryLabel(selectedCategory) : t("other")}`}
+                    onClick={() => {
+                      setFilter("all");
+                      onClearMapFocus();
+                    }}
+                  >
+                    <span>{selectedCategory ? categoryLabel(selectedCategory) : t("other")}</span>
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                )}
+                {visitFilter !== "all" && (
+                  <button
+                    className="active-filter"
+                    aria-label={`${t("removeFilter")}: ${visitFilterLabel}`}
+                    onClick={() => {
+                      setVisitFilter("all");
+                      onClearMapFocus();
+                    }}
+                  >
+                    <span>{visitFilterLabel}</span>
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                )}
+                {filtered.length > 0 && (
+                  <button className="clear-filters" onClick={clearFilters}>
+                    {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
         {!places.length ? (
           <div className="empty-state">
             <h1>{t("emptyTitle")}</h1>
             <p>{t("emptyBody")}</p>
+            {emptyActions}
           </div>
         ) : !filtered.length ? (
           <div className="no-results">
             <Search size={30} />
             <h2>{t("noResults")}</h2>
-            <button
-              className="button outline"
-              onClick={() => {
-                setSearch("");
-                setFilter("all");
-                setVisitFilter("all");
-                onClearMapFocus();
-                searchField.current?.blur();
-              }}
-            >
-              {t("clearSearch")}
+            <button className="button outline" onClick={clearFilters}>
+              {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
             </button>
           </div>
         ) : view === "map" ? (

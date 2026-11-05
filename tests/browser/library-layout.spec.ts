@@ -220,8 +220,8 @@ test("library selector keeps long group destinations explicit and private places
     ).toBeVisible();
     await expect(page.locator(".header-sync-icon")).toBeVisible();
     await menu.getByRole("button", { name: longName, exact: true }).click();
-    await expect(page.locator(".save-destination")).toHaveText(longName);
-    await expect(page.locator(".save-destination > svg")).toBeVisible();
+    await expect(page.locator(".save-destination")).toHaveText(`Save to ${longName}`);
+    await expect(page.locator(".save-destination > svg").first()).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "No places saved yet", exact: true }),
     ).toBeVisible();
@@ -248,11 +248,11 @@ test("library selector keeps long group destinations explicit and private places
       await expect(page.locator(".shared-library-notice")).toHaveCount(0);
       const button = (await selector.boundingBox())!;
       const metrics = await page.locator(".library-selector-name").evaluate((el) => ({
-        height: el.getBoundingClientRect().height,
-        line: parseFloat(getComputedStyle(el).lineHeight),
+        clipped: el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth,
         clamp: getComputedStyle(el).webkitLineClamp,
       }));
-      expect(metrics.clamp).toBe("2");
+      expect(metrics.clamp).toBe("none");
+      expect(metrics.clipped).toBe(false);
       const icons = await page
         .locator(".library-selector-label > svg")
         .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
@@ -260,13 +260,12 @@ test("library selector keeps long group destinations explicit and private places
       expect(await selector.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBe(
         18 * scale,
       );
-      expect(metrics.height).toBeLessThanOrEqual(metrics.line * 2 + 1);
       await expect(page.locator(".save-destination-name")).toHaveText(longName);
       expect(
         await page
-          .locator(".save-destination-name")
-          .evaluate((el) => el.scrollWidth > el.clientWidth),
-      ).toBe(true);
+          .locator(".save-destination-label")
+          .evaluate((el) => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight),
+      ).toBe(false);
       const content = await page.locator(".app-main").evaluate((el) => {
         const rect = el.getBoundingClientRect();
         const style = getComputedStyle(el);
@@ -302,7 +301,9 @@ test("library selector keeps long group destinations explicit and private places
       ).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`group-menu-${width}-${scale}.png`) });
       await menu.getByRole("button", { name: "Weekend walks", exact: true }).click();
-      expect((await page.locator(".save-dock").boundingBox())!.height).toBe(beforeDock.height);
+      expect((await page.locator(".save-dock").boundingBox())!.height).toBeLessThanOrEqual(
+        beforeDock.height,
+      );
       expect((await page.locator(".save-here").boundingBox())!.height).toBe(beforeSave.height);
       await selector.click();
       await menu.getByRole("button", { name: longName, exact: true }).click();
@@ -403,7 +404,7 @@ test("library selector keeps long group destinations explicit and private places
     await page.getByRole("button", { name: "List", exact: true }).click();
     await selector.click();
     await menu.getByRole("button", { name: "Private places", exact: true }).click();
-    await expect(page.locator(".save-destination")).toHaveText("Private places");
+    await expect(page.locator(".save-destination")).toHaveText("Save to Private places");
     await expect(page.locator(".save-destination > svg.lucide-lock-keyhole")).toBeVisible();
     await expect(page.locator(".place-card")).toHaveCount(0);
     await expect(count).toHaveText("0");

@@ -134,6 +134,121 @@ test("terrain preference persists and failed terrain tiles fall back", async ({ 
 });
 
 for (const language of ["en", "sv"]) {
+  test(`recording retries are contextual and discard confirms without losing recovery: ${language}`, async ({
+    page,
+  }) => {
+    const sv = language === "sv";
+    await page.addInitScript((language) => {
+      localStorage.setItem("places-account-choice", "done");
+      localStorage.setItem(
+        "places-preferences",
+        JSON.stringify({ language, recordingInterval: 5 }),
+      );
+      Object.defineProperty(navigator, "geolocation", {
+        value: {
+          watchPosition: (success: PositionCallback, error: PositionErrorCallback) => {
+            Object.assign(window, { routeFix: success, routeError: error });
+
+            return 1;
+          },
+          clearWatch: () => {},
+        },
+      });
+    }, language);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await page.clock.install();
+    const emptyShortcut = page.getByRole("button", {
+      name: sv ? "Spela in rutt" : "Track route",
+      exact: true,
+    });
+    await expect(emptyShortcut).toBeVisible();
+    await emptyShortcut.click();
+    const recording = page.locator(".recording-view");
+    const retry = recording.getByRole("button", {
+      name: sv ? "Försök igen" : "Retry",
+      exact: true,
+    });
+    const stop = recording.getByRole("button", { name: sv ? "Stoppa" : "Stop", exact: true });
+    await expect(stop).toBeVisible();
+    await expect(retry).toHaveCount(0);
+    const stopTop = (await stop.boundingBox())!.y;
+    await page.evaluate(() =>
+      (window as unknown as { routeError: PositionErrorCallback }).routeError({
+        code: 1,
+      } as GeolocationPositionError),
+    );
+    await expect(retry).toBeVisible();
+    expect((await stop.boundingBox())!.y).toBe(stopTop);
+    await retry.click();
+    await fix(page, 59.33);
+    await expect(retry).toHaveCount(0);
+    await page.clock.fastForward(5100);
+    await fix(page, 59.331);
+    await stop.click();
+    const editor = page.getByRole("dialog", {
+      name: sv ? "Ruttinformation" : "Route details",
+      exact: true,
+    });
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: sv ? "Stäng" : "Close", exact: true }).click();
+    await expect(recording).toContainText(
+      sv ? "Inspelningen finns kvar på enheten." : "Recording kept on this device.",
+    );
+    const discard = recording.getByRole("button", {
+      name: sv ? "Kasta inspelning" : "Discard recording",
+      exact: true,
+    });
+    await discard.click();
+    const confirmation = page.getByRole("dialog", {
+      name: sv ? "Kasta den här inspelningen?" : "Discard this recording?",
+      exact: true,
+    });
+    await expect(
+      confirmation.getByRole("button", { name: sv ? "Avbryt" : "Cancel", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(confirmation).toHaveCount(0);
+    await page.reload();
+    await expect(recording.locator(".route-point-count")).toContainText("2");
+    await discard.click();
+    await confirmation.getByRole("button", { name: sv ? "Avbryt" : "Cancel", exact: true }).click();
+    await expect(confirmation).toHaveCount(0);
+    await page.evaluate(() => {
+      const held = new Promise<void>((resolve) =>
+        Object.assign(window, { releaseRecordingLock: resolve }),
+      );
+      void navigator.locks.request("places-route-recording", () => held);
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(async () =>
+          (await navigator.locks.query()).held?.some(
+            (lock) => lock.name === "places-route-recording",
+          ),
+        ),
+      )
+      .toBe(true);
+    await discard.click();
+    const confirm = confirmation.getByRole("button", {
+      name: sv ? "Kasta inspelning" : "Discard recording",
+      exact: true,
+    });
+    await confirm.click();
+    await expect(confirmation.getByRole("alert")).toContainText(sv ? "annan flik" : "another tab");
+    await expect(recording.locator(".route-point-count")).toContainText("2");
+    await page.evaluate(() =>
+      (window as unknown as { releaseRecordingLock: () => void }).releaseRecordingLock(),
+    );
+    await confirm.click();
+    await expect(recording).toHaveCount(0);
+    await page.reload();
+    await expect(recording).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: sv ? "Spara position" : "Save position", exact: true }),
+    ).toBeEnabled();
+  });
+
   test(`live recording stays focused, stable and updates fullscreen: ${language}`, async ({
     page,
     browserName,

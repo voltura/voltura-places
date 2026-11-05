@@ -45,13 +45,13 @@ for (const engine of [chromium, webkit]) {
         await expect(menu).toBeVisible();
         await menu.getByRole("button", { name: destination, exact: true }).tap();
         await expect(menu).toBeHidden();
-        await expect(selector.locator("span").first()).toHaveText(destination);
+        await expect(selector.locator(".library-selector-name")).toHaveText(destination);
         await expect(selector.locator(".library-selector-count")).toHaveText("0");
-        await expect(page.locator(".save-destination")).toHaveText(destination);
+        await expect(page.locator(".save-destination")).toHaveText(`Save to ${destination}`);
       }
       await page.reload();
-      await expect(selector.locator("span").first()).toHaveText("Private places");
-      await expect(page.locator(".save-destination")).toHaveText("Private places");
+      await expect(selector.locator(".library-selector-name")).toHaveText("Private places");
+      await expect(page.locator(".save-destination")).toHaveText("Save to Private places");
     } finally {
       if (familyId) {
         await context.request.post("/api/family", {

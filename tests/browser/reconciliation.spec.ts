@@ -185,7 +185,9 @@ for (const scenario of [
         await expect(
           page.getByRole("button", { name: "Save position", exact: true }),
         ).toBeEnabled();
-        await expect(failure).toContainText("You can retry when you’re ready");
+        await expect(failure).toContainText(
+          "Some places or routes remain on this device. Retry when ready.",
+        );
         await page.evaluate(() => window.dispatchEvent(new Event("focus")));
         await expect(page.getByRole("button", { name: "Skip for now", exact: true })).toHaveCount(
           0,
@@ -202,8 +204,8 @@ for (const scenario of [
     }
     const confirmation =
       scenario === "swedish"
-        ? "3 platser har lagts till i Privata platser."
-        : "3 places added to Private places.";
+        ? "3 poster har lagts till i ditt privata bibliotek."
+        : "3 items added to your private library.";
     await expect(page.getByRole("status").filter({ hasText: confirmation })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("transfer-confirmation.png") });
     await expect(page.getByRole("dialog")).toHaveCount(0);

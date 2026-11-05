@@ -30,6 +30,8 @@
   -webkit-font-smoothing: antialiased;
   accent-color: var(--accent);
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) var(--surface);
   overflow-x: clip;
   scroll-padding-bottom: calc(var(--save-dock-height, 150px) + 16px);
   overscroll-behavior-x: none;
@@ -690,12 +692,12 @@ hr {
   margin-top: 8px;
 }
 .no-results {
-  padding: 70px 16px;
+  padding: 28px 16px;
   text-align: center;
   display: flex;
   align-items: center;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   color: var(--muted);
 }
 .no-results h2 {
@@ -909,6 +911,17 @@ hr {
 .split-actions .split-picker select:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px var(--on-accent);
+}
+.split-actions.secondary .split-picker select {
+  background: linear-gradient(145deg, var(--surface), var(--surface-bottom));
+  border-color: var(--button-border);
+  border-left: 0;
+}
+.split-actions.secondary .split-picker select:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+.split-actions.secondary .split-picker > svg {
+  color: var(--text);
 }
 @supports (appearance: base-select) {
   .split-actions .split-picker select {
@@ -1139,28 +1152,50 @@ hr {
   scrollbar-width: thin;
   scrollbar-color: var(--muted) var(--surface);
 }
+.sheet.sheet-with-footer {
+  top: var(--sheet-viewport-top, 0px);
+  bottom: var(--sheet-viewport-bottom, 0px);
+  max-height: calc(var(--sheet-viewport-height, 100dvh) - 40px);
+}
+.sheet-footer {
+  flex: none;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.sheet-footer > .button {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .sheet.sheet-with-footer {
+    max-height: calc(var(--sheet-viewport-height, 100dvh) - 22px);
+  }
+  .sheet-footer {
+    padding: 12px 20px;
+  }
+}
 .library-options {
   scrollbar-width: thin;
   scrollbar-color: var(--muted) var(--surface);
 }
 @supports selector(::-webkit-scrollbar) {
-  :is(.sheet-content, .library-options) {
+  :is(:root, .sheet-content, .library-options) {
     scrollbar-width: auto;
     scrollbar-color: auto;
   }
-  :is(.sheet-content, .library-options)::-webkit-scrollbar {
+  :is(:root, .sheet-content, .library-options)::-webkit-scrollbar {
     width: 8px;
   }
-  :is(.sheet-content, .library-options)::-webkit-scrollbar-track {
+  :is(:root, .sheet-content, .library-options)::-webkit-scrollbar-track {
     background: transparent;
     margin-block: 8px;
   }
-  :is(.sheet-content, .library-options)::-webkit-scrollbar-thumb {
+  :is(:root, .sheet-content, .library-options)::-webkit-scrollbar-thumb {
     background: var(--muted);
     border: 2px solid var(--surface);
     border-radius: 8px;
   }
-  :is(.sheet-content, .library-options)::-webkit-scrollbar-button {
+  :is(:root, .sheet-content, .library-options)::-webkit-scrollbar-button {
     display: none;
   }
 }
@@ -3022,10 +3057,7 @@ details p {
   font-weight: 600;
 }
 .library-selector-label span {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  display: block;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -3223,6 +3255,10 @@ details p {
   margin: 0;
   padding-left: 0;
 }
+.empty-state > .empty-track-route {
+  margin-top: 4px;
+  padding-inline: 20px;
+}
 .save-action {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -3333,12 +3369,14 @@ button.save-destination {
 button.save-destination > svg {
   flex-shrink: 0;
 }
-.save-destination-name {
+.save-destination-label {
   display: block;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.save-destination-name {
+  color: var(--text);
+  font-weight: 600;
 }
 @media (max-width: 640px) {
   .sync-pill {
@@ -4070,7 +4108,8 @@ select option .category-icon {
   position: fixed;
   z-index: 6;
   bottom: calc(8px + env(safe-area-inset-bottom));
-  right: max(40px, calc((100% - 1160px) / 2), env(safe-area-inset-right));
+  left: min(var(--show-controls-edge, calc(100% - 16px)), calc(100% - env(safe-area-inset-right)));
+  transform: translateX(-100%);
   min-height: 48px;
   max-width: calc(100% - 32px);
   width: max-content;
@@ -4078,16 +4117,6 @@ select option .category-icon {
   background: var(--surface);
   border-radius: 999px;
   box-shadow: 0 4px 20px #0004;
-}
-@media (max-width: 900px) {
-  .show-controls {
-    right: max(24px, env(safe-area-inset-right));
-  }
-}
-@media (max-width: 700px) {
-  .show-controls {
-    right: max(16px, env(safe-area-inset-right));
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .auto-hide-dock,
@@ -4387,6 +4416,42 @@ select option .category-icon {
 }
 
 /* Personal status stays in the existing search row; descriptions live in details. */
+.active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.active-filters button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.active-filter {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.active-filter span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.active-filter svg {
+  flex-shrink: 0;
+}
+.clear-filters {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
 .visit-filter.active {
   color: var(--accent);
   border-color: var(--focus);

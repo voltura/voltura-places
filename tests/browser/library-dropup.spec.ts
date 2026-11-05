@@ -69,7 +69,7 @@ for (const engine of [chromium, webkit]) {
         expect(await page.evaluate(() => scrollY)).toBe(before);
         await page.screenshot({ path: testInfo.outputPath(`dropup-${width}-${scale}.png`) });
         await menu.getByRole("button", { name: "Weekend walks", exact: true }).tap();
-        await expect(destination).toHaveText("Weekend walks");
+        await expect(destination).toHaveText("Save to Weekend walks");
         await expect(menu).toBeHidden();
         await destination.tap();
         await page.keyboard.press("Escape");
@@ -100,7 +100,7 @@ for (const engine of [chromium, webkit]) {
         await code.fill("1234");
         await expect(code).toHaveValue("1234");
         await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
-        await expect(destination).toHaveText("Weekend walks");
+        await expect(destination).toHaveText("Save to Weekend walks");
       }
     } finally {
       await browser.close();

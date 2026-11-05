@@ -12,6 +12,7 @@ export function Sheet({
   title,
   subtitle,
   headerActions,
+  footer,
   onClose,
   children,
   closeLabel = "Close",
@@ -22,6 +23,7 @@ export function Sheet({
   title: string;
   subtitle?: string;
   headerActions?: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   closeLabel?: string;
@@ -32,6 +34,38 @@ export function Sheet({
   const ref = useRef<HTMLDialogElement>(null);
   useOverlayScrollLock(ref);
   const backdropPress = useRef(false);
+  const hasFooter = footer != null;
+  useLayoutEffect(() => {
+    if (!hasFooter) {
+      return;
+    }
+    const dialog = ref.current!;
+    const viewport = window.visualViewport;
+
+    const measure = () => {
+      // Keep the action above a software keyboard without interfering with pinch zoom.
+      const unzoomed = !viewport || viewport.scale === 1;
+      const height = unzoomed ? (viewport?.height ?? window.innerHeight) : window.innerHeight;
+      const top = unzoomed ? (viewport?.offsetTop ?? 0) : 0;
+      dialog.style.setProperty("--sheet-viewport-height", `${height}px`);
+      dialog.style.setProperty("--sheet-viewport-top", `${top}px`);
+      dialog.style.setProperty(
+        "--sheet-viewport-bottom",
+        `${Math.max(0, window.innerHeight - top - height)}px`,
+      );
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    viewport?.addEventListener("resize", measure);
+    viewport?.addEventListener("scroll", measure);
+
+    return () => {
+      window.removeEventListener("resize", measure);
+      viewport?.removeEventListener("resize", measure);
+      viewport?.removeEventListener("scroll", measure);
+    };
+  }, [hasFooter]);
   useLayoutEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
@@ -82,7 +116,7 @@ export function Sheet({
     <dialog
       ref={ref}
       tabIndex={-1}
-      className={`sheet ${wide ? "sheet-wide" : ""} ${topAligned ? "sheet-top" : ""} ${className}`}
+      className={`sheet ${wide ? "sheet-wide" : ""} ${topAligned ? "sheet-top" : ""} ${hasFooter ? "sheet-with-footer" : ""} ${className}`}
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();
@@ -119,6 +153,7 @@ export function Sheet({
         </button>
       </div>
       <div className="sheet-content">{children}</div>
+      {hasFooter && <div className="sheet-footer">{footer}</div>}
     </dialog>
   );
 }

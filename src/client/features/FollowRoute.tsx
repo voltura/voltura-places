@@ -89,7 +89,7 @@ export function FollowRoute({
         </span>
         {t(status[location.status])}
         {location.position && ` ± ${Math.round(location.position.coords.accuracy)} m`}
-        {location.status !== "live" && location.status !== "paused" && (
+        {["denied", "unavailable", "stale"].includes(location.status) && (
           <button className="button outline" onClick={() => locator.current?.retry()}>
             {t("retry")}
           </button>

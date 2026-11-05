@@ -88,7 +88,7 @@ for (const transition of ["workspace", "account"] as const) {
           .getByRole("group", { name: "Choose group", exact: true })
           .getByRole("button", { name: label, exact: true })
           .click();
-        await expect(page.locator(".save-destination")).toHaveText(label);
+        await expect(page.locator(".save-destination")).toHaveText(`Save to ${label}`);
       }
     } else {
       for (const id of ["epoch-account-b", "epoch-account-a"]) {

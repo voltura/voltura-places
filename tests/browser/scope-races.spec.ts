@@ -137,14 +137,14 @@ for (const returnToOriginal of [false, true]) {
       .getByRole("group", { name: "Choose group", exact: true })
       .getByRole("button", { name: "Synthetic group", exact: true })
       .click();
-    await expect(page.locator(".save-destination")).toHaveText("Synthetic group");
+    await expect(page.locator(".save-destination")).toHaveText("Save to Synthetic group");
     if (returnToOriginal) {
       await selector.click();
       await page
         .getByRole("group", { name: "Choose group", exact: true })
         .getByRole("button", { name: "Private places", exact: true })
         .click();
-      await expect(page.locator(".save-destination")).toHaveText("Private places");
+      await expect(page.locator(".save-destination")).toHaveText("Save to Private places");
     }
     await page.evaluate(async () => {
       (window as any).releaseSaveReads();

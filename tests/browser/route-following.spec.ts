@@ -93,9 +93,15 @@ test("follow route shows segmented geometry, tracks, pauses, retries and restore
   await page.getByText("Shared trail", { exact: true }).click();
   const details = page.getByRole("dialog", { name: "Route details", exact: true });
   const follow = details.getByRole("button", { name: "Follow route", exact: true });
+  await expect(details.locator(".button.primary")).toHaveCount(1);
+  await expect(follow).toHaveClass(/primary/);
+  await expect(details.getByRole("button", { name: "Show route start", exact: true })).toHaveClass(
+    /outline/,
+  );
   await follow.click();
   const view = page.locator(".follow-route-view");
   await expect(view).toBeVisible();
+  await expect(view.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
   await expect(view.locator(".route-line")).toHaveCount(2);
   await expect(view.locator(".follow-route-outline")).toHaveCount(2);
   await expect(view.locator('a[href="https://leafletjs.com"]')).toHaveCount(0);

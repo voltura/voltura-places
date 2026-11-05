@@ -113,6 +113,12 @@ export function Editor({
   const [discardingPlace, setDiscardingPlace] = useState(false);
   const [id] = useState(() => entity?.id ?? draftId ?? crypto.randomUUID());
   const nameField = useRef<HTMLInputElement>(null);
+  const errorMessage = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error) {
+      errorMessage.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [error]);
   const focusDescription = useRef(false);
   const nameSelected = useRef(false);
   const selectNameOnPointerUp = useRef(false);
@@ -392,6 +398,17 @@ export function Editor({
         className="editor-sheet"
         onClose={dismiss}
         closeLabel={t("close")}
+        footer={
+          <button
+            type="submit"
+            form={`place-editor-${id}`}
+            className="button primary"
+            disabled={busy || photoBusy || locating || !ready}
+          >
+            {!fresh && !busy && <Check size={20} aria-hidden="true" />}
+            {t(busy ? "working" : fresh ? "done" : "save")}
+          </button>
+        }
       >
         {draftReadError && (
           <div className="notice stack">
@@ -429,6 +446,7 @@ export function Editor({
           </div>
         )}
         <form
+          id={`place-editor-${id}`}
           onSubmit={(e) => {
             e.preventDefault();
             void save();
@@ -696,18 +714,11 @@ export function Editor({
             }
           />
           {error && (
-            <p className="error" role="alert">
+            <p className="error" role="alert" ref={errorMessage}>
               {error}
             </p>
           )}
-          <button
-            type="submit"
-            className="button primary"
-            disabled={busy || photoBusy || locating || !ready}
-          >
-            {!fresh && !busy && <Check size={20} aria-hidden="true" />}
-            {t(busy ? "working" : fresh ? "done" : "save")}
-          </button>
+          {fresh && <p className="muted small">{t("savedEditorHint")}</p>}
           {!fresh && (
             <button type="button" className="button outline subdued" onClick={dismiss}>
               {t("cancel")}
@@ -784,7 +795,15 @@ export function Editor({
           closeLabel={t("close")}
         >
           <div className="stack">
-            <p>{t("discardChangesHint")}</p>
+            <p>
+              {t(
+                route
+                  ? "discardRouteChangesHint"
+                  : initial
+                    ? "discardSavedChangesHint"
+                    : "discardChangesHint",
+              )}
+            </p>
             <button
               type="button"
               className="button outline subdued"
