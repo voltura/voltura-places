@@ -21,6 +21,7 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import type { PlaceRecord } from "../../shared/model";
 import type { Message } from "../foundation/i18n";
 import { Sheet } from "../ui/Sheet";
+import { NaturkartanLegend } from "./NaturkartanLegend";
 
 type Props = {
   recording?: boolean;
@@ -159,6 +160,7 @@ export default function PlacesMap({
   const previousSelected = useRef<string | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [tileFailed, setTileFailed] = useState(false);
+  const [terrainActive, setTerrainActive] = useState(false);
   const [choices, setChoices] = useState<string[]>([]);
   const [allVisible, setAllVisible] = useState(true);
   const start = useMemo(() => longitudeArcStart(places.map((p) => p.value.longitude)), [places]);
@@ -325,7 +327,13 @@ export default function PlacesMap({
 
   useEffect(() => {
     if (mapRef.current) {
-      return mapBackgroundLayers(mapRef.current, mapBackground, setOffline, setTileFailed);
+      return mapBackgroundLayers(
+        mapRef.current,
+        mapBackground,
+        setOffline,
+        setTileFailed,
+        (source) => setTerrainActive(source === "naturkartan"),
+      );
     }
   }, [mapBackground]);
 
@@ -544,6 +552,7 @@ export default function PlacesMap({
               >
                 {fullscreen ? <Minimize aria-hidden="true" /> : <Maximize aria-hidden="true" />}
               </button>
+              {fullscreen && terrainActive && <NaturkartanLegend t={t} />}
               {!allVisible && (
                 <button
                   className="button outline map-show-all"

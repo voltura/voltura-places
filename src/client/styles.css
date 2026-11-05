@@ -3823,9 +3823,40 @@ select option .category-icon {
   flex-direction: row-reverse;
   gap: 8px;
 }
-.map-fullscreen-toggle {
+.map-fullscreen-toggle,
+.map-legend-toggle {
   background: var(--surface);
   box-shadow: 0 2px 6px #0003;
+}
+.sheet.map-legend {
+  width: min(100% - 32px, 340px);
+  margin: auto;
+  border-radius: 26px;
+  border-bottom: 1px solid var(--border);
+  max-height: calc(
+    100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))
+  );
+}
+.map-legend::backdrop {
+  background: #10251d55;
+  backdrop-filter: none;
+}
+.map-legend-symbols {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.map-legend-symbols li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.map-legend-symbols svg {
+  flex: none;
+  border: 1px solid #788371;
+  border-radius: 4px;
 }
 .map-show-all {
   min-height: 48px;

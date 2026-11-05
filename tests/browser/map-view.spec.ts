@@ -636,6 +636,91 @@ for (const width of [375, 1280]) {
   });
 }
 
+for (const language of ["en", "sv"] as const) {
+  test(`fullscreen terrain legend follows the active tiles in ${language}`, async ({ page }) => {
+    const swedish = language === "sv";
+    const legend = swedish ? "Teckenförklaring" : "Map legend";
+    const enter = swedish ? "Visa karta i helskärm" : "Fullscreen map";
+    let failTerrain = false;
+    await page.setViewportSize({ width: swedish ? 375 : 1280, height: 667 });
+    await page.addInitScript((language) => {
+      localStorage.setItem(
+        "places-preferences",
+        JSON.stringify({
+          language,
+          mapBackground: "naturkartan",
+        }),
+      );
+    }, language);
+    await page.route("https://new-maptiles.naturkartan-cdn.se/**", (route) =>
+      failTerrain
+        ? route.abort()
+        : route.fulfill({
+            headers: { "cache-control": "no-store" },
+            contentType: "image/png",
+            body: Buffer.from(
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+              "base64",
+            ),
+          }),
+    );
+    await page.goto("/");
+    await expect(
+      page.getByRole("button", { name: swedish ? "Spara position" : "Save position", exact: true }),
+    ).toBeEnabled();
+    await seed(page, [record("Terrain destination", 59.281, 18.176)]);
+    await page.getByRole("button", { name: swedish ? "Karta" : "Map", exact: true }).click();
+    const toggle = page.getByRole("button", { name: legend, exact: true });
+    await expect(toggle).toHaveCount(0);
+    await page.getByRole("button", { name: enter, exact: true }).click();
+    await expect(toggle).toBeVisible();
+    const map = page.locator(".map-surface .places-map");
+    const panel = page.getByRole("dialog", { name: legend, exact: true });
+    const before = await map.locator(".leaflet-map-pane").getAttribute("style");
+    if (swedish) {
+      await toggle.tap();
+    } else {
+      await toggle.press("Enter");
+    }
+    await expect(panel).toContainText(swedish ? "Höjdkurvor" : "Contour lines");
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(toggle).toBeFocused();
+    await expect(map.locator(".leaflet-map-pane")).toHaveAttribute("style", before!);
+
+    for (let i = 0; i < 5; i++) {
+      await map.press("Shift+ArrowRight", { delay: 350 });
+    }
+    const showAll = map.locator("..").locator(".map-show-all");
+    await expect(showAll).toBeVisible();
+    const showBox = (await showAll.boundingBox())!;
+    const toggleBox = (await toggle.boundingBox())!;
+    expect(toggleBox.width).toBeGreaterThanOrEqual(48);
+    expect(toggleBox.height).toBeGreaterThanOrEqual(48);
+    expect(showBox.x + showBox.width).toBeLessThan(toggleBox.x);
+    await showAll.click();
+
+    await toggle.click();
+    await panel.getByRole("button", { name: swedish ? "Stäng" : "Close", exact: true }).click();
+    await expect(toggle).toBeFocused();
+    for (let i = 0; i < 9; i++) {
+      await map.locator(".leaflet-control-zoom-out").click();
+    }
+    await expect(toggle).toHaveCount(0);
+    await expect(map.getByRole("link", { name: "OpenStreetMap" })).toBeVisible();
+
+    await map.locator(".leaflet-control-zoom-in").click();
+    await toggle.click();
+    await page.context().setOffline(true);
+    await expect(panel).toHaveCount(0);
+    await expect(toggle).toHaveCount(0);
+    failTerrain = true;
+    await page.context().setOffline(false);
+    await expect(map.getByRole("link", { name: "OpenStreetMap" })).toBeVisible();
+    await expect(toggle).toHaveCount(0);
+  });
+}
+
 test("WebKit phone fullscreen keeps focus and exits through Escape", async () => {
   const browser = await webkit.launch();
   try {

@@ -1,3 +1,7 @@
+# Naturkartan map legend 0.3.0, 5 November 2026
+
+All 35 map, recording and route-following browser scenarios passed. The new English desktop and Swedish phone cases cover opening and closing the fullscreen legend, keyboard focus, preserving the map position, control spacing, going offline and falling back to OpenStreetMap after terrain tile errors. The tests use emulated viewports and mocked tiles.
+
 # Browser verification release 0.2.9, 5 November 2026
 
 All 386 Playwright scenarios passed. Category appearance checks now include the seventh preset and the Route icon. Recovery checks verify the switch to Private places when group access ends during a backup import and the current retry messages when a transfer reaches capacity. The auto-hide scenario allows up to 60 seconds for its scroll, focus and screenshot sequence under suite load.

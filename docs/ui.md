@@ -265,6 +265,8 @@ Maps draw separate segments, never joining gaps, with distinct start/finish mark
 
 Preferences → Map background offers OpenStreetMap (default) and Naturkartan with a Swedish flag. The choice applies to library maps, details, shared routes and live recording, including fullscreen. Swedish terrain includes contours, forest shading and wetland markings. Outside Swedish coverage, at wider zoom levels or after a tile error, maps use OpenStreetMap. The preference is separate from the external navigation app. Controls follow the selected theme; map imagery keeps its original colours.
 
+The fullscreen library map shows a 48px Map legend icon while Naturkartan is active. It opens a scrollable, localized sheet with samples of common terrain symbols and a link to Lantmäteriet’s topographic map key. Close or Escape returns focus to the icon without moving the map. Leaving fullscreen, going offline or switching to OpenStreetMap dismisses the sheet.
+
 Route endpoint markers use fixed 24×24 px frames and vector symbols. Start and finish frames are square; the current-position frame and dot are circular. Symbols stay centered independently of text font metrics.
 
 Update prompts mention unfinished edits only when the current library has a nonempty new place draft or changes relative to an existing place or route. Opening an unchanged editor, leaving a new form blank or reverting edits keeps the shorter saved-data reassurance. The editor update notice uses the same comparison.

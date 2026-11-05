@@ -7,9 +7,10 @@ export function mapBackgroundLayers(
   preference: Preferences["mapBackground"],
   offline: (value: boolean) => void,
   failed: (value: boolean) => void,
+  onSourceChange?: (source: Preferences["mapBackground"] | null) => void,
 ) {
   let active: L.TileLayer | null = null;
-  let source = "";
+  let source: Preferences["mapBackground"] | null = null;
   let naturkartanFailed = false;
   const surface = map.getContainer();
 
@@ -18,7 +19,8 @@ export function mapBackgroundLayers(
     if (!navigator.onLine) {
       active?.remove();
       active = null;
-      source = "";
+      source = null;
+      onSourceChange?.(null);
       failed(false);
 
       return;
@@ -55,6 +57,7 @@ export function mapBackgroundLayers(
       },
     );
     active = tiles;
+    onSourceChange?.(next);
     const failures = new Set<HTMLElement>();
     tiles.on("tileerror", (event: L.TileErrorEvent) => {
       if (active !== tiles || !surface.contains(event.tile)) {
