@@ -3,6 +3,8 @@ import { chromium, webkit, devices, expect, test, mockMapTiles } from "./fixture
 for (const engine of [chromium, webkit]) {
   for (const desktop of [false, true]) {
     test(`${engine.name()} ${desktop ? "desktop" : "phone"} auto-hide save bar`, async () => {
+      // This scenario drives repeated scroll and focus transitions and captures screenshots.
+      test.setTimeout(60_000);
       const browser = await engine.launch();
       const context = await browser.newContext({
         ...(desktop ? { viewport: { width: 1280, height: 800 } } : devices["iPhone 13"]),

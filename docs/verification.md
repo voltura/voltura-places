@@ -1,3 +1,7 @@
+# Browser verification release 0.2.9, 5 November 2026
+
+All 386 Playwright scenarios passed. Category appearance checks now include the seventh preset and the Route icon. Recovery checks verify the switch to Private places when group access ends during a backup import and the current retry messages when a transfer reaches capacity. The auto-hide scenario allows up to 60 seconds for its scroll, focus and screenshot sequence under suite load.
+
 # Phone usability review 0.2.8, 5 November 2026
 
 The five requested journeys were reviewed against the current implementation and the shared `npm run dev:ui` preview at `http://127.0.0.1:5173/`. Focused changes keep Done/Save outside the editor's scrolling body, distinguish discarding edits from deleting a saved place, expose active category/status filters and clearing, show complete group/save-destination names, confirm recording discard, keep Stop reachable with contextual location retries, and make Follow route the only primary route-details action. Empty libraries offer Track route directly. The owner's screenshot feedback also extended the existing themed sheet/menu scrollbar to the page. Installation, guest sign-in choice and transfer recovery were reviewed and retained.

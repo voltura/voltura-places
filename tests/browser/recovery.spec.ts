@@ -310,7 +310,8 @@ test("an open backup review stops accepting writes when group access ends", asyn
     }) as typeof createImageBitmap;
   });
   await page.goto("/");
-  await expect(page.locator(".shared-library-notice")).not.toContainText("Shared access has ended");
+  const library = page.locator(".library-selector-name");
+  await expect(library).toHaveText(group.name);
   const photoId = "00000000-0000-4000-8000-000000000004";
   const jpeg = await readFile("tests/fixtures/photo.jpg");
   const backup = {
@@ -335,13 +336,14 @@ test("an open backup review stops accepting writes when group access ends", asyn
   );
   active = false;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.locator(".shared-library-notice")).toContainText("Shared access has ended");
-  await expect(review.getByRole("alert")).toContainText("Shared access has ended");
-  await expect(apply).toBeDisabled();
+  await expect(page.locator(".toast[role=status]")).toContainText(
+    "Group access ended. Switched to Private places.",
+  );
+  await expect(library).toHaveText("Private places");
+  await expect(review).toHaveCount(0);
   await page.evaluate(() =>
     (window as Window & { releaseImportDecode?: () => void }).releaseImportDecode?.(),
   );
-  await expect(apply).toHaveText("Import backup");
   const imported = await page.evaluate(
     async ({ account, groupId }) => {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -725,14 +727,14 @@ test("automatic transfer at category capacity retains device places and offers r
   signedIn = true;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.locator(".device-transfer-notice")).toContainText(
-    "They are safe on this device",
+    "Places and routes remain on this device. Retry to finish.",
   );
   await page.screenshot({ path: testInfo.outputPath("copy-capacity-recovery.png") });
   await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Skip for now", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save position", exact: true })).toBeEnabled();
   await expect(page.locator(".device-transfer-notice")).toContainText(
-    "You can retry when you’re ready",
+    "Some places or routes remain on this device. Retry when ready.",
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Account & sync", exact: true })).toBeVisible();

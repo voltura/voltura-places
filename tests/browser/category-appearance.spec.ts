@@ -22,7 +22,10 @@ for (const theme of ["dark", "light"]) {
       await page
         .getByRole("combobox", { name: "Settings", exact: true })
         .selectOption("categories");
-      await expect(page.locator(".category-list .category-icon")).toHaveCount(6);
+      await expect(page.locator(".category-list .category-icon")).toHaveCount(7);
+      await expect(
+        page.getByRole("button", { name: "Edit category Route", exact: true }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "New category", exact: true }).click();
       const save = page.getByRole("button", { name: "Save", exact: true });
       await expect(save).toBeInViewport({ ratio: 1 });
@@ -35,7 +38,9 @@ for (const theme of ["dark", "light"]) {
       await name.fill("Camping");
       expect((await field.boundingBox())!.height).toBe(emptyFieldBox!.height);
       await expect(page.locator(".color-swatch")).toHaveCount(12);
-      await expect(page.locator(".category-icon-grid button")).toHaveCount(49);
+      const iconGrid = page.locator(".category-icon-grid");
+      await expect(iconGrid.getByRole("button")).toHaveCount(50);
+      await expect(iconGrid.getByRole("button", { name: "Route", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Cyan", exact: true }).click();
       const noIcon = page.getByRole("button", { name: "No icon", exact: true });
       await expect(page.locator(".category-icon-grid button").nth(0)).toHaveAttribute(
@@ -211,7 +216,7 @@ test("explicit no icon survives editing and leaves no icon gap on category surfa
   await editor
     .getByRole("combobox", { name: "Category", exact: true })
     .selectOption({ label: "Plain" });
-  await expect(editor.locator(".editor-category .category-icon")).toHaveCount(6);
+  await expect(editor.locator(".editor-category .category-icon")).toHaveCount(7);
   await expect(editor.locator(".preference-value .category-icon")).toHaveCount(0);
   await editor.getByRole("button", { name: "Done", exact: true }).click();
   await expect(
