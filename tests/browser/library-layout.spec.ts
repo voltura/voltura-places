@@ -24,7 +24,8 @@ for (const [width, scale] of [
       scale,
     );
     await expect(page.getByRole("heading", { name: "Your places", exact: true })).toHaveCount(0);
-    await expect(page.locator(".count, .search-row, .category-chips")).toHaveCount(0);
+    await expect(page.locator(".count, .category-chips")).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Search places", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save options", exact: true })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "No places saved yet", exact: true }),
@@ -151,14 +152,12 @@ for (const [width, scale] of [
     if (width < 640) {
       expect(geometry.filtersOverflow).toBe(true);
     }
-    await page
-      .getByRole("textbox", { name: "Search your places", exact: true })
-      .fill("nothing matches");
+    await page.getByRole("textbox", { name: "Search places", exact: true }).fill("nothing matches");
     await expect(
       page.getByRole("heading", { name: "No matching places", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".search-row, .category-chips")).toHaveCount(2);
-    await page.getByRole("textbox", { name: "Search your places", exact: true }).fill("");
+    await page.getByRole("textbox", { name: "Search places", exact: true }).fill("");
     const last = page.locator(".place-card").last();
     await last.scrollIntoViewIfNeeded();
     const card = (await last.boundingBox())!;
@@ -384,7 +383,7 @@ test("library selector keeps long group destinations explicit and private places
     await expect(count).toHaveText("1 / 1");
     await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(count).toHaveText("1");
-    const search = page.getByRole("textbox", { name: "Search your places", exact: true });
+    const search = page.getByRole("textbox", { name: "Search places", exact: true });
     await search.fill((await page.locator(".card-text strong").textContent())!);
     await expect(count).toHaveText("1 / 1");
     await search.fill("no matching place");

@@ -181,7 +181,7 @@ test("route actions preserve search and menu, Swedish desktop follows without ch
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openRoute(page);
-  await page.getByRole("textbox", { name: "Search your places", exact: true }).fill("Shared");
+  await page.getByRole("textbox", { name: "Search places", exact: true }).fill("Shared");
   await page.getByRole("button", { name: "Edit place: Shared trail", exact: true }).click();
   const menu = page.getByRole("dialog", { name: "Shared trail", exact: true });
   await menu.getByRole("button", { name: "Follow route", exact: true }).click();
@@ -193,7 +193,7 @@ test("route actions preserve search and menu, Swedish desktop follows without ch
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("button", { name: "Follow route", exact: true })).toBeFocused();
   await menu.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Search your places", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Search places", exact: true })).toHaveValue(
     "Shared",
   );
   await page.getByRole("button", { name: "Settings", exact: true }).click();

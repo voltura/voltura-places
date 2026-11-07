@@ -1,5 +1,5 @@
 import { CategoryIcon } from "./CategoryAppearance";
-import { Suspense, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Route,
   Plus,
@@ -36,6 +36,7 @@ type Props = {
   compactHeader?: boolean;
   headerActions?: ReactNode;
   emptyActions?: ReactNode;
+  onMapSearch: (query: string, trigger: HTMLButtonElement) => void;
   t: (key: Message) => string;
   places: PlaceRecord[];
   filtered: PlaceRecord[];
@@ -80,6 +81,7 @@ export function LibraryView({
   compactHeader,
   headerActions,
   emptyActions,
+  onMapSearch,
   t,
   places,
   filtered,
@@ -111,6 +113,7 @@ export function LibraryView({
   const [fitRequest, setFitRequest] = useState(0);
   const searchField = useRef<HTMLInputElement>(null);
   const hasFilters = !!search.trim() || filter !== "all" || visitFilter !== "all";
+  const mapSearchDisclosureId = useId();
   const visitFilterLabel = t(
     visitFilter === "places"
       ? "onlyPlaces"
@@ -203,47 +206,47 @@ export function LibraryView({
             )}
           </div>
         )}
-        {places.length > 0 && (
-          <>
-            <div className="library-view-switch" role="group" aria-label={t("libraryView")}>
-              {(["list", "map"] as const).map((mode) => (
-                <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>
-                  {mode === "list" ? (
-                    <List size={20} aria-hidden="true" />
-                  ) : (
-                    <MapIcon size={20} aria-hidden="true" />
-                  )}
-                  {t(mode === "list" ? "listView" : "mapView")}
-                </button>
-              ))}
-            </div>
-            <div className="search-row">
-              <div className="search-field">
-                <Search size={20} />
-                <input
-                  aria-label={t("search")}
-                  ref={searchField}
-                  placeholder={t("search")}
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    onClearMapFocus();
-                  }}
-                />
-                {search && (
-                  <button
-                    className="icon-button"
-                    aria-label={t("clearSearch")}
-                    onClick={() => {
-                      setSearch("");
-                      onClearMapFocus();
-                      searchField.current?.blur();
-                    }}
-                  >
-                    <X size={18} />
-                  </button>
+        <>
+          <div className="library-view-switch" role="group" aria-label={t("libraryView")}>
+            {(["list", "map"] as const).map((mode) => (
+              <button key={mode} aria-pressed={view === mode} onClick={() => setView(mode)}>
+                {mode === "list" ? (
+                  <List size={20} aria-hidden="true" />
+                ) : (
+                  <MapIcon size={20} aria-hidden="true" />
                 )}
-              </div>
+                {t(mode === "list" ? "listView" : "mapView")}
+              </button>
+            ))}
+          </div>
+          <div className="search-row">
+            <div className="search-field">
+              <Search size={20} />
+              <input
+                aria-label={t("search")}
+                ref={searchField}
+                placeholder={t("search")}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  onClearMapFocus();
+                }}
+              />
+              {search && (
+                <button
+                  className="icon-button"
+                  aria-label={t("clearSearch")}
+                  onClick={() => {
+                    setSearch("");
+                    onClearMapFocus();
+                    searchField.current?.blur();
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            {places.length > 0 && (
               <label
                 className={`visit-filter sort-button${visitFilter !== "all" ? " active" : ""}`}
                 title={`${t("visitFilter")}: ${visitFilterLabel}`}
@@ -266,21 +269,23 @@ export function LibraryView({
                   <option value="none">{t("visitNone")}</option>
                 </select>
               </label>
-              {view === "list" && (
-                <label className="sort-button">
-                  <ArrowDownUp size={20} />
-                  <select
-                    aria-label={t("sort")}
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value)}
-                  >
-                    <option value="newest">{t("newest")}</option>
-                    <option value="name">{t("byName")}</option>
-                    {canSortClosest && <option value="closest">{t("closest")}</option>}
-                  </select>
-                </label>
-              )}
-            </div>
+            )}
+            {places.length > 0 && view === "list" && (
+              <label className="sort-button">
+                <ArrowDownUp size={20} />
+                <select
+                  aria-label={t("sort")}
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  <option value="newest">{t("newest")}</option>
+                  <option value="name">{t("byName")}</option>
+                  {canSortClosest && <option value="closest">{t("closest")}</option>}
+                </select>
+              </label>
+            )}
+          </div>
+          {places.length > 0 && (
             <nav className="category-chips" aria-label={t("categories")}>
               <button
                 aria-pressed={filter === "all"}
@@ -310,44 +315,44 @@ export function LibraryView({
                   </button>
                 ))}
             </nav>
-            {(filter !== "all" || visitFilter !== "all") && (
-              <div className="active-filters" role="group" aria-label={t("activeFilters")}>
-                {filter !== "all" && (
-                  <button
-                    className="active-filter"
-                    aria-label={`${t("removeFilter")}: ${selectedCategory ? categoryLabel(selectedCategory) : t("other")}`}
-                    onClick={() => {
-                      setFilter("all");
-                      onClearMapFocus();
-                    }}
-                  >
-                    <span>{selectedCategory ? categoryLabel(selectedCategory) : t("other")}</span>
-                    <X size={18} aria-hidden="true" />
-                  </button>
-                )}
-                {visitFilter !== "all" && (
-                  <button
-                    className="active-filter"
-                    aria-label={`${t("removeFilter")}: ${visitFilterLabel}`}
-                    onClick={() => {
-                      setVisitFilter("all");
-                      onClearMapFocus();
-                    }}
-                  >
-                    <span>{visitFilterLabel}</span>
-                    <X size={18} aria-hidden="true" />
-                  </button>
-                )}
-                {filtered.length > 0 && (
-                  <button className="clear-filters" onClick={clearFilters}>
-                    {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
-                  </button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-        {!places.length ? (
+          )}
+          {(filter !== "all" || visitFilter !== "all") && (
+            <div className="active-filters" role="group" aria-label={t("activeFilters")}>
+              {filter !== "all" && (
+                <button
+                  className="active-filter"
+                  aria-label={`${t("removeFilter")}: ${selectedCategory ? categoryLabel(selectedCategory) : t("other")}`}
+                  onClick={() => {
+                    setFilter("all");
+                    onClearMapFocus();
+                  }}
+                >
+                  <span>{selectedCategory ? categoryLabel(selectedCategory) : t("other")}</span>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              )}
+              {visitFilter !== "all" && (
+                <button
+                  className="active-filter"
+                  aria-label={`${t("removeFilter")}: ${visitFilterLabel}`}
+                  onClick={() => {
+                    setVisitFilter("all");
+                    onClearMapFocus();
+                  }}
+                >
+                  <span>{visitFilterLabel}</span>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              )}
+              {filtered.length > 0 && (
+                <button className="clear-filters" onClick={clearFilters}>
+                  {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
+                </button>
+              )}
+            </div>
+          )}
+        </>
+        {!places.length && !hasFilters ? (
           <div className="empty-state">
             <h1>{t("emptyTitle")}</h1>
             <p>{t("emptyBody")}</p>
@@ -357,9 +362,25 @@ export function LibraryView({
           <div className="no-results">
             <Search size={30} />
             <h2>{t("noResults")}</h2>
-            <button className="button outline" onClick={clearFilters}>
-              {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
-            </button>
+            {search.trim() && (
+              <p id={mapSearchDisclosureId} className="small">
+                {t("mapSearchDisclosure")}
+              </p>
+            )}
+            <div className="map-search-empty-actions">
+              <button className="button outline" onClick={clearFilters}>
+                {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
+              </button>
+              {search.trim() && (
+                <button
+                  className="button primary"
+                  aria-describedby={mapSearchDisclosureId}
+                  onClick={(event) => onMapSearch(search.trim(), event.currentTarget)}
+                >
+                  {t("mapSearch")}
+                </button>
+              )}
+            </div>
           </div>
         ) : view === "map" ? (
           <Suspense fallback={<p role="status">{t("working")}</p>}>

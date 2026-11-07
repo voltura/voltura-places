@@ -9,6 +9,8 @@ export type Environment = Omit<
   ACCOUNTS_TEST_EMAILS?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  LANTMATERIET_CLIENT_ID?: string;
+  LANTMATERIET_CLIENT_SECRET?: string;
   MAIL_RELAY_URL?: string;
   MAIL_RELAY_SECRET?: string;
   SITES_NATIVE_AUTH?: string;

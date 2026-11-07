@@ -59,6 +59,7 @@ export function usePlaceEditing({
     entity?: Entity;
     fresh?: boolean;
     draftId?: string;
+    initialPlace?: Extract<Entity, { kind: "place" }>["value"];
   } | null>(null);
   const [categoryEdit, setCategoryEdit] = useState<{ entity?: LocalRecord } | null>(null);
   const [deletePlace, setDeletePlace] = useState<{ place: PlaceRecord; scope: string } | null>(

@@ -70,7 +70,7 @@ for (const engine of [chromium, webkit]) {
         await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
         await page.evaluate(() => window.scrollTo(0, 30));
         await expect(page.locator(".save-dock")).not.toHaveClass(/controls-hidden/);
-        await page.getByRole("textbox", { name: "Search your places", exact: true }).focus();
+        await page.getByRole("textbox", { name: "Search places", exact: true }).focus();
         await page.evaluate(async () => {
           window.scrollBy(0, 100);
           await new Promise(requestAnimationFrame);

@@ -42,3 +42,54 @@ test("a replacement worker reloads a WebKit editor and restores its unsaved draf
     await browser.close();
   }
 });
+
+test("updating the app restores an edited map-search place", async ({ page }) => {
+  await page.route("**/api/v1/map-search", (route) =>
+    route.fulfill({
+      json: {
+        results: [
+          {
+            id: "1:0",
+            name: "Slåboda",
+            municipality: "Arboga",
+            county: "Västmanland",
+            latitude: 59.41,
+            longitude: 15.83,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/");
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await page.getByRole("textbox", { name: "Search places" }).fill("Slåboda");
+  await page.getByRole("button", { name: "Map search", exact: true }).click();
+  const search = page.getByRole("dialog", { name: "Map search", exact: true });
+  await search
+    .locator(".map-search-list")
+    .getByRole("button", { name: /Arboga/ })
+    .click();
+  await search.getByRole("button", { name: "Add place", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Add place", exact: true });
+  const name = editor.getByRole("textbox", { name: "Name", exact: true });
+  await name.fill("Slåboda walk");
+  await editor.getByRole("button", { name: "Add description" }).click();
+  await editor.locator("textarea").fill("Unfinished walk notes");
+
+  await page.evaluate(() =>
+    navigator.serviceWorker.register("/sw.js?map-search-update-fixture").then(() => true),
+  );
+  await expect(editor.getByText("Your saved data and unfinished edits will remain.")).toBeVisible();
+  const reloaded = page.waitForEvent("framenavigated", (frame) => frame === page.mainFrame());
+  await editor.getByRole("button", { name: "Update now", exact: true }).click();
+  await reloaded;
+  await expect(name).toHaveValue("Slåboda walk");
+  await expect(editor.locator("textarea")).toHaveValue("Unfinished walk notes");
+  await editor.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator(".place-card")).toContainText("Slåboda walk");
+  await page.reload();
+  await expect(editor).toHaveCount(0);
+  await expect(page.locator(".place-card")).toContainText("Slåboda walk");
+});

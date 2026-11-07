@@ -819,7 +819,7 @@ test("location is required and GPS places search and edit", async ({ page }) => 
   await page.getByRole("combobox", { name: "Category", exact: true }).selectOption("mushrooms");
   await page.getByRole("button", { name: /^(Save|Done)$/, exact: true }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
-  await page.getByRole("textbox", { name: "Search your places" }).fill("missing");
+  await page.getByRole("textbox", { name: "Search places" }).fill("missing");
   await expect(page.getByRole("heading", { name: "No matching places" })).toBeVisible();
   await page.getByRole("button", { name: "Clear search", exact: true }).first().click();
   await expect(page.getByRole("button", { name: "Edit place: Trailhead" })).toBeVisible();

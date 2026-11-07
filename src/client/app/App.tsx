@@ -66,6 +66,8 @@ import { cachedAccount } from "../foundation/account";
 import { flushDrafts, getDraft, saveVisit } from "../foundation/library";
 import { hasUnfinishedEdits } from "../foundation/editor-draft";
 import { mapURL, type PlaceRecord } from "../../shared/model";
+import { MapSearch } from "../features/MapSearch";
+import type { Operation } from "./operations";
 
 export function App() {
   useEffect(() => startActivityReporting(), []);
@@ -112,12 +114,18 @@ export function App() {
 
   const session = useSession((next) => workspaceController.changeAccount(next), notify);
   const { account, operations } = session;
+  const [mapSearch, setMapSearch] = useState<{
+    query: string;
+    operation: Operation;
+    trigger: HTMLButtonElement;
+  } | null>(null);
   const workspaceController = useWorkspace(
     session,
     (reason) => {
       browsing.reset();
       following.close();
       editing.reset();
+      setMapSearch(null);
       sharing.reset();
       backups.reset(reason);
       setNotice(null);
@@ -458,6 +466,7 @@ export function App() {
       copyGroupPicker ||
       (accountChoice && !account.account) ||
       mapFullscreen ||
+      mapSearch ||
       (current && mobile)
     ),
     `${scope}:${libraryView}:${mapFullscreen}`,
@@ -721,6 +730,11 @@ export function App() {
       />
       <LibraryView
         compactHeader={!!account.account}
+        onMapSearch={(query, trigger) => {
+          if (renderedOperation.isCurrent()) {
+            setMapSearch({ query, trigger, operation: operations.capture() });
+          }
+        }}
         emptyActions={
           <button
             className="button outline empty-track-route"
@@ -1069,6 +1083,47 @@ export function App() {
           onSave={recording.save}
           onClose={() => recording.setEntity(null)}
           onDiscardPlace={recording.discard}
+        />
+      )}
+      {mapSearch?.operation.isCurrent() && (
+        <MapSearch
+          initialQuery={mapSearch.query}
+          isCurrent={mapSearch.operation.isCurrent}
+          position={currentPosition}
+          rememberPosition={rememberPosition}
+          online={online}
+          prefs={prefs}
+          t={t}
+          canAdd={canWrite && !!workspace && !reconciling}
+          onAdd={({ name, latitude, longitude }) => {
+            if (
+              mapSearch.operation.isCurrent() &&
+              workspace &&
+              !reconciling &&
+              workspaceController.canWriteNow()
+            ) {
+              const now = new Date().toISOString();
+              setEditor({
+                initialPlace: {
+                  name,
+                  latitude,
+                  longitude,
+                  categoryId: "other",
+                  accuracy: null,
+                  capturedAt: now,
+                  updatedAt: now,
+                },
+              });
+            }
+          }}
+          onClose={() => {
+            setMapSearch(null);
+            requestAnimationFrame(() => {
+              if (mapSearch.operation.isCurrent() && mapSearch.trigger.isConnected) {
+                mapSearch.trigger.focus({ preventScroll: true });
+              }
+            });
+          }}
         />
       )}
       <PlaceEditingDialogs

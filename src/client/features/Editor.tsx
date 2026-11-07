@@ -45,6 +45,7 @@ const draftSchema = z.object({
 
 export function Editor({
   entity,
+  initialPlace,
   categories,
   categoryLabel,
   t,
@@ -61,6 +62,7 @@ export function Editor({
   units,
 }: {
   entity?: Entity;
+  initialPlace?: Place;
   categories: LocalRecord[];
   categoryLabel: (r: LocalRecord) => string;
   t: (k: Message) => string;
@@ -78,7 +80,8 @@ export function Editor({
 }) {
   const comparisonBase = useRef<Entity | null>(entity ?? null);
   const route = entity?.kind === "route" ? entity : null;
-  const initial = entity?.kind === "place" || entity?.kind === "route" ? entity.value : null;
+  const initial =
+    entity?.kind === "place" || entity?.kind === "route" ? entity.value : initialPlace;
   const [name, setName] = useState(initial?.name ?? "");
   const [categoryId, setCategory] = useState(initial?.categoryId ?? "other");
   const [latitude, setLat] = useState(initial ? String(initial.latitude) : "");
@@ -393,7 +396,15 @@ export function Editor({
     <>
       <Sheet
         title={
-          route ? t("routeDetails") : fresh ? t("placeSaved") : initial ? t("edit") : t("manual")
+          route
+            ? t("routeDetails")
+            : fresh
+              ? t("placeSaved")
+              : initialPlace
+                ? t("mapSearchAdd")
+                : initial
+                  ? t("edit")
+                  : t("manual")
         }
         className="editor-sheet"
         onClose={dismiss}
@@ -799,7 +810,7 @@ export function Editor({
               {t(
                 route
                   ? "discardRouteChangesHint"
-                  : initial
+                  : entity
                     ? "discardSavedChangesHint"
                     : "discardChangesHint",
               )}

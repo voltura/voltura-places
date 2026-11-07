@@ -155,7 +155,7 @@ test("map is optional, opens saved details under production CSP, and filters sha
   await expect(page.locator(".details-content:visible h2")).toHaveText("Forest picnic");
   await expect(page.getByRole("button", { name: "Navigate", exact: true })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByRole("textbox", { name: "Search your places", exact: true }).fill("coffee");
+  await page.getByRole("textbox", { name: "Search places", exact: true }).fill("coffee");
   await expect(page.locator(".places-map-pin")).toHaveCount(1);
   await expect(page.locator('.places-map-pin[title="City coffee"]')).toBeVisible();
   await page.getByRole("button", { name: "List", exact: true }).click();
@@ -218,7 +218,7 @@ for (const width of [375, 390, 1280]) {
     const picnic = record("Forest picnic");
     picnic.value.accuracy = 183;
     await start(page, [picnic, record("Distant coffee", 55, 13)]);
-    await page.getByRole("textbox", { name: "Search your places", exact: true }).fill("Forest");
+    await page.getByRole("textbox", { name: "Search places", exact: true }).fill("Forest");
     await page.locator(".card-main").click();
     const details = page.locator(".details-content:visible");
     await expect(details.locator(".places-map-preview .places-map")).toBeVisible();
@@ -269,9 +269,7 @@ for (const width of [375, 390, 1280]) {
       "aria-pressed",
       "true",
     );
-    await expect(
-      page.getByRole("textbox", { name: "Search your places", exact: true }),
-    ).toHaveValue("");
+    await expect(page.getByRole("textbox", { name: "Search places", exact: true })).toHaveValue("");
     await expect
       .poll(() =>
         page.evaluate(() => {

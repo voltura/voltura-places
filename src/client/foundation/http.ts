@@ -17,6 +17,7 @@ export async function api<T>(
   body?: unknown,
   account?: string,
   method?: string,
+  signal?: AbortSignal,
 ): Promise<T> {
   const response = await fetch(path, {
     method: method ?? (body === undefined ? "GET" : "POST"),
@@ -24,7 +25,9 @@ export async function api<T>(
     mode: "same-origin",
     redirect: "error",
     cache: "no-store",
-    signal: AbortSignal.timeout(20000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
+      : AbortSignal.timeout(20000),
     headers: {
       "X-Places-Photos": "1",
       "X-Places-Routes": "1",

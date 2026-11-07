@@ -85,6 +85,11 @@
         "Place pins and route starts. Select a route to see its full path. Choose Naturkartan terrain for Sweden, with contours, forests and wetlands."
       ],
       [
+        "map",
+        "Search Swedish place names",
+        "If your library search has no matches, search Lantmäteriet from the map. See nearby results when your location is available, then save a result or adjust its point first."
+      ],
+      [
         "palette",
         "Make categories your own",
         "Choose from 12 colours and 49 icons, or use a colour without an icon. Give categories English and Swedish names, and keep a photo with each place."
@@ -151,7 +156,7 @@
       ],
       [
         "Maps & navigation",
-        "Opening a map sends the viewed areas and network information to OpenStreetMap or the selected Naturkartan tile provider. Place names, photos and group identities are not included in tile requests."
+        "Opening a map sends the viewed areas and network information to OpenStreetMap or the selected Naturkartan tile provider. Place names, photos and group identities are not included in tile requests. Map search sends your submitted query to Lantmäteriet. Distance sorting uses your location in your browser."
       ]
     ]
   },
@@ -241,6 +246,11 @@
         "Platsnålar och ruttstarter. Välj en rutt för att se hela spåret. Välj Naturkartans terrängkarta för Sverige med höjdkurvor, skog och våtmarker."
       ],
       [
+        "map",
+        "Sök svenska ortnamn",
+        "Om sökningen i biblioteket inte ger någon träff kan du söka hos Lantmäteriet på kartan. Se avstånd när din position är tillgänglig och spara träffen direkt eller justera punkten först."
+      ],
+      [
         "palette",
         "Anpassa kategorierna",
         "Välj bland 12 färger och 49 ikoner eller använd en färg utan ikon. Ge kategorier svenska och engelska namn och spara ett foto till varje plats."
@@ -307,7 +317,7 @@
       ],
       [
         "Kartor och navigering",
-        "När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMap eller den valda kartbildsleverantören Naturkartan. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna."
+        "När du öppnar en karta skickas de visade områdena och nätverksinformation till OpenStreetMap eller den valda kartbildsleverantören Naturkartan. Platsnamn, foton och gruppidentiteter skickas inte med kartbildsförfrågningarna. Kartsökning skickar din sökning till Lantmäteriet. Vid sortering efter avstånd används din position i webbläsaren."
       ]
     ]
   }

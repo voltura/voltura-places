@@ -62,6 +62,7 @@ export function PlaceEditingDialogs({
         <Editor
           key={`${scope}-${editor.entity?.id ?? editor.draftId ?? "new"}`}
           entity={editor.entity}
+          initialPlace={editor.initialPlace}
           fresh={editor.fresh}
           draftId={editor.draftId}
           categories={categories}

@@ -64,7 +64,7 @@ for (const width of [390, 1280]) {
     await statusFilter.selectOption("want");
     await expect(page.locator(".place-card")).toHaveCount(1);
     await expect(page.locator(".visit-filter")).toHaveClass(/active/);
-    await page.getByRole("textbox", { name: "Search your places", exact: true }).fill("picnic");
+    await page.getByRole("textbox", { name: "Search places", exact: true }).fill("picnic");
     await expect(page.locator(".place-card")).toHaveCount(1);
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await expect(page.locator(".library-pane .map-toolbar")).toContainText("1 place");

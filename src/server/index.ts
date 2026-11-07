@@ -6,6 +6,7 @@ import { handleSync } from "./sync";
 import { handleFamilies } from "./families";
 import { handlePhoto } from "./photos";
 import { handleStatistics } from "./statistics";
+import { createMapSearch } from "./map-search";
 import type { Environment } from "./types";
 
 export type AssetMap = Record<string, [string, string]>;
@@ -18,6 +19,8 @@ const security = {
 };
 
 export function createWorker(assets: AssetMap, version: string) {
+  const mapSearch = createMapSearch();
+
   return {
     async fetch(request: Request, env: Environment): Promise<Response> {
       const url = new URL(request.url);
@@ -39,6 +42,8 @@ export function createWorker(assets: AssetMap, version: string) {
           let response: Response;
           if (["/api/v1/activity", "/api/v1/statistics"].includes(url.pathname)) {
             response = await handleStatistics(request, env);
+          } else if (url.pathname === "/api/v1/map-search") {
+            response = await mapSearch(request, env);
           } else if (url.pathname === "/api/family") {
             response = await handleFamilies(request, env);
           } else if (url.pathname.startsWith("/api/v1/photos/")) {

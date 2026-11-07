@@ -125,7 +125,7 @@ for (const engine of [chromium, webkit]) {
           await page.getByRole("button", { name: "Close", exact: true }).tap();
 
           const contrast = await page
-            .getByRole("textbox", { name: "Search your places" })
+            .getByRole("textbox", { name: "Search places" })
             .evaluate((input) => {
               const placeholder = getComputedStyle(input, "::placeholder");
               const background = getComputedStyle(input.parentElement!).backgroundColor;
