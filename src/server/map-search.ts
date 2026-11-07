@@ -159,7 +159,7 @@ export function createMapSearch() {
         const requestedAt = Date.now();
         const response = await fetch(tokenEndpoint, {
           method: "POST",
-          redirect: "error",
+          redirect: "manual",
           signal,
           headers: {
             Authorization: `Basic ${btoa(`${id}:${secret}`)}`,
@@ -183,7 +183,7 @@ export function createMapSearch() {
         maxHits: String(mapSearchLimit),
       }).toString();
       const response = await fetch(url, {
-        redirect: "error",
+        redirect: "manual",
         signal,
         headers: { Authorization: `Bearer ${token.value}`, Accept: "application/json" },
       });

@@ -1,4 +1,4 @@
-import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { Miniflare, convertV4MiniflareOptions, Response as WorkerResponse } from "miniflare";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -16,6 +16,23 @@ const mf = new Miniflare(
       AUTH_SECRET: "isolated-integration-fixture-places-not-production",
       ACCOUNTS_ENABLED: "true",
       SITES_NATIVE_AUTH: "true",
+      LANTMATERIET_CLIENT_ID: "map-search-fixture",
+      LANTMATERIET_CLIENT_SECRET: "map-search-fixture",
+    },
+    outboundService: (request) => {
+      const url = new URL(request.url);
+      if (url.pathname === "/oauth2/token" && url.hostname === "apimanager.lantmateriet.se") {
+        return WorkerResponse.json({
+          access_token: "fixture-token",
+          token_type: "Bearer",
+          expires_in: 3600,
+        });
+      }
+      if (url.pathname.endsWith("/kriterier") && url.hostname === "api.lantmateriet.se") {
+        return WorkerResponse.json({ type: "FeatureCollection", features: [] });
+      }
+
+      return new WorkerResponse(null, { status: 502 });
     },
   }),
 );
@@ -73,6 +90,15 @@ try {
       await db.prepare(statement).run();
     }
   }
+  const mapSearch = await mf.dispatchFetch(origin + "/api/v1/map-search", {
+    method: "POST",
+    headers: { Origin: origin, "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "Slåboda" }),
+  });
+  check(
+    mapSearch.ok && Array.isArray((await mapSearch.json()).results),
+    "The built Worker can query the map provider using D1 and runtime fetch",
+  );
   for (const sql of [
     "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='place' AND deleted=0",
     "SELECT count(*) FROM places_records WHERE account_id='index-fixture' AND kind='category' AND deleted=0",

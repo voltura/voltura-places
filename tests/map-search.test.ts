@@ -107,7 +107,7 @@ test("validates origin and input before contacting Ortnamn and limits concurrent
         srid: "3006",
       });
       expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer fixture-token");
-      expect(init?.redirect).toBe("error");
+      expect(init?.redirect).toBe("manual");
 
       return Response.json({ type: "FeatureCollection", features: [] });
     });
