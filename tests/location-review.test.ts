@@ -249,7 +249,7 @@ test("quick save waits through repeated acquisition errors after approval and sa
   }
 });
 
-test("persistent unavailable results finish at the deadline and confirmed denial does not retry", async () => {
+test("persistent unavailable results finish at the deadline and a second native denial ends capture", async () => {
   vi.useFakeTimers();
   vi.stubGlobal("navigator", {});
   let failure!: PositionErrorCallback;
@@ -275,6 +275,8 @@ test("persistent unavailable results finish at the deadline and confirmed denial
     await Promise.resolve();
     failure({ code: 1 } as GeolocationPositionError);
     await vi.advanceTimersByTimeAsync(1000);
+    expect(denied).not.toHaveBeenCalled();
+    failure({ code: 1 } as GeolocationPositionError);
     expect(denied).toHaveBeenCalledWith("gpsDenied");
     stopDenied();
   } finally {
@@ -341,12 +343,6 @@ for (const support of ["prompt", "granted", "missing", "rejected", "denied"] as 
         permission.dispatchEvent(new Event("change"));
       }
       await vi.advanceTimersByTimeAsync(1000);
-      if (support === "prompt") {
-        expect(geo.watchPosition).toHaveBeenCalledTimes(1);
-        await vi.advanceTimersByTimeAsync(2000);
-        permission.state = "granted";
-        permission.dispatchEvent(new Event("change"));
-      }
       expect(geo.watchPosition).toHaveBeenCalledTimes(2);
       expect(states).toEqual([]);
       failures[0]({ code: 1 } as GeolocationPositionError);
@@ -368,7 +364,7 @@ for (const support of ["prompt", "granted", "missing", "rejected", "denied"] as 
 }
 
 for (const ending of ["cancel", "deny", "deadline"] as const) {
-  test(`pending initial denial handles ${ending} without restarting GPS`, async () => {
+  test(`pending initial denial handles ${ending} with at most one retry`, async () => {
     vi.useFakeTimers();
     const permission = Object.assign(new EventTarget(), { state: "prompt" });
     vi.stubGlobal("navigator", { permissions: { query: async () => permission } });
@@ -384,11 +380,14 @@ for (const ending of ["cancel", "deny", "deadline"] as const) {
         permission.state = "denied";
         permission.dispatchEvent(new Event("change"));
         await vi.advanceTimersByTimeAsync(1000);
+        f.failure({ code: 1 } as GeolocationPositionError);
         expect(f.states.at(-1)?.error).toBe("gpsDenied");
       }
       await vi.advanceTimersByTimeAsync(60000);
-      expect(f.geo.watchPosition).toHaveBeenCalledTimes(1);
-      expect(f.states.at(-1)?.error).toBe(ending === "cancel" ? undefined : "gpsDenied");
+      expect(f.geo.watchPosition).toHaveBeenCalledTimes(ending === "cancel" ? 1 : 2);
+      expect(f.states.at(-1)?.error).toBe(
+        ending === "cancel" ? undefined : ending === "deny" ? "gpsDenied" : "gpsTimeout",
+      );
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       f.stop();
@@ -439,7 +438,17 @@ function fixture() {
   const states: LocationReviewState[] = [];
   const stop = watchLocation((s) => states.push(s), geo);
 
-  return { geo, states, stop, success, failure };
+  return {
+    geo,
+    states,
+    stop,
+    get success() {
+      return success;
+    },
+    get failure() {
+      return failure;
+    },
+  };
 }
 
 test("GPS review accepts fresh improving estimates, rejects stale/invalid fixes, and cancels cleanly", () => {
@@ -489,6 +498,7 @@ test("GPS review exposes denial and timeout with no fabricated position", async 
   try {
     denied.failure({ code: 1 } as GeolocationPositionError);
     await vi.advanceTimersByTimeAsync(1000);
+    denied.failure({ code: 1 } as GeolocationPositionError);
     expect(denied.states.at(-1)).toEqual({ position: null, running: false, error: "gpsDenied" });
     vi.advanceTimersByTime(60000);
     expect(timeout.states.at(-1)?.error).toBe("gpsTimeout");
@@ -636,7 +646,9 @@ test("minimal permission status and revoked watch handles do not interrupt GPS c
   try {
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(1000);
-    expect(updated).toHaveBeenCalledWith({ position: null, running: false, error: "gpsDenied" });
+    expect(updated).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(59000);
+    expect(updated).toHaveBeenCalledWith({ position: null, running: false, error: "gpsTimeout" });
     expect(vi.getTimerCount()).toBe(0);
     expect(stop).not.toThrow();
   } finally {

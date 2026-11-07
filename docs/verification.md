@@ -1,5 +1,7 @@
 # Map search, 7 November 2026
 
+- First iPhone location approval could appear to fail until Save position was tapped again. The app now waits for the native acquisition while the permission prompt is open and retries one initial native denial even if the browser's permission status stays stale. A second native denial still ends the request. The regression simulates the permission timing with GPS review on and off.
+
 - Local tests use a simulated Ortnamn response to check query validation, concurrent throttling, provider failures and multiple placements. The SWEREF 99 TM conversion matches PROJ for the documented GeoJSON reference point. Browser tests cover empty libraries, linked pins and results, location denial and expiry, stale requests, and guest, private, writable-group and read-only-group behavior.
 - The mobile Chromium test checks that result-pin tooltips use the theme, nearby and distant results show the preferred distance units, cancelling the picker retains selection, and confirming a map point passes the adjusted coordinates into the saved record with unknown GPS accuracy.
 - The production portal confirmed the OrtnamnDirekt v2.2 subscription and the `ortnamn_direkt_read` scope. Bruno used the production Client Credentials grant and received HTTP 200 with a nonempty EPSG:3006 GeoJSON collection for `Slåboda`. The local browser preview uses sample results. An end-to-end search through the deployed Sites Worker and a physical phone check remain separate verification steps.

@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 
 for (const reviewGps of [true, false]) {
-  for (const permissionsApi of [true, false]) {
+  for (const permissionsApi of ["grant-event", "stale", "missing"] as const) {
     test(`first Allow continues without Retry: review=${reviewGps}, permissions=${permissionsApi}`, async ({
       page,
     }) => {
@@ -12,7 +12,7 @@ for (const reviewGps of [true, false]) {
           let requests = 0;
           let fail!: PositionErrorCallback;
           Object.defineProperty(navigator, "permissions", {
-            value: permissionsApi ? { query: async () => permission } : undefined,
+            value: permissionsApi === "missing" ? undefined : { query: async () => permission },
           });
           Object.defineProperty(navigator, "geolocation", {
             value: {
@@ -35,6 +35,12 @@ for (const reviewGps of [true, false]) {
           });
           Object.assign(window, {
             allowLocation: () => {
+              if (permissionsApi === "stale") {
+                // Keep the status stale and the native prompt open beyond the old grace period.
+                setTimeout(() => fail({ code: 1 } as GeolocationPositionError), 1250);
+
+                return;
+              }
               fail({ code: 1 } as GeolocationPositionError);
               // The native callback precedes the page's permission update.
               setTimeout(() => {

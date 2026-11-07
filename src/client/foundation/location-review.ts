@@ -86,7 +86,7 @@ export function watchLocation(
   };
 
   const permissionChanged = () => {
-    if (permission?.state === "denied") {
+    if (permission?.state === "denied" && state.position) {
       handleDenial();
     } else if (permission?.state === "granted") {
       resume();
@@ -140,8 +140,8 @@ export function watchLocation(
     if (!active) {
       return;
     }
-    // Native callbacks and permission status can lag the first system grant.
-    // Keep its listener alive briefly, but never retry a confirmed refusal.
+    // The permission status can lag a system grant. Retry the initial native
+    // refusal once and use the new acquisition's own result.
     if (!state.position) {
       if (awaitingPermission) {
         return;
@@ -154,13 +154,7 @@ export function watchLocation(
         }
         retry = setTimeout(() => {
           retry = undefined;
-          if (permission?.state === "denied") {
-            finish("gpsDenied");
-          } else if (!permission || permission.state === "granted") {
-            // Without Permissions API support, allow one automatic retry.
-            start();
-          }
-          // A pending prompt keeps its original acquisition until the grant.
+          start();
         }, 1000);
 
         return;
@@ -300,7 +294,7 @@ export function watchLocation(
           if (status.state !== "denied") {
             recovery = setInterval(() => {
               if (status.state === "denied") {
-                handleDenial();
+                permissionChanged();
               } else if (
                 status.state === "granted" &&
                 (typeof document === "undefined" || document.visibilityState === "visible")
@@ -312,10 +306,7 @@ export function watchLocation(
               }
             }, 8000);
           }
-          if (
-            status.state === "denied" ||
-            (status.state === "granted" && Date.now() - started > 500)
-          ) {
+          if (status.state === "granted" && Date.now() - started > 500) {
             permissionChanged();
           }
         })
