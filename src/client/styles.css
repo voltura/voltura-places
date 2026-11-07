@@ -714,6 +714,15 @@ hr {
   flex-wrap: wrap;
   justify-content: center;
 }
+.map-search-library-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+}
 .sheet.map-search-view {
   width: 100%;
   max-width: none;

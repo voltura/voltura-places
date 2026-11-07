@@ -87,10 +87,19 @@ test("empty library search preserves the Map view, selects pins and saves only o
   await expect(editor).toHaveCount(0);
   await dialog.getByRole("button", { name: "Back to library" }).click();
   await expect(page.locator(".places-map-pin")).toHaveCount(1);
+  await expect(openSearch(page)).toBeVisible();
   await page.getByRole("button", { name: "List", exact: true }).click();
   await expect(page.locator(".place-card")).toContainText("Slåboda walk");
-  await expect(openSearch(page)).toHaveCount(0);
+  await expect(openSearch(page)).toBeVisible();
+  await expect(openSearch(page)).toHaveAccessibleDescription(disclosure);
+  await expect(
+    page.locator(".place-list + .map-search-library-action").getByRole("button"),
+  ).toHaveText("Map search");
+  await page.screenshot({ path: testInfo.outputPath("map-search-below-local-results.png") });
   expect(calls).toBe(2);
+  await openSearch(page).click();
+  await expect(row).toBeVisible();
+  expect(calls).toBe(3);
 });
 
 test("map refinement keeps the selected result and saves the chosen point", async ({
@@ -225,15 +234,16 @@ test("distance requires an explicit request, preserves ties and selection, and e
   await expect(sort).toBeVisible();
 });
 
-test("search displays retry, throttling, no results and offline states", async ({
+test("search distinguishes timeout, unavailable, throttling, no results and offline states", async ({
   page,
   context,
 }) => {
   let calls = 0;
   await page.route("**/api/v1/map-search", (route) => {
     calls++;
-    if (calls <= 2) {
-      return route.fulfill({ status: calls === 1 ? 503 : 429, json: { error: "fixture" } });
+    const status = [504, 503, 429][calls - 1];
+    if (status) {
+      return route.fulfill({ status, json: { error: "fixture" } });
     }
 
     return route.fulfill({ json: { results: [] } });
@@ -244,6 +254,10 @@ test("search displays retry, throttling, no results and offline states", async (
   const dialog = searchView(page);
   const field = dialog.getByRole("textbox");
   const submit = dialog.getByRole("button", { name: "Search", exact: true });
+  await expect(
+    dialog.getByText("The search took too long. Try again or use a more specific name."),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(dialog.getByText("Map search is temporarily unavailable.")).toBeVisible();
   await dialog.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(dialog.getByText("Too many searches. Try again in a minute.")).toBeVisible();
@@ -255,7 +269,7 @@ test("search displays retry, throttling, no results and offline states", async (
   await context.setOffline(true);
   await submit.click();
   await expect(dialog.getByText("Connect to the internet to search the map.")).toBeVisible();
-  expect(calls).toBe(3);
+  expect(calls).toBe(4);
 });
 
 test("a superseded response cannot replace results or cross an account change", async ({

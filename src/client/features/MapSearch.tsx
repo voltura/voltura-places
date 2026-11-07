@@ -16,6 +16,7 @@ type SearchState =
         | "mapSearchLoading"
         | "mapSearchOffline"
         | "mapSearchFailed"
+        | "mapSearchTimedOut"
         | "mapSearchRateLimited"
         | "mapSearchInvalid";
     }
@@ -125,11 +126,17 @@ export function MapSearch({
       }
     } catch (error) {
       if (!controller.signal.aborted && isCurrent()) {
-        const status = !navigator.onLine
-          ? "mapSearchOffline"
-          : error instanceof ApiError && error.status === 429
-            ? "mapSearchRateLimited"
-            : "mapSearchFailed";
+        let status: SearchState["status"] = "mapSearchFailed";
+        if (!navigator.onLine) {
+          status = "mapSearchOffline";
+        } else if (error instanceof ApiError && error.status === 429) {
+          status = "mapSearchRateLimited";
+        } else if (
+          (error instanceof ApiError && error.status === 504) ||
+          (error instanceof DOMException && error.name === "TimeoutError")
+        ) {
+          status = "mapSearchTimedOut";
+        }
         setState({ status });
       }
     }
@@ -186,7 +193,10 @@ export function MapSearch({
     }
   };
 
-  const retry = state.status === "mapSearchFailed" || state.status === "mapSearchOffline";
+  const retry =
+    state.status === "mapSearchFailed" ||
+    state.status === "mapSearchTimedOut" ||
+    state.status === "mapSearchOffline";
 
   return (
     <>

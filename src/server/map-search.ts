@@ -148,11 +148,13 @@ export function createMapSearch() {
 
     const rateLimited = () => json({ error: "rateLimited" }, 429, { "Retry-After": "60" });
 
+    // Leave time for the response to reach the browser before its 20-second API deadline.
+    const signal = AbortSignal.timeout(16000);
+
     try {
       if (!(await takeSearchQuota(env, request.headers.get("CF-Connecting-IP") ?? ""))) {
         return rateLimited();
       }
-      const signal = AbortSignal.timeout(8000);
       const credentials = await digest(`${id}\n${secret}`);
       let token = cached;
       if (!token || token.credentials !== credentials || token.expires <= Date.now()) {
@@ -193,6 +195,10 @@ export function createMapSearch() {
 
       return json({ results: mapSearchPlacements(await upstreamJSON(response, 524288)) });
     } catch (error) {
+      if (signal.aborted || (error instanceof DOMException && error.name === "TimeoutError")) {
+        return json({ error: "searchTimeout" }, 504);
+      }
+
       return error instanceof RequestError && error.status === 429
         ? rateLimited()
         : json({ error: "serviceUnavailable" }, 503);

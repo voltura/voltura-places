@@ -112,7 +112,8 @@ export function LibraryView({
 }: Props) {
   const [fitRequest, setFitRequest] = useState(0);
   const searchField = useRef<HTMLInputElement>(null);
-  const hasFilters = !!search.trim() || filter !== "all" || visitFilter !== "all";
+  const mapSearchQuery = search.trim();
+  const hasFilters = !!mapSearchQuery || filter !== "all" || visitFilter !== "all";
   const mapSearchDisclosureId = useId();
   const visitFilterLabel = t(
     visitFilter === "places"
@@ -174,6 +175,21 @@ export function LibraryView({
 
     return new Map(places.map((place) => [place.id, place.value.name]));
   }, [places, conflicts]);
+
+  const mapSearchDisclosure = mapSearchQuery && (
+    <p id={mapSearchDisclosureId} className="small">
+      {t("mapSearchDisclosure")}
+    </p>
+  );
+  const mapSearchButton = mapSearchQuery && (
+    <button
+      className="button primary"
+      aria-describedby={mapSearchDisclosureId}
+      onClick={(event) => onMapSearch(mapSearchQuery, event.currentTarget)}
+    >
+      {t("mapSearch")}
+    </button>
+  );
 
   return (
     <main
@@ -362,24 +378,12 @@ export function LibraryView({
           <div className="no-results">
             <Search size={30} />
             <h2>{t("noResults")}</h2>
-            {search.trim() && (
-              <p id={mapSearchDisclosureId} className="small">
-                {t("mapSearchDisclosure")}
-              </p>
-            )}
+            {mapSearchDisclosure}
             <div className="map-search-empty-actions">
               <button className="button outline" onClick={clearFilters}>
                 {t(filter !== "all" || visitFilter !== "all" ? "clearFilters" : "clearSearch")}
               </button>
-              {search.trim() && (
-                <button
-                  className="button primary"
-                  aria-describedby={mapSearchDisclosureId}
-                  onClick={(event) => onMapSearch(search.trim(), event.currentTarget)}
-                >
-                  {t("mapSearch")}
-                </button>
-              )}
+              {mapSearchButton}
             </div>
           </div>
         ) : view === "map" ? (
@@ -465,6 +469,12 @@ export function LibraryView({
                 </div>
               </article>
             ))}
+          </div>
+        )}
+        {filtered.length > 0 && mapSearchQuery && (
+          <div className="map-search-library-action">
+            {mapSearchDisclosure}
+            {mapSearchButton}
           </div>
         )}
         {conflicts.length > 0 && (

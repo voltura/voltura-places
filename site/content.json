@@ -87,7 +87,7 @@
       [
         "map",
         "Search Swedish place names",
-        "If your library search has no matches, search Lantmäteriet from the map. See nearby results when your location is available, then save a result or adjust its point first."
+        "Choose Map search below your library results to search Lantmäteriet. See nearby results when your location is available, then save a result or adjust its point first."
       ],
       [
         "palette",
@@ -248,7 +248,7 @@
       [
         "map",
         "Sök svenska ortnamn",
-        "Om sökningen i biblioteket inte ger någon träff kan du söka hos Lantmäteriet på kartan. Se avstånd när din position är tillgänglig och spara träffen direkt eller justera punkten först."
+        "Välj Kartsökning under dina sökresultat i biblioteket för att söka hos Lantmäteriet. Se avstånd när din position är tillgänglig och spara träffen direkt eller justera punkten först."
       ],
       [
         "palette",

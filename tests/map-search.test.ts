@@ -140,10 +140,14 @@ test("maps upstream throttling and timeout to separate safe failures", async () 
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(new Response(null, { status: 429 }))
-      .mockRejectedValueOnce(new DOMException("fixture-timeout", "TimeoutError"));
+      .mockRejectedValueOnce(new DOMException("fixture-timeout", "TimeoutError"))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
     vi.stubGlobal("fetch", fetch);
     const search = createMapSearch();
     expect((await search(request(), env)).status).toBe(429);
+    const timedOut = await search(request(), env);
+    expect(timedOut.status).toBe(504);
+    expect(await timedOut.json()).toEqual({ error: "searchTimeout" });
     const unavailable = await search(request(), env);
     expect(unavailable.status).toBe(503);
     expect(await unavailable.json()).toEqual({ error: "serviceUnavailable" });
