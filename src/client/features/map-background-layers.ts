@@ -52,8 +52,9 @@ export function mapBackgroundLayers(
         maxNativeZoom: naturkartan ? 15 : 19,
         referrerPolicy: "origin",
         crossOrigin: false,
-        keepBuffer: 0,
-        updateWhenIdle: true,
+        keepBuffer: 2,
+        updateWhenIdle: false,
+        updateInterval: 100,
       },
     );
     active = tiles;

@@ -4009,7 +4009,7 @@ select option .category-icon {
   border-radius: 16px;
   isolation: isolate;
   z-index: 0;
-  background: var(--raised);
+  background: #e8e8e3;
   font-family: inherit;
 }
 .places-map.leaflet-container .leaflet-control-zoom a {
